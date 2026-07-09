@@ -113,6 +113,47 @@ export interface ModsStatus {
 
 export type ModComponent = "ue4ss" | "paldefender";
 
+/* ── PalDefender REST API: player detail (pals & inventory) ── */
+
+export interface PdPal {
+  instanceId: string;
+  palId: string;
+  nickname: string;
+  gender: string;
+  level: number;
+  shiny: boolean;
+  /** which group it's in */
+  location: "team" | "palbox" | "basecamp";
+}
+
+export interface PdItemSlot {
+  itemId: string;
+  count: number;
+  container: string;
+}
+
+export interface PlayerDetail {
+  available: boolean;
+  reason?: string;
+  name: string;
+  playerUid: string;
+  userId: string;
+  guildName: string;
+  pals: PdPal[];
+  teamCount: number;
+  palboxCount: number;
+  items: PdItemSlot[];
+}
+
+/** Whether the agent can reach PalDefender's REST API for this instance. */
+export interface PdRestStatus {
+  /** REST enabled in RESTConfig.json */
+  enabled: boolean;
+  /** the agent has a usable bearer token */
+  hasToken: boolean;
+  reason?: string;
+}
+
 /* ── PalDefender whitelist & banlist ──
  * Read from the plugin's JSON files (so the lists show even when the server
  * is down); changes go through RCON commands, per the plugin's own guidance

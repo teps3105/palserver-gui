@@ -31,6 +31,7 @@ import * as saves from "./saves.js";
 import { getEngineSettings, writeEngineSettings } from "./engine-ini.js";
 import { getConfigHealth, regenerateConfig } from "./config-health.js";
 import { getPalDefenderConfig, writePalDefenderConfig } from "./paldefender-config.js";
+import { getPlayerDetail } from "./paldefender-rest.js";
 import fs from "node:fs";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -218,6 +219,12 @@ export function registerRoutes(
   app.get("/api/instances/:id/live", async (req) => {
     const rec = getOr404((req.params as { id: string }).id);
     return getLiveStatus(rec);
+  });
+
+  app.get("/api/instances/:id/players/:identifier/detail", async (req) => {
+    const rec = getOr404((req.params as { id: string }).id);
+    const { identifier } = req.params as { identifier: string };
+    return getPlayerDetail(rec, ctxOf(rec), identifier);
   });
 
   app.get("/api/instances/:id/players/known", async (req) => {

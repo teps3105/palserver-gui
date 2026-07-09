@@ -63,6 +63,7 @@ export function InstanceDetailPage({
   const [tab, setTab] = useState<Tab>("overview");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [palDefender, setPalDefender] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -71,6 +72,14 @@ export function InstanceDetailPage({
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
+  }, [client, instanceId]);
+
+  // Gate PalDefender-only tabs on whether the plugin is installed.
+  useEffect(() => {
+    client
+      .mods(instanceId)
+      .then((m) => setPalDefender(m.supported && m.paldefender.installed))
+      .catch(() => setPalDefender(false));
   }, [client, instanceId]);
 
   useEffect(() => {
@@ -155,8 +164,8 @@ export function InstanceDetailPage({
 
       {error && <p className={errorCls}>{error}</p>}
 
-      <div className="flex gap-2 border-b-2 border-line">
-        {TABS.map((t) => (
+      <div className="flex flex-wrap gap-2 border-b-2 border-line">
+        {TABS.filter((t) => t.id !== "paldefender" || palDefender).map((t) => (
           <button
             key={t.id}
             className={

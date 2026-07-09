@@ -12,6 +12,7 @@ import {
 } from "react-icons/fi";
 import { SteamId } from "./SteamId";
 import { useGameData, palIconUrl, type GameData } from "./gameData";
+import { PlayerDetailModal } from "./PlayerDetailModal";
 
 /** A stable avatar per player: hash the id to pick a Pal, so the same player
  * always shows the same face. Palworld has no player portraits, so a Pal
@@ -66,6 +67,7 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
   const [notice, setNotice] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [detailFor, setDetailFor] = useState<{ id: string; label: string } | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -151,8 +153,21 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
           <p className="font-bold">目前無法連線到伺服器的 REST API</p>
           <p className="mt-1 text-[13px]">{live.reason}</p>
         </div>
-        <KnownPlayersCard known={known} gameData={gameData} />
+        <KnownPlayersCard
+          known={known}
+          gameData={gameData}
+          onOpen={(id, label) => setDetailFor({ id, label })}
+        />
         <PresenceTimeline events={events} />
+        {detailFor && (
+          <PlayerDetailModal
+            client={client}
+            instanceId={instanceId}
+            identifier={detailFor.id}
+            displayLabel={detailFor.label}
+            onClose={() => setDetailFor(null)}
+          />
+        )}
       </div>
     );
   }
@@ -224,9 +239,20 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
               const loc = savToMap(p.location_x, p.location_y);
               return (
               <div key={p.userId} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
-                <PlayerAvatar seed={p.userId} gameData={gameData} />
+                <button
+                  className="flex items-center gap-4 text-left transition hover:opacity-80"
+                  onClick={() => setDetailFor({ id: p.userId, label: p.name })}
+                  title="查看帕魯與背包"
+                >
+                  <PlayerAvatar seed={p.userId} gameData={gameData} />
+                </button>
                 <div className="min-w-40 flex-1">
-                  <p className="text-sm font-extrabold">{p.name}</p>
+                  <button
+                    className="text-sm font-extrabold transition hover:text-pal"
+                    onClick={() => setDetailFor({ id: p.userId, label: p.name })}
+                  >
+                    {p.name}
+                  </button>
                   <p className="text-xs text-ink-muted">
                     Lv.{p.level} · Ping {Math.round(p.ping)} ms · 建築 {p.building_count} · 座標{" "}
                     {Math.round(loc.x)}, {Math.round(loc.y)}
@@ -277,7 +303,11 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
         )}
       </div>
 
-      <KnownPlayersCard known={known} gameData={gameData} />
+      <KnownPlayersCard
+        known={known}
+        gameData={gameData}
+        onOpen={(id, label) => setDetailFor({ id, label })}
+      />
       <ModerationCard
         moderation={moderation}
         busy={busy}
@@ -285,6 +315,16 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
         onWhitelistRemove={(value) => moderate("whitelist_remove", value, value, "移出白名單")}
       />
       <PresenceTimeline events={events} />
+
+      {detailFor && (
+        <PlayerDetailModal
+          client={client}
+          instanceId={instanceId}
+          identifier={detailFor.id}
+          displayLabel={detailFor.label}
+          onClose={() => setDetailFor(null)}
+        />
+      )}
     </div>
   );
 }
@@ -299,7 +339,15 @@ const fmtPlaytime = (seconds: number) => {
 const fmtWhen = (iso: string) => new Date(iso).toLocaleString();
 
 /** Everyone the agent has ever seen here — the roster that outlives logouts. */
-function KnownPlayersCard({ known, gameData }: { known: KnownPlayer[]; gameData: GameData | null }) {
+function KnownPlayersCard({
+  known,
+  gameData,
+  onOpen,
+}: {
+  known: KnownPlayer[];
+  gameData: GameData | null;
+  onOpen: (id: string, label: string) => void;
+}) {
   const offline = known.filter((p) => !p.online);
   return (
     <div className={`${card} p-0`}>
@@ -314,7 +362,9 @@ function KnownPlayersCard({ known, gameData }: { known: KnownPlayer[]; gameData:
         <div className="flex flex-col divide-y divide-line">
           {known.map((p) => (
             <div key={p.userId} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3">
-              <PlayerAvatar seed={p.userId} gameData={gameData} size={36} />
+              <button onClick={() => onOpen(p.userId, p.name)} title="查看帕魯與背包" className="transition hover:opacity-80">
+                <PlayerAvatar seed={p.userId} gameData={gameData} size={36} />
+              </button>
               <div className="min-w-40 flex-1">
                 <p className="flex items-center gap-2 text-sm font-extrabold">
                   {p.name}

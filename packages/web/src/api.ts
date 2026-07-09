@@ -20,6 +20,7 @@ import type {
   ModsStatus,
   PalDefenderConfig,
   PalDefenderConfigStatus,
+  PlayerDetail,
   PresenceEvent,
   RconCommandsResponse,
   RestartPolicy,
@@ -134,6 +135,10 @@ export class AgentClient {
 
   knownPlayers(id: string): Promise<KnownPlayer[]> {
     return this.request(`/api/instances/${id}/players/known`);
+  }
+
+  playerDetail(id: string, identifier: string): Promise<PlayerDetail> {
+    return this.request(`/api/instances/${id}/players/${encodeURIComponent(identifier)}/detail`);
   }
 
   moderation(id: string): Promise<ModerationLists> {
