@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FiAlertTriangle, FiCheck, FiClock, FiCpu, FiRefreshCw, FiX } from "react-icons/fi";
 import type { RestartPolicy, RestartStatus } from "@palserver/shared";
 import type { AgentClient } from "./api";
+import { t, useI18n } from "./i18n";
 import { btn, btnGhost, card, errorCls, inputCls } from "./ui";
 
 const fmtWhen = (iso: string) => new Date(iso).toLocaleString();
@@ -15,6 +16,7 @@ const REASON_LABELS: Record<string, string> = {
 
 /** Automatic-restart policy: scheduled, memory threshold, crash recovery. */
 export function RestartCard({ client, instanceId }: { client: AgentClient; instanceId: string }) {
+  useI18n();
   const [status, setStatus] = useState<RestartStatus | null>(null);
   const [draft, setDraft] = useState<RestartPolicy | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export function RestartCard({ client, instanceId }: { client: AgentClient; insta
   if (!status.supported) {
     return (
       <div className={card}>
-        <h3 className="text-sm font-extrabold text-ink-muted">自動重啟</h3>
+        <h3 className="text-sm font-extrabold text-ink-muted">{t("自動重啟")}</h3>
         <p className="mt-1 text-[13px] text-ink-muted">{status.reason}</p>
       </div>
     );
@@ -56,7 +58,7 @@ export function RestartCard({ client, instanceId }: { client: AgentClient; insta
     setError(null);
     try {
       await client.updateRestartPolicy(instanceId, draft);
-      setNotice("已儲存自動重啟設定");
+      setNotice(t("已儲存自動重啟設定"));
       setTimeout(() => setNotice(null), 3000);
       await refresh();
     } catch (err) {
@@ -72,11 +74,11 @@ export function RestartCard({ client, instanceId }: { client: AgentClient; insta
     <div className={`${card} flex flex-col gap-4`}>
       <div className="flex items-center justify-between gap-3">
         <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
-          <FiRefreshCw className="size-4 text-pal" /> 自動重啟
+          <FiRefreshCw className="size-4 text-pal" /> {t("自動重啟")}
         </h3>
         <span className="text-xs text-ink-muted">
-          {status.memoryMB !== null && `目前記憶體 ${status.memoryMB} MB · `}
-          過去一小時重啟 {status.restartsLastHour} 次
+          {status.memoryMB !== null && `${t("目前記憶體")} ${status.memoryMB} MB · `}
+          {t("過去一小時重啟 {n} 次", { n: status.restartsLastHour })}
         </span>
       </div>
 
@@ -88,7 +90,7 @@ export function RestartCard({ client, instanceId }: { client: AgentClient; insta
       {/* 定時重啟 */}
       <Section
         icon={<FiClock className="size-4" />}
-        title="定時重啟"
+        title={t("定時重啟")}
         enabled={draft.scheduled.enabled}
         onToggle={(enabled) => patch({ scheduled: { ...draft.scheduled, enabled } })}
       >
@@ -103,12 +105,12 @@ export function RestartCard({ client, instanceId }: { client: AgentClient; insta
               }
               onClick={() => patch({ scheduled: { ...draft.scheduled, mode } })}
             >
-              {mode === "interval" ? "每隔一段時間" : "每天固定時間"}
+              {mode === "interval" ? t("每隔一段時間") : t("每天固定時間")}
             </button>
           ))}
         </div>
         {draft.scheduled.mode === "interval" ? (
-          <Field label="每隔幾分鐘重啟">
+          <Field label={t("每隔幾分鐘重啟")}>
             <input
               className={inputCls}
               type="number"
@@ -121,7 +123,7 @@ export function RestartCard({ client, instanceId }: { client: AgentClient; insta
             />
           </Field>
         ) : (
-          <Field label="每天的重啟時間(HH:MM,以逗號分隔)">
+          <Field label={t("每天的重啟時間(HH:MM,以逗號分隔)")}>
             <input
               className={inputCls}
               value={draft.scheduled.dailyTimes.join(", ")}
@@ -145,12 +147,12 @@ export function RestartCard({ client, instanceId }: { client: AgentClient; insta
       {/* 記憶體閥值 */}
       <Section
         icon={<FiCpu className="size-4" />}
-        title="記憶體超過閥值時重啟"
+        title={t("記憶體超過閥值時重啟")}
         enabled={draft.memory.enabled}
         onToggle={(enabled) => patch({ memory: { ...draft.memory, enabled } })}
       >
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="閥值(MB)">
+          <Field label={t("閥值(MB)")}>
             <input
               className={inputCls}
               type="number"
@@ -160,7 +162,7 @@ export function RestartCard({ client, instanceId }: { client: AgentClient; insta
               onChange={(e) => patch({ memory: { ...draft.memory, thresholdMB: Number(e.target.value) } })}
             />
           </Field>
-          <Field label="連續超標幾次才重啟(每次間隔 30 秒)">
+          <Field label={t("連續超標幾次才重啟(每次間隔 30 秒)")}>
             <input
               className={inputCls}
               type="number"
@@ -174,18 +176,18 @@ export function RestartCard({ client, instanceId }: { client: AgentClient; insta
           </Field>
         </div>
         <p className="text-xs text-ink-muted">
-          需連續超標才會動作,避免一時的記憶體尖峰誤觸發。
+          {t("需連續超標才會動作,避免一時的記憶體尖峰誤觸發。")}
         </p>
       </Section>
 
       {/* 崩潰重啟 */}
       <Section
         icon={<FiAlertTriangle className="size-4" />}
-        title="崩潰後自動重啟"
+        title={t("崩潰後自動重啟")}
         enabled={draft.crash.enabled}
         onToggle={(enabled) => patch({ crash: { ...draft.crash, enabled } })}
       >
-        <Field label="每小時最多自動重啟次數(超過則停止嘗試)">
+        <Field label={t("每小時最多自動重啟次數(超過則停止嘗試)")}>
           <input
             className={inputCls}
             type="number"
@@ -196,11 +198,11 @@ export function RestartCard({ client, instanceId }: { client: AgentClient; insta
           />
         </Field>
         <p className="text-xs text-ink-muted">
-          手動停止伺服器不會被視為崩潰。達到上限後會停止自動重啟,避免無限重啟迴圈。
+          {t("手動停止伺服器不會被視為崩潰。達到上限後會停止自動重啟,避免無限重啟迴圈。")}
         </p>
       </Section>
 
-      <Field label="計畫性重啟前的預告秒數(0 = 不預告)">
+      <Field label={t("計畫性重啟前的預告秒數(0 = 不預告)")}>
         <input
           className={`${inputCls} max-w-40`}
           type="number"
@@ -211,23 +213,23 @@ export function RestartCard({ client, instanceId }: { client: AgentClient; insta
         />
       </Field>
       <p className="-mt-2 text-xs text-ink-muted">
-        會透過 REST API 廣播給線上玩家,並在重啟前先存檔。崩潰重啟不預告(伺服器已經不在了)。
+        {t("會透過 REST API 廣播給線上玩家,並在重啟前先存檔。崩潰重啟不預告(伺服器已經不在了)。")}
       </p>
 
       <div className="flex gap-2">
         <button className={btn} onClick={save} disabled={!dirty || saving}>
-          {saving ? "儲存中…" : "儲存設定"}
+          {saving ? t("儲存中…") : t("儲存設定")}
         </button>
         {dirty && (
           <button className={btnGhost} onClick={() => setDraft(status.policy)} disabled={saving}>
-            重置
+            {t("重置")}
           </button>
         )}
       </div>
 
       {status.events.length > 0 && (
         <div>
-          <h4 className="mb-2 text-sm font-extrabold text-ink-muted">重啟紀錄</h4>
+          <h4 className="mb-2 text-sm font-extrabold text-ink-muted">{t("重啟紀錄")}</h4>
           <div className="flex max-h-56 flex-col divide-y divide-line overflow-y-auto">
             {status.events.map((e, i) => (
               <div key={`${e.at}-${i}`} className="flex items-start gap-2.5 py-2">
@@ -238,7 +240,7 @@ export function RestartCard({ client, instanceId }: { client: AgentClient; insta
                 )}
                 <div className="flex-1">
                   <p className="text-[13px] font-bold">
-                    {REASON_LABELS[e.reason] ?? e.reason} · {e.detail}
+                    {t(REASON_LABELS[e.reason] ?? e.reason)} · {e.detail}
                   </p>
                   <p className="text-xs text-ink-muted">{fmtWhen(e.at)}</p>
                 </div>

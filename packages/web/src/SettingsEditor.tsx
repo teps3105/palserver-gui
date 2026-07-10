@@ -14,6 +14,7 @@ import type { AgentClient } from "./api";
 import { FileEditor } from "./FileManager";
 import { ConfigCorruptModal } from "./ConfigCorruptModal";
 import { CATEGORY_LABELS, ENUM_LABELS, OPTION_LABELS } from "./labels";
+import { t, useI18n } from "./i18n";
 import { btn, btnGhost, errorCls, inputCls } from "./ui";
 
 /** Where the native driver renders the ini, relative to the server dir. */
@@ -41,6 +42,7 @@ export function SettingsEditor({
   canEditRaw: boolean;
   running: boolean;
 }) {
+  useI18n();
   const [category, setCategory] = useState<OptionCategory>("server");
   const [draft, setDraft] = useState<Partial<WorldSettings>>({});
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +96,7 @@ export function SettingsEditor({
         /* try next */
       }
     }
-    setError("找不到 PalWorldSettings.ini — 先啟動一次伺服器讓它生成設定檔");
+    setError(t("找不到 PalWorldSettings.ini — 先啟動一次伺服器讓它生成設定檔"));
   };
 
   return (
@@ -111,13 +113,13 @@ export function SettingsEditor({
               }
               onClick={() => setCategory(c)}
             >
-              {CATEGORY_LABELS[c]}
+              {t(CATEGORY_LABELS[c])}
             </button>
           ))}
         </div>
         {canEditRaw && (
           <button className={`${btnGhost} inline-flex items-center gap-1.5`} onClick={openRaw}>
-            <FiFileText className="size-4" /> 編輯原始檔
+            <FiFileText className="size-4" /> {t("編輯原始檔")}
           </button>
         )}
       </div>
@@ -132,14 +134,14 @@ export function SettingsEditor({
       {dirtyKeys.length > 0 && (
         <div className="sticky bottom-4 flex items-center justify-between gap-3 rounded-(--radius-cute) border-2 border-sun/50 bg-card p-3 shadow-(--shadow-cute)">
           <span className="text-[13px] font-bold text-ink-muted">
-            小心~您有 {dirtyKeys.length} 項變更尚未儲存!(重啟伺服器後生效)
+            {t("小心~您有 {n} 項變更尚未儲存!(重啟伺服器後生效)", { n: dirtyKeys.length })}
           </span>
           <div className="flex gap-2">
             <button className={btnGhost} onClick={() => setDraft({})} disabled={saving}>
-              重置
+              {t("重置")}
             </button>
             <button className={btn} onClick={save} disabled={saving}>
-              {saving ? "儲存中…" : "確定修改"}
+              {saving ? t("儲存中…") : t("確定修改")}
             </button>
           </div>
         </div>
@@ -177,11 +179,12 @@ function OptionRow({
   value: WorldOptionValue;
   onChange: (v: WorldOptionValue) => void;
 }) {
+  useI18n();
   const meta = WORLD_OPTIONS[optionKey];
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-3">
       <div className="min-w-52">
-        <p className="text-sm font-bold">{OPTION_LABELS[optionKey]}</p>
+        <p className="text-sm font-bold">{t(OPTION_LABELS[optionKey])}</p>
         <p className="text-xs text-ink-muted">{optionKey}</p>
       </div>
       <div className="flex items-center gap-3">
@@ -224,7 +227,7 @@ function OptionRow({
           >
             {meta.choices.map((c) => (
               <option key={c} value={c}>
-                {ENUM_LABELS[c] ?? c}
+                {t(ENUM_LABELS[c] ?? c)}
               </option>
             ))}
           </select>

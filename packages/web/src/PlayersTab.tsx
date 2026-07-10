@@ -42,12 +42,13 @@ import {
   type RestPlayer,
 } from "@palserver/shared";
 import type { AgentClient } from "./api";
+import { t, useI18n } from "./i18n";
 import { btn, btnGhost, card, errorCls, inputCls } from "./ui";
 
 const fmtUptime = (seconds: number) => {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  return h > 0 ? `${h} 小時 ${m} 分` : `${m} 分`;
+  return h > 0 ? t("{h} 小時 {m} 分", { h, m }) : t("{m} 分", { m });
 };
 
 const EMPTY_MODERATION: ModerationLists = {
@@ -58,6 +59,7 @@ const EMPTY_MODERATION: ModerationLists = {
 };
 
 export function PlayersTab({ client, instanceId }: { client: AgentClient; instanceId: string }) {
+  useI18n(); // 語言切換時重繪(含 fmtUptime 等模組層字串)
   const gameData = useGameData();
   const [live, setLive] = useState<LiveStatus | null>(null);
   const [known, setKnown] = useState<KnownPlayer[]>([]);
@@ -118,16 +120,16 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
   const announce = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
-    await act(() => client.announce(instanceId, message.trim()), "已廣播訊息");
+    await act(() => client.announce(instanceId, message.trim()), t("已廣播訊息"));
     setMessage("");
   };
 
   const playerAction = async (player: RestPlayer, action: "kick" | "ban") => {
-    const verb = action === "kick" ? "踢出" : "封鎖";
-    if (!confirm(`確定要${verb}「${player.name}」嗎?此舉動會將他從伺服器移除。`)) return;
+    const verb = action === "kick" ? t("踢出") : t("封鎖");
+    if (!confirm(t("確定要{verb}「{name}」嗎?此舉動會將他從伺服器移除。", { verb, name: player.name }))) return;
     await act(
-      () => client.playerAction(instanceId, player.userId, action, `你已被${verb}`),
-      `已${verb} ${player.name}`,
+      () => client.playerAction(instanceId, player.userId, action, t("你已被{verb}", { verb })),
+      t("已{verb} {name}", { verb, name: player.name }),
     );
   };
 
@@ -137,11 +139,11 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
     name: string,
     verb: string,
   ) => {
-    if (action === "ban" && !confirm(`確定要封鎖「${name}」嗎?`)) return;
-    void act(() => client.moderate(instanceId, action, value), `已${verb} ${name}`);
+    if (action === "ban" && !confirm(t("確定要封鎖「{name}」嗎?", { name }))) return;
+    void act(() => client.moderate(instanceId, action, value), t("已{verb} {name}", { verb: t(verb), name }));
   };
 
-  if (!live) return <p className="text-ink-muted">{error ?? "載入中…"}</p>;
+  if (!live) return <p className="text-ink-muted">{error ?? t("載入中…")}</p>;
 
   // The server may be down, but the roster and history are recorded by the
   // agent and stay useful — that's when you look someone up to unban them.
@@ -150,7 +152,7 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
       <div className="flex flex-col gap-4">
         <div className="rounded-(--radius-cute) border-2 border-dashed border-line px-6 py-10 text-center text-ink-muted">
           <FiUsers className="mx-auto mb-2 size-11" />
-          <p className="font-bold">目前無法連線到伺服器的 REST API</p>
+          <p className="font-bold">{t("目前無法連線到伺服器的 REST API")}</p>
           <p className="mt-1 text-[13px]">{live.reason}</p>
         </div>
         <KnownPlayersCard
@@ -183,32 +185,32 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
 
       {metrics && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="在線玩家" value={`${metrics.currentplayernum} / ${metrics.maxplayernum}`} />
-          <Stat label="伺服器 FPS" value={String(metrics.serverfps)} />
-          <Stat label="運行時間" value={fmtUptime(metrics.uptime)} />
-          <Stat label="遊戲天數" value={`第 ${metrics.days} 天`} />
+          <Stat label={t("在線玩家")} value={`${metrics.currentplayernum} / ${metrics.maxplayernum}`} />
+          <Stat label={t("伺服器 FPS")} value={String(metrics.serverfps)} />
+          <Stat label={t("運行時間")} value={fmtUptime(metrics.uptime)} />
+          <Stat label={t("遊戲天數")} value={t("第 {n} 天", { n: metrics.days })} />
         </div>
       )}
 
       <div className={card}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-extrabold">{info?.servername ?? "伺服器"}</h3>
+            <h3 className="text-sm font-extrabold">{info?.servername ?? t("伺服器")}</h3>
             <p className="text-[13px] text-ink-muted">
-              版本 {info?.version ?? "—"} · 據點 {metrics?.basecampnum ?? 0} 個 · 幀時間{" "}
+              {t("版本")} {info?.version ?? "—"} · {t("據點 {n} 個", { n: metrics?.basecampnum ?? 0 })} · {t("幀時間")}{" "}
               {metrics ? `${metrics.serverframetime.toFixed(1)} ms` : "—"}
             </p>
           </div>
           <div className="flex gap-2">
-            <button className={btnGhost} onClick={refresh} disabled={busy} aria-label="重新整理">
+            <button className={btnGhost} onClick={refresh} disabled={busy} aria-label={t("重新整理")}>
               <FiRefreshCw className="size-4" />
             </button>
             <button
               className={`${btnGhost} inline-flex items-center gap-1.5`}
-              onClick={() => act(() => client.saveWorld(instanceId), "世界已存檔")}
+              onClick={() => act(() => client.saveWorld(instanceId), t("世界已存檔"))}
               disabled={busy}
             >
-              <FiSave className="size-4" /> 立即存檔
+              <FiSave className="size-4" /> {t("立即存檔")}
             </button>
           </div>
         </div>
@@ -219,20 +221,20 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
           className={`${inputCls} min-w-52 flex-1`}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="輸入要廣播給所有玩家的訊息…"
+          placeholder={t("輸入要廣播給所有玩家的訊息…")}
           maxLength={500}
         />
         <button className={`${btn} inline-flex items-center gap-1.5`} disabled={busy || !message.trim()}>
-          <FiSend className="size-4" /> 廣播
+          <FiSend className="size-4" /> {t("廣播")}
         </button>
       </form>
 
       <div className={`${card} p-0`}>
         <h3 className="border-b-2 border-line px-5 py-3 text-sm font-extrabold text-ink-muted">
-          在線玩家({players.length})
+          {t("在線玩家")}({players.length})
         </h3>
         {players.length === 0 ? (
-          <p className="px-5 py-8 text-center text-[13px] text-ink-muted">目前沒有玩家在線上。</p>
+          <p className="px-5 py-8 text-center text-[13px] text-ink-muted">{t("目前沒有玩家在線上。")}</p>
         ) : (
           <div className="flex flex-col divide-y divide-line">
             {players.map((p) => {
@@ -242,7 +244,7 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
                 <button
                   className="flex items-center gap-4 text-left transition hover:opacity-80"
                   onClick={() => setDetailFor({ id: p.userId, label: p.name })}
-                  title="查看帕魯與背包"
+                  title={t("查看帕魯與背包")}
                 >
                   <PlayerAvatar seed={p.userId} gameData={gameData} />
                 </button>
@@ -254,7 +256,7 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
                     {p.name}
                   </button>
                   <p className="text-xs text-ink-muted">
-                    Lv.{p.level} · Ping {Math.round(p.ping)} ms · 建築 {p.building_count} · 座標{" "}
+                    Lv.{p.level} · Ping {Math.round(p.ping)} ms · {t("建築")} {p.building_count} · {t("座標")}{" "}
                     {Math.round(loc.x)}, {Math.round(loc.y)}
                   </p>
                   <p className="mt-0.5">
@@ -268,14 +270,14 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
                     onClick={() => playerAction(p, "kick")}
                     disabled={busy}
                   >
-                    <FiLogOut className="size-3.5" /> 踢出
+                    <FiLogOut className="size-3.5" /> {t("踢出")}
                   </button>
                   <button
                     className={`${btnGhost} inline-flex items-center gap-1.5 text-berry hover:border-berry`}
                     onClick={() => playerAction(p, "ban")}
                     disabled={busy}
                   >
-                    <FiSlash className="size-3.5" /> 封鎖
+                    <FiSlash className="size-3.5" /> {t("封鎖")}
                   </button>
                   {moderation.supported &&
                     (whitelistedIds.has(p.userId) ? (
@@ -284,7 +286,7 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
                         onClick={() => moderate("whitelist_remove", p.userId, p.name, "移出白名單")}
                         disabled={busy}
                       >
-                        <FiUserX className="size-3.5" /> 移出白名單
+                        <FiUserX className="size-3.5" /> {t("移出白名單")}
                       </button>
                     ) : (
                       <button
@@ -292,7 +294,7 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
                         onClick={() => moderate("whitelist_add", p.userId, p.name, "加入白名單")}
                         disabled={busy}
                       >
-                        <FiUserCheck className="size-3.5" /> 白名單
+                        <FiUserCheck className="size-3.5" /> {t("白名單")}
                       </button>
                     ))}
                 </div>
@@ -330,10 +332,10 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
 }
 
 const fmtPlaytime = (seconds: number) => {
-  if (seconds < 60) return "不到 1 分";
+  if (seconds < 60) return t("不到 1 分");
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  return h > 0 ? `${h} 小時 ${m} 分` : `${m} 分`;
+  return h > 0 ? t("{h} 小時 {m} 分", { h, m }) : t("{m} 分", { m });
 };
 
 const fmtWhen = (iso: string) => new Date(iso).toLocaleString();
@@ -352,17 +354,17 @@ function KnownPlayersCard({
   return (
     <div className={`${card} p-0`}>
       <h3 className="border-b-2 border-line px-5 py-3 text-sm font-extrabold text-ink-muted">
-        歷史玩家({known.length})
+        {t("歷史玩家")}({known.length})
       </h3>
       {known.length === 0 ? (
         <p className="px-5 py-8 text-center text-[13px] text-ink-muted">
-          尚未記錄到任何玩家。agent 每 15 秒會記錄一次在線狀態。
+          {t("尚未記錄到任何玩家。agent 每 15 秒會記錄一次在線狀態。")}
         </p>
       ) : (
         <div className="flex flex-col divide-y divide-line">
           {known.map((p) => (
             <div key={p.userId} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3">
-              <button onClick={() => onOpen(p.userId, p.name)} title="查看帕魯與背包" className="transition hover:opacity-80">
+              <button onClick={() => onOpen(p.userId, p.name)} title={t("查看帕魯與背包")} className="transition hover:opacity-80">
                 <PlayerAvatar seed={p.userId} gameData={gameData} size={36} />
               </button>
               <div className="min-w-40 flex-1">
@@ -370,22 +372,22 @@ function KnownPlayersCard({
                   {p.name}
                   {p.online ? (
                     <span className="inline-flex items-center gap-1 rounded-full border-[1.5px] border-grass/40 bg-grass/15 px-2 py-0.5 text-xs font-bold text-grass">
-                      <span className="size-1.5 rounded-full bg-current" /> 在線
+                      <span className="size-1.5 rounded-full bg-current" /> {t("在線")}
                     </span>
                   ) : (
-                    <span className="text-xs font-bold text-ink-muted">離線</span>
+                    <span className="text-xs font-bold text-ink-muted">{t("離線")}</span>
                   )}
                 </p>
                 <p className="text-xs text-ink-muted">
-                  Lv.{p.lastLevel} · 遊玩 {fmtPlaytime(p.playtimeSeconds)} · {p.sessions} 次連線
+                  Lv.{p.lastLevel} · {t("遊玩")} {fmtPlaytime(p.playtimeSeconds)} · {t("{n} 次連線", { n: p.sessions })}
                 </p>
                 <p className="mt-0.5">
                   <SteamId userId={p.userId} />
                 </p>
               </div>
               <div className="text-right text-xs text-ink-muted">
-                <p>最後上線 {fmtWhen(p.lastSeen)}</p>
-                <p>首次出現 {fmtWhen(p.firstSeen)}</p>
+                <p>{t("最後上線")} {fmtWhen(p.lastSeen)}</p>
+                <p>{t("首次出現")} {fmtWhen(p.firstSeen)}</p>
               </div>
             </div>
           ))}
@@ -393,7 +395,7 @@ function KnownPlayersCard({
       )}
       {offline.length > 0 && (
         <p className="border-t-2 border-line px-5 py-2.5 text-xs text-ink-muted">
-          離線玩家仍可在「指令」分頁被選為目標(例如 unban)。
+          {t("離線玩家仍可在「指令」分頁被選為目標(例如 unban)。")}
         </p>
       )}
     </div>
@@ -417,15 +419,15 @@ function ModerationCard({
     <div className="grid gap-4 sm:grid-cols-2">
       <div className={`${card} p-0`}>
         <h3 className="flex items-center justify-between border-b-2 border-line px-5 py-3 text-sm font-extrabold text-ink-muted">
-          <span>白名單({moderation.whitelist.length})</span>
+          <span>{t("白名單")}({moderation.whitelist.length})</span>
           <span
             className={`rounded-full px-2 py-0.5 text-xs ${moderation.whitelistEnabled ? "bg-grass/15 text-grass" : "bg-card-soft text-ink-muted"}`}
           >
-            {moderation.whitelistEnabled ? "已啟用" : "未啟用"}
+            {moderation.whitelistEnabled ? t("已啟用") : t("未啟用")}
           </span>
         </h3>
         {moderation.whitelist.length === 0 ? (
-          <p className="px-5 py-6 text-center text-[13px] text-ink-muted">白名單是空的。</p>
+          <p className="px-5 py-6 text-center text-[13px] text-ink-muted">{t("白名單是空的。")}</p>
         ) : (
           <div className="flex flex-col divide-y divide-line">
             {moderation.whitelist.map((w) => (
@@ -441,7 +443,7 @@ function ModerationCard({
                     onClick={() => onWhitelistRemove(w.value)}
                     disabled={busy}
                   >
-                    移除
+                    {t("移除")}
                   </button>
                 )}
               </div>
@@ -452,10 +454,10 @@ function ModerationCard({
 
       <div className={`${card} p-0`}>
         <h3 className="border-b-2 border-line px-5 py-3 text-sm font-extrabold text-ink-muted">
-          封鎖名單({moderation.bans.length})
+          {t("封鎖名單")}({moderation.bans.length})
         </h3>
         {moderation.bans.length === 0 ? (
-          <p className="px-5 py-6 text-center text-[13px] text-ink-muted">沒有被封鎖的玩家。</p>
+          <p className="px-5 py-6 text-center text-[13px] text-ink-muted">{t("沒有被封鎖的玩家。")}</p>
         ) : (
           <div className="flex flex-col divide-y divide-line">
             {moderation.bans.map((b, i) => (
@@ -466,7 +468,7 @@ function ModerationCard({
                   ) : (
                     <p className="font-mono text-xs break-all">IP {b.ip}</p>
                   )}
-                  {b.reason && <p className="text-xs text-ink-muted">原因:{b.reason}</p>}
+                  {b.reason && <p className="text-xs text-ink-muted">{t("原因:")}{b.reason}</p>}
                 </div>
                 {b.userId && (
                   <button
@@ -474,7 +476,7 @@ function ModerationCard({
                     onClick={() => onUnban(b.userId!)}
                     disabled={busy}
                   >
-                    解除
+                    {t("解除")}
                   </button>
                 )}
               </div>
@@ -490,10 +492,10 @@ function PresenceTimeline({ events }: { events: PresenceEvent[] }) {
   return (
     <div className={`${card} p-0`}>
       <h3 className="border-b-2 border-line px-5 py-3 text-sm font-extrabold text-ink-muted">
-        上下線紀錄
+        {t("上下線紀錄")}
       </h3>
       {events.length === 0 ? (
-        <p className="px-5 py-8 text-center text-[13px] text-ink-muted">尚無紀錄。</p>
+        <p className="px-5 py-8 text-center text-[13px] text-ink-muted">{t("尚無紀錄。")}</p>
       ) : (
         <div className="max-h-72 overflow-y-auto">
           <div className="flex flex-col divide-y divide-line">
@@ -506,7 +508,7 @@ function PresenceTimeline({ events }: { events: PresenceEvent[] }) {
                 )}
                 <span className="flex-1 text-sm font-bold">{e.name}</span>
                 <span className="text-xs text-ink-muted">
-                  {e.type === "join" ? "上線" : "離線"} · {fmtWhen(e.at)}
+                  {e.type === "join" ? t("上線") : t("離線")} · {fmtWhen(e.at)}
                 </span>
               </div>
             ))}

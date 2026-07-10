@@ -3,6 +3,7 @@ import { FiDownload, FiCheck, FiRefreshCw, FiExternalLink, FiAlertTriangle } fro
 import type { AgentUpdateStatus } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { Markdown } from "./Markdown";
+import { t, useI18n } from "./i18n";
 import { btn, btnGhost, errorCls } from "./ui";
 
 /**
@@ -12,6 +13,7 @@ import { btn, btnGhost, errorCls } from "./ui";
  * 輪詢,等它以新版本回來(或把失敗原因顯示出來)。
  */
 export function UpdateCard({ client }: { client: AgentClient }) {
+  useI18n();
   const [status, setStatus] = useState<AgentUpdateStatus | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export function UpdateCard({ client }: { client: AgentClient }) {
   };
 
   const apply = async () => {
-    if (!confirm(`更新到 ${status?.latestVersion}?\n\nagent 會重新啟動(約數秒),執行中的遊戲伺服器不受影響。`)) {
+    if (!confirm(t("更新到 {version}?\n\nagent 會重新啟動(約數秒),執行中的遊戲伺服器不受影響。", { version: status?.latestVersion ?? "?" }))) {
       return;
     }
     setError(null);
@@ -77,25 +79,25 @@ export function UpdateCard({ client }: { client: AgentClient }) {
 
   return (
     <div className="border-t border-line pt-3">
-      <h3 className="text-sm font-extrabold">GUI 更新</h3>
+      <h3 className="text-sm font-extrabold">{t("GUI 更新")}</h3>
 
       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted">
         <span>
-          目前版本 <span className="font-mono text-ink">{status.currentVersion}</span>
+          {t("目前版本")} <span className="font-mono text-ink">{status.currentVersion}</span>
         </span>
         {status.latestVersion && !status.updateAvailable && (
           <span className="inline-flex items-center gap-1 text-grass">
-            <FiCheck className="size-3.5" /> 已是最新版
+            <FiCheck className="size-3.5" /> {t("已是最新版")}
           </span>
         )}
-        {status.checkedAt && <span className="opacity-70">· 檢查於 {new Date(status.checkedAt).toLocaleString()}</span>}
+        {status.checkedAt && <span className="opacity-70">· {t("檢查於")} {new Date(status.checkedAt).toLocaleString()}</span>}
       </div>
 
       {status.updateAvailable ? (
         <div className="mt-2 rounded-xl border-2 border-pal/30 bg-pal/5 px-3 py-2">
           <p className="inline-flex items-center gap-2 text-[13px] font-bold">
             <FiDownload className="size-4 text-pal" />
-            有新版本 <span className="font-mono">{status.latestVersion}</span>
+            {t("有新版本")} <span className="font-mono">{status.latestVersion}</span>
             {status.downloadSizeBytes && (
               <span className="font-normal text-ink-muted">
                 ({(status.downloadSizeBytes / 1024 / 1024).toFixed(1)} MB)
@@ -108,11 +110,11 @@ export function UpdateCard({ client }: { client: AgentClient }) {
           ) : (
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <button className={`${btn} inline-flex items-center gap-1.5`} onClick={apply} disabled={!status.supported}>
-                <FiDownload className="size-4" /> 立即更新
+                <FiDownload className="size-4" /> {t("立即更新")}
               </button>
               {status.releaseNotes && (
                 <button className={btnGhost} onClick={() => setNotes((v) => !v)}>
-                  {notes ? "收合說明" : "更新說明"}
+                  {notes ? t("收合說明") : t("更新說明")}
                 </button>
               )}
               {status.releaseUrl && (
@@ -136,7 +138,7 @@ export function UpdateCard({ client }: { client: AgentClient }) {
         </div>
       ) : (
         <button className={`${btnGhost} mt-2 inline-flex items-center gap-1.5`} onClick={check} disabled={checking}>
-          <FiRefreshCw className={`size-4 ${checking ? "animate-spin" : ""}`} /> {checking ? "檢查中…" : "檢查更新"}
+          <FiRefreshCw className={`size-4 ${checking ? "animate-spin" : ""}`} /> {checking ? t("檢查中…") : t("檢查更新")}
         </button>
       )}
 
@@ -146,29 +148,29 @@ export function UpdateCard({ client }: { client: AgentClient }) {
           {status.reason}
         </p>
       )}
-      {status.lastError && !busy && <p className={`${errorCls} mt-2`}>上次更新失敗:{status.lastError}</p>}
+      {status.lastError && !busy && <p className={`${errorCls} mt-2`}>{t("上次更新失敗:")}{status.lastError}</p>}
       {error && <p className={`${errorCls} mt-2`}>{error}</p>}
 
       {status.prefs.envDisabled ? (
         <p className="mt-2 rounded-xl bg-card-soft px-3 py-2 text-xs text-ink-muted">
-          已由環境變數 <span className="font-mono">PALSERVER_AUTO_UPDATE=0</span> 停用自動更新。
+          {t("已由環境變數")} <span className="font-mono">PALSERVER_AUTO_UPDATE=0</span> {t("停用自動更新。")}
         </p>
       ) : (
         <div className="mt-2 flex flex-col gap-1.5">
           <Toggle
             checked={status.prefs.autoCheck}
-            label="自動檢查新版本(每 6 小時,只通知不安裝)"
+            label={t("自動檢查新版本(每 6 小時,只通知不安裝)")}
             onChange={(v) => void client.setUpdatePrefs({ autoCheck: v }).then(setStatus)}
           />
           <Toggle
             checked={status.prefs.autoApply}
             disabled={!status.prefs.autoCheck || !status.supported}
-            label="查到新版就自動安裝並重啟 agent"
+            label={t("查到新版就自動安裝並重啟 agent")}
             onChange={(v) => void client.setUpdatePrefs({ autoApply: v }).then(setStatus)}
           />
           <Toggle
             checked={status.prefs.channel === "prerelease"}
-            label="接收測試版(prerelease)"
+            label={t("接收測試版(prerelease)")}
             onChange={(v) => void client.setUpdatePrefs({ channel: v ? "prerelease" : "stable" }).then(setStatus)}
           />
         </div>
@@ -180,17 +182,17 @@ export function UpdateCard({ client }: { client: AgentClient }) {
 function phaseLabel(status: AgentUpdateStatus): string {
   switch (status.phase) {
     case "downloading":
-      return `下載中… ${status.progress ?? 0}%`;
+      return t("下載中… {pct}%", { pct: status.progress ?? 0 });
     case "verifying":
-      return "驗證檔案完整性(SHA256)…";
+      return t("驗證檔案完整性(SHA256)…");
     case "extracting":
-      return "解壓縮…";
+      return t("解壓縮…");
     case "swapping":
-      return "替換程式檔…";
+      return t("替換程式檔…");
     case "restarting":
-      return "agent 重新啟動中,稍候會自動重新整理…";
+      return t("agent 重新啟動中,稍候會自動重新整理…");
     default:
-      return "等待 agent 回應…";
+      return t("等待 agent 回應…");
   }
 }
 

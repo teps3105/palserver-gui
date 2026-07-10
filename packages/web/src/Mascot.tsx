@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FiX, FiExternalLink, FiHeart, FiInstagram, FiMessageCircle } from "react-icons/fi";
 import { usePromoConfig } from "./promoConfig";
+import { t, useI18n } from "./i18n";
 import { card, btn as btnPrimary, btnGhost } from "./ui";
 
 /**
@@ -14,6 +15,7 @@ import { card, btn as btnPrimary, btnGhost } from "./ui";
 const SEEN_KEY = "palserver.mascotSeen";
 
 export function Mascot() {
+  useI18n();
   const [seen, setSeen] = useState(() => localStorage.getItem(SEEN_KEY) === "1");
   const [open, setOpen] = useState(false);
 
@@ -38,7 +40,7 @@ export function Mascot() {
         <img src="/mascot.webp" alt="" draggable={false} className="h-auto w-full" />
         {!seen && (
           <span className="absolute -top-2 left-1/2 -translate-x-1/2 animate-bounce rounded-full bg-pal px-3 py-1 text-xs font-extrabold whitespace-nowrap text-white shadow">
-            摸摸我~
+            {t("摸摸我~")}
           </span>
         )}
       </button>
@@ -52,6 +54,7 @@ export function Mascot() {
 }
 
 function SponsorModal({ onClose }: { onClose: () => void }) {
+  useI18n();
   const { company } = usePromoConfig();
   return (
     <div
@@ -61,32 +64,30 @@ function SponsorModal({ onClose }: { onClose: () => void }) {
       <div className={`${card} w-[420px] max-w-full`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <h2 className="inline-flex items-center gap-2 text-lg font-extrabold">
-            <FiHeart className="size-5 text-pal" /> 喜歡這隻貓貓嗎?
+            <FiHeart className="size-5 text-pal" /> {t("喜歡這隻貓貓嗎?")}
           </h2>
-          <button className="text-ink-muted transition hover:text-ink" onClick={onClose} aria-label="關閉">
+          <button className="text-ink-muted transition hover:text-ink" onClick={onClose} aria-label={t("關閉")}>
             <FiX className="size-5" />
           </button>
         </div>
         <p className="mt-2 text-[13px] text-ink-muted">
-          嗨嗨~ 我是 <b>Dalufish</b>, palserver GUI 就是我做的!
-          這隻工具是免費的, 如果它幫上你的忙, 睡搞搞的貓貓想討一點罐罐 ——
-          追蹤我們、或小額贊助都是超大的鼓勵, 讓我們能繼續把它做得更好。
+          {t("嗨嗨~ 我是")} <b>Dalufish</b>{t(", palserver GUI 就是我做的!這隻工具是免費的, 如果它幫上你的忙, 睡搞搞的貓貓想討一點罐罐 —— 追蹤我們、或小額贊助都是超大的鼓勵, 讓我們能繼續把它做得更好。")}
         </p>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <a className={`${btnPrimary} inline-flex items-center justify-center gap-1.5`} href={company.sponsor} target="_blank" rel="noreferrer">
-            <FiHeart className="size-4" /> 贊助我們
+            <FiHeart className="size-4" /> {t("贊助我們")}
           </a>
           <a className={`${btnGhost} inline-flex items-center justify-center gap-1.5`} href={company.instagram} target="_blank" rel="noreferrer">
             <FiInstagram className="size-4" /> Instagram
           </a>
           <a className={`${btnGhost} inline-flex items-center justify-center gap-1.5`} href={company.website} target="_blank" rel="noreferrer">
-            <FiExternalLink className="size-4" /> 官方網站
+            <FiExternalLink className="size-4" /> {t("官方網站")}
           </a>
           <a className={`${btnGhost} inline-flex items-center justify-center gap-1.5`} href={company.discord} target="_blank" rel="noreferrer">
             <FiMessageCircle className="size-4" /> Discord
           </a>
         </div>
-        <p className="mt-3 text-center text-xs text-ink-muted">感謝你讓帕魯世界更好玩 🐾</p>
+        <p className="mt-3 text-center text-xs text-ink-muted">{t("感謝你讓帕魯世界更好玩 🐾")}</p>
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ import type { AgentClient } from "./api";
 import { maskSteamIdsInText, SteamId } from "./SteamId";
 import { EntityPicker } from "./EntityPicker";
 import { useGameData, itemIconUrl, palIconUrl, type GameData } from "./gameData";
+import { t, useI18n } from "./i18n";
 import { btn, btnGhost, card, errorCls, inputCls, labelCls } from "./ui";
 
 interface LogEntry {
@@ -39,6 +40,7 @@ function ArgField({
   value: string;
   onChange: (value: string) => void;
 }) {
+  useI18n();
   const isPlayerArg = arg.name === "userid";
   const online = roster.filter((p) => p.online);
   const offline = roster.filter((p) => !p.online);
@@ -48,14 +50,14 @@ function ArgField({
   if ((arg.name === "itemid" || arg.name === "eggid") && gameData) {
     return (
       <label className={labelCls}>
-        {arg.label}
-        {!arg.required && <span className="font-normal">(選填)</span>}
+        {t(arg.label)}
+        {!arg.required && <span className="font-normal">{t("(選填)")}</span>}
         <EntityPicker
           catalog={gameData.items}
           iconUrl={itemIconUrl}
           value={value}
           onChange={onChange}
-          placeholder="搜尋道具名稱或輸入 ID…"
+          placeholder={t("搜尋道具名稱或輸入 ID…")}
         />
       </label>
     );
@@ -63,14 +65,14 @@ function ArgField({
   if (arg.name === "palid" && gameData) {
     return (
       <label className={labelCls}>
-        {arg.label}
-        {!arg.required && <span className="font-normal">(選填)</span>}
+        {t(arg.label)}
+        {!arg.required && <span className="font-normal">{t("(選填)")}</span>}
         <EntityPicker
           catalog={gameData.pals}
           iconUrl={palIconUrl}
           value={value}
           onChange={onChange}
-          placeholder="搜尋帕魯名稱或輸入 ID…"
+          placeholder={t("搜尋帕魯名稱或輸入 ID…")}
         />
       </label>
     );
@@ -83,8 +85,8 @@ function ArgField({
     if (value) {
       return (
         <label className={labelCls}>
-          {arg.label}
-          {!arg.required && <span className="font-normal">(選填)</span>}
+          {t(arg.label)}
+          {!arg.required && <span className="font-normal">{t("(選填)")}</span>}
           <div className={`${inputCls} flex items-center gap-2`}>
             {known && <span className="font-bold text-ink">{known.name}</span>}
             <SteamId userId={value} />
@@ -92,7 +94,7 @@ function ArgField({
               type="button"
               className="ml-auto text-ink-muted transition hover:text-berry"
               onClick={() => onChange("")}
-              aria-label="清除"
+              aria-label={t("清除")}
             >
               <FiX className="size-4" />
             </button>
@@ -102,13 +104,13 @@ function ArgField({
     }
     return (
       <label className={labelCls}>
-        {arg.label}
-        {!arg.required && <span className="font-normal">(選填)</span>}
+        {t(arg.label)}
+        {!arg.required && <span className="font-normal">{t("(選填)")}</span>}
         {roster.length > 0 && (
           <select className={inputCls} value="" onChange={(e) => onChange(e.target.value)}>
-            <option value="">— 選擇玩家 —</option>
+            <option value="">{t("— 選擇玩家 —")}</option>
             {online.length > 0 && (
-              <optgroup label="在線">
+              <optgroup label={t("在線")}>
                 {online.map((p) => (
                   <option key={p.userId} value={p.userId}>
                     {p.name}(Lv.{p.lastLevel})
@@ -117,10 +119,10 @@ function ArgField({
               </optgroup>
             )}
             {offline.length > 0 && (
-              <optgroup label="離線(歷史玩家)">
+              <optgroup label={t("離線(歷史玩家)")}>
                 {offline.map((p) => (
                   <option key={p.userId} value={p.userId}>
-                    {p.name} — 最後上線 {new Date(p.lastSeen).toLocaleDateString()}
+                    {p.name} — {t("最後上線")} {new Date(p.lastSeen).toLocaleDateString()}
                   </option>
                 ))}
               </optgroup>
@@ -131,7 +133,7 @@ function ArgField({
           className={inputCls}
           value=""
           onChange={(e) => onChange(e.target.value)}
-          placeholder={roster.length > 0 ? "或直接輸入 UserId" : arg.placeholder}
+          placeholder={roster.length > 0 ? t("或直接輸入 UserId") : arg.placeholder}
         />
       </label>
     );
@@ -139,8 +141,8 @@ function ArgField({
 
   return (
     <label className={labelCls}>
-      {arg.label}
-      {!arg.required && <span className="font-normal">(選填)</span>}
+      {t(arg.label)}
+      {!arg.required && <span className="font-normal">{t("(選填)")}</span>}
       <input
         className={inputCls}
         value={value}
@@ -152,6 +154,7 @@ function ArgField({
 }
 
 export function ConsoleTab({ client, instanceId }: { client: AgentClient; instanceId: string }) {
+  useI18n();
   const [catalog, setCatalog] = useState<RconCommandsResponse | null>(null);
   const [selected, setSelected] = useState<CommandSpec | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -199,7 +202,7 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
     setError(null);
     try {
       const res = await client.rconExec(instanceId, command);
-      setLog((prev) => [...prev.slice(-99), { command, output: res.output || "(無輸出)", failed: false }]);
+      setLog((prev) => [...prev.slice(-99), { command, output: res.output || t("(無輸出)"), failed: false }]);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setLog((prev) => [...prev.slice(-99), { command, output: message, failed: true }]);
@@ -213,23 +216,23 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
     if (!selected) return;
     const missing = selected.args.filter((a) => a.required && !values[a.name]?.trim());
     if (missing.length > 0) {
-      setError(`缺少必填參數:${missing.map((a) => a.label).join("、")}`);
+      setError(t("缺少必填參數:{list}", { list: missing.map((a) => t(a.label)).join("、") }));
       return;
     }
     const command = buildCommand(selected, values);
-    if (selected.dangerous && !confirm(`「${selected.label}」是不可復原的操作。\n\n確定要執行 ${command} 嗎?`)) {
+    if (selected.dangerous && !confirm(t("「{label}」是不可復原的操作。\n\n確定要執行 {command} 嗎?", { label: t(selected.label), command }))) {
       return;
     }
     await run(command);
   };
 
-  if (!catalog) return <p className="text-ink-muted">{error ?? "載入中…"}</p>;
+  if (!catalog) return <p className="text-ink-muted">{error ?? t("載入中…")}</p>;
 
   if (!catalog.available) {
     return (
       <div className="rounded-(--radius-cute) border-2 border-dashed border-line px-6 py-12 text-center text-ink-muted">
         <FiTerminal className="mx-auto mb-2 size-11" />
-        <p className="font-bold">RCON 無法使用</p>
+        <p className="font-bold">{t("RCON 無法使用")}</p>
         <p className="mt-1 text-[13px]">{catalog.reason}</p>
       </div>
     );
@@ -241,7 +244,7 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
   );
   const grouped = new Map<string, CommandSpec[]>();
   for (const cmd of visible) {
-    const key = COMMAND_CATEGORY_LABELS[cmd.category];
+    const key = t(COMMAND_CATEGORY_LABELS[cmd.category]);
     grouped.set(key, [...(grouped.get(key) ?? []), cmd]);
   }
 
@@ -251,14 +254,14 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[13px] font-bold text-ink-muted">
-          {catalog.commands.length} 個可用指令
+          {t("{n} 個可用指令", { n: catalog.commands.length })}
         </p>
         {catalog.paldefender ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-grass/40 bg-grass/15 px-3 py-1 text-xs font-bold text-grass">
-            <GiShield className="size-3.5" /> PalDefender 指令已啟用
+            <GiShield className="size-3.5" /> {t("PalDefender 指令已啟用")}
           </span>
         ) : (
-          <span className="text-xs text-ink-muted">安裝 PalDefender 可解鎖更多指令</span>
+          <span className="text-xs text-ink-muted">{t("安裝 PalDefender 可解鎖更多指令")}</span>
         )}
       </div>
 
@@ -270,7 +273,7 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
               className={`${inputCls} w-full pl-9`}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              placeholder="搜尋指令…"
+              placeholder={t("搜尋指令…")}
             />
           </div>
           {[...grouped.entries()].map(([category, cmds]) => (
@@ -290,14 +293,14 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
                     }}
                   >
                     <span className="font-mono">{cmd.name}</span>
-                    {cmd.dangerous && <span className="ml-1.5 text-berry">危險</span>}
-                    <span className="block text-xs text-ink-muted">{cmd.label}</span>
+                    {cmd.dangerous && <span className="ml-1.5 text-berry">{t("危險")}</span>}
+                    <span className="block text-xs text-ink-muted">{t(cmd.label)}</span>
                   </button>
                 ))}
               </div>
             </div>
           ))}
-          {visible.length === 0 && <p className="text-[13px] text-ink-muted">找不到符合的指令。</p>}
+          {visible.length === 0 && <p className="text-[13px] text-ink-muted">{t("找不到符合的指令。")}</p>}
         </div>
 
         <div className="flex flex-col gap-4">
@@ -307,10 +310,10 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
                 <h3 className="font-mono text-base font-extrabold">
                   {selected.name}
                   <span className="ml-2 rounded-full bg-card-soft px-2 py-0.5 font-sans text-xs text-ink-muted">
-                    {selected.source === "builtin" ? "內建" : "PalDefender"}
+                    {selected.source === "builtin" ? t("內建") : "PalDefender"}
                   </span>
                 </h3>
-                <p className="mt-1 text-[13px] text-ink-muted">{selected.label}</p>
+                <p className="mt-1 text-[13px] text-ink-muted">{t(selected.label)}</p>
               </div>
               {selected.args.map((arg) => (
                 <ArgField
@@ -324,7 +327,7 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
               ))}
               <div className="flex items-center gap-3">
                 <button className={`${btn} inline-flex items-center gap-1.5`} disabled={busy}>
-                  <FiPlay className="size-4" /> {busy ? "執行中…" : "執行"}
+                  <FiPlay className="size-4" /> {busy ? t("執行中…") : t("執行")}
                 </button>
                 <code className="truncate rounded-lg bg-card-soft px-2 py-1 text-xs text-ink-muted">
                   {maskSteamIdsInText(buildCommand(selected, values))}
@@ -333,7 +336,7 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
             </form>
           ) : (
             <div className={`${card} text-[13px] text-ink-muted`}>
-              從左側選一個指令,或直接在下方輸入原始指令。
+              {t("從左側選一個指令,或直接在下方輸入原始指令。")}
             </div>
           )}
 
@@ -351,25 +354,25 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
               className={`${inputCls} min-w-52 flex-1 font-mono`}
               value={raw}
               onChange={(e) => setRaw(e.target.value)}
-              placeholder="輸入原始 RCON 指令,例如 ShowPlayers"
+              placeholder={t("輸入原始 RCON 指令,例如 ShowPlayers")}
             />
             <button className={btn} disabled={busy || !raw.trim()}>
-              送出
+              {t("送出")}
             </button>
           </form>
 
           <div className={`${card} flex flex-col gap-2 p-3`}>
             <div className="flex items-center justify-between px-2">
-              <h3 className="text-sm font-extrabold text-ink-muted">輸出</h3>
+              <h3 className="text-sm font-extrabold text-ink-muted">{t("輸出")}</h3>
               {log.length > 0 && (
-                <button className={btnGhost} onClick={() => setLog([])} aria-label="清除輸出">
+                <button className={btnGhost} onClick={() => setLog([])} aria-label={t("清除輸出")}>
                   <FiTrash2 className="size-4" />
                 </button>
               )}
             </div>
             <pre className="h-72 overflow-auto rounded-xl bg-[#1c1927] p-3 font-mono text-xs whitespace-pre-wrap break-all text-[#cfd6df]">
               {log.length === 0
-                ? "(尚未執行任何指令)"
+                ? t("(尚未執行任何指令)")
                 : log.map((entry, i) => (
                     <span key={i}>
                       <span className="text-[#7ec8f0]">&gt; {maskSteamIdsInText(entry.command)}</span>

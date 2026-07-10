@@ -22,6 +22,7 @@ import { PerformanceTab } from "./PerformanceTab";
 import { EngineTab } from "./EngineTab";
 import { maskSteamIdsInText } from "./SteamId";
 import { STATUS_LABELS } from "./labels";
+import { t, t as translate, useI18n } from "./i18n";
 import { StatusBadge, btn, btnDanger, btnGhost, card, errorCls } from "./ui";
 
 type Tab =
@@ -63,6 +64,7 @@ export function InstanceDetailPage({
   onBack: () => void;
   onDeleted: () => void;
 }) {
+  useI18n();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +105,7 @@ export function InstanceDetailPage({
 
   const remove = async () => {
     if (!detail) return;
-    if (!confirm(`確定要刪除「${detail.name}」嗎?世界存檔會保留在磁碟上。`)) return;
+    if (!confirm(t("確定要刪除「{name}」嗎?世界存檔會保留在磁碟上。", { name: detail.name }))) return;
     try {
       await client.deleteInstance(instanceId);
       onDeleted();
@@ -126,9 +128,9 @@ export function InstanceDetailPage({
     return (
       <div>
         <button className={btnGhost} onClick={onBack}>
-          <FiArrowLeft className="inline size-4" /> 返回
+          <FiArrowLeft className="inline size-4" /> {t("返回")}
         </button>
-        {error ? <p className={`mt-4 ${errorCls}`}>{error}</p> : <p className="mt-4 text-ink-muted">載入中…</p>}
+        {error ? <p className={`mt-4 ${errorCls}`}>{error}</p> : <p className="mt-4 text-ink-muted">{t("載入中…")}</p>}
       </div>
     );
   }
@@ -137,7 +139,7 @@ export function InstanceDetailPage({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <button className={btnGhost} onClick={onBack} aria-label="返回">
+          <button className={btnGhost} onClick={onBack} aria-label={t("返回")}>
             <FiArrowLeft className="inline size-4" />
           </button>
           <h2 className="text-xl font-extrabold">{detail.name}</h2>
@@ -150,18 +152,18 @@ export function InstanceDetailPage({
               onClick={() => act("start")}
               disabled={detail.status === "installing"}
             >
-              <FiPlay className="size-4" /> {detail.status === "installing" ? "安裝中…" : "啟動"}
+              <FiPlay className="size-4" /> {detail.status === "installing" ? t("安裝中…") : t("啟動")}
             </button>
           ) : (
             <button className={`${btn} inline-flex items-center gap-1.5`} onClick={() => act("stop")}>
-              <FiSquare className="size-4" /> 停止
+              <FiSquare className="size-4" /> {t("停止")}
             </button>
           )}
           <button className={`${btnGhost} inline-flex items-center gap-1.5`} onClick={() => act("restart")}>
-            <FiRefreshCw className="size-4" /> 重啟
+            <FiRefreshCw className="size-4" /> {t("重啟")}
           </button>
           <button className={`${btnDanger} inline-flex items-center gap-1.5`} onClick={remove}>
-            <FiTrash2 className="size-4" /> 刪除
+            <FiTrash2 className="size-4" /> {t("刪除")}
           </button>
         </div>
       </div>
@@ -179,7 +181,7 @@ export function InstanceDetailPage({
             }
             onClick={() => setTab(t.id)}
           >
-            {t.label}
+            {translate(t.label)}
           </button>
         ))}
       </div>
@@ -229,6 +231,7 @@ function OverviewTab({
   detail: Detail;
   onRefresh: () => void;
 }) {
+  useI18n();
   const [enhancements, setEnhancements] = useState<string[] | null>(null);
 
   useEffect(() => {
@@ -244,24 +247,24 @@ function OverviewTab({
   }, [client, detail.id]);
 
   const rows: [string, string][] = [
-    ["狀態", STATUS_LABELS[detail.status]],
-    ["運行方式", detail.backend === "native" ? "原生" : "Docker 容器"],
+    [t("狀態"), t(STATUS_LABELS[detail.status])],
+    [t("運行方式"), detail.backend === "native" ? t("原生") : t("Docker 容器")],
     [
-      "類型",
-      enhancements && enhancements.length > 0 ? `強化(${enhancements.join(" + ")})` : "原味",
+      t("類型"),
+      enhancements && enhancements.length > 0 ? t("強化({list})", { list: enhancements.join(" + ") }) : t("原味"),
     ],
-    ["遊戲埠(UDP)", String(detail.gamePort)],
-    ["REST API", detail.settings.RESTAPIEnabled ? `啟用(${detail.settings.RESTAPIPort})` : "停用"],
-    ["RCON", detail.settings.RCONEnabled ? `啟用(${detail.settings.RCONPort})` : "停用"],
-    [detail.backend === "native" ? "行程 PID" : "容器 ID", detail.runtimeId ? detail.runtimeId.slice(0, 12) : "—"],
-    ["伺服器目錄", detail.serverDir ?? "agent 管理"],
-    ["建立時間", new Date(detail.createdAt).toLocaleString()],
+    [t("遊戲埠(UDP)"), String(detail.gamePort)],
+    ["REST API", detail.settings.RESTAPIEnabled ? t("啟用({port})", { port: Number(detail.settings.RESTAPIPort) }) : t("停用")],
+    ["RCON", detail.settings.RCONEnabled ? t("啟用({port})", { port: Number(detail.settings.RCONPort) }) : t("停用")],
+    [detail.backend === "native" ? t("行程 PID") : t("容器 ID"), detail.runtimeId ? detail.runtimeId.slice(0, 12) : "—"],
+    [t("伺服器目錄"), detail.serverDir ?? t("agent 管理")],
+    [t("建立時間"), new Date(detail.createdAt).toLocaleString()],
   ];
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className={card}>
-        <h3 className="mb-3 text-sm font-extrabold text-ink-muted">伺服器資訊</h3>
+        <h3 className="mb-3 text-sm font-extrabold text-ink-muted">{t("伺服器資訊")}</h3>
         <dl className="flex flex-col gap-2">
           {rows.map(([k, v]) => (
             <div key={k} className="flex justify-between gap-4 text-sm">
@@ -284,6 +287,7 @@ function OverviewTab({
 }
 
 function LogsTab({ client, instanceId }: { client: AgentClient; instanceId: string }) {
+  useI18n();
   const [sources, setSources] = useState<LogSource[]>([]);
   const [source, setSource] = useState<LogSourceId>("agent");
   const [lines, setLines] = useState<string[]>([]);
@@ -299,7 +303,7 @@ function LogsTab({ client, instanceId }: { client: AgentClient; instanceId: stri
     socket.onmessage = (ev) => setLines((prev) => [...prev.slice(-999), String(ev.data)]);
     socket.onclose = (ev) => {
       if (ev.code !== 1000 && ev.code !== 1005) {
-        setLines((prev) => [...prev, `— 日誌串流已中斷(${ev.reason || ev.code})—`]);
+        setLines((prev) => [...prev, t("— 日誌串流已中斷({reason})—", { reason: String(ev.reason || ev.code) })]);
       }
     };
     return () => socket.close();
@@ -323,15 +327,15 @@ function LogsTab({ client, instanceId }: { client: AgentClient; instanceId: stri
               }
               onClick={() => setSource(s.id)}
               disabled={!s.available}
-              title={s.available ? undefined : "此日誌尚未產生"}
+              title={s.available ? undefined : t("此日誌尚未產生")}
             >
-              {s.label}
+              {t(s.label)}
             </button>
           ))}
         </div>
       )}
       <pre className="h-[440px] overflow-auto rounded-(--radius-cute) bg-[#1c1927] p-4 font-mono text-xs whitespace-pre-wrap break-all text-[#cfd6df]">
-        {lines.length ? maskSteamIdsInText(lines.join("\n")) : "(尚無日誌)"}
+        {lines.length ? maskSteamIdsInText(lines.join("\n")) : t("(尚無日誌)")}
         <div ref={bottomRef} />
       </pre>
     </div>

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { FiArrowRight, FiLock, FiWifi } from "react-icons/fi";
 import { probeAgent, pairAgent, type Connection } from "./api";
 import { btn, btnGhost, card, errorCls, inputCls, labelCls } from "./ui";
+import { LangSelect, useI18n } from "./i18n";
+import { ThemeToggle } from "./theme";
 
 /**
  * 新手友善的連線流程。核心洞察:合一版的 web 是 agent 自己 serve 的(same-origin),
@@ -19,6 +21,7 @@ const LAST_URL_KEY = "palserver.lastAgentUrl";
 type Mode = "probing" | "pair" | "manual";
 
 export function ConnectFlow({ onConnect }: { onConnect: (c: Connection) => void }) {
+  const { t } = useI18n();
   const [mode, setMode] = useState<Mode>("probing");
   const [agentUrl, setAgentUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +62,7 @@ export function ConnectFlow({ onConnect }: { onConnect: (c: Connection) => void 
 
   if (mode === "probing") {
     return (
-      <Screen subtitle="正在尋找你的 agent…">
+      <Screen subtitle={t("正在尋找你的 agent…")}>
         <div className="flex justify-center py-2 text-ink-muted">
           <FiWifi className="size-6 animate-pulse" />
         </div>
@@ -84,10 +87,14 @@ export function ConnectFlow({ onConnect }: { onConnect: (c: Connection) => void 
   return <PairStep agentUrl={agentUrl} initialError={error} onConnect={onConnect} onBack={() => setMode("manual")} />;
 }
 
-/** 共用外框:logo + 標題。 */
+/** 共用外框:logo + 標題;右上角放語言/主題切換(這畫面沒有 header)。 */
 function Screen({ subtitle, children }: { subtitle: string; children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center p-6">
+      <div className="fixed right-4 top-4 flex items-center gap-2">
+        <LangSelect />
+        <ThemeToggle />
+      </div>
       <div className={`${card} flex w-[400px] max-w-full flex-col gap-4 text-center`}>
         <img src="/logo.png" alt="palserver GUI" className="mx-auto size-18 rounded-[22px]" />
         <div>
@@ -110,6 +117,7 @@ function ManualStep({
   onConnected: (c: Connection) => void;
   onNeedPair: (url: string) => void;
 }) {
+  const { t } = useI18n();
   const [url, setUrl] = useState(initialUrl);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -137,10 +145,10 @@ function ManualStep({
   };
 
   return (
-    <Screen subtitle="連線到你的 agent">
+    <Screen subtitle={t("連線到你的 agent")}>
       <form className="flex flex-col gap-4 text-left" onSubmit={next}>
         <label className={labelCls}>
-          Agent 位址
+          {t("Agent 位址")}
           <input
             className={inputCls}
             value={url}
@@ -149,12 +157,12 @@ function ManualStep({
             autoFocus
           />
           <span className="mt-1 text-xs text-ink-muted">
-            在 agent 的視窗裡有列出可用位址;遠端請填 VPN 位址(如 Tailscale 的 100.x)。
+            {t("在 agent 的視窗裡有列出可用位址;遠端請填 VPN 位址(如 Tailscale 的 100.x)。")}
           </span>
         </label>
-        {error && <p className={errorCls}>{error}</p>}
+        {error && <p className={errorCls}>{t(error)}</p>}
         <button className={`${btn} inline-flex items-center justify-center gap-1.5`} disabled={busy || !url.trim()}>
-          {busy ? "偵測中…" : "下一步"}
+          {busy ? t("偵測中…") : t("下一步")}
           {!busy && <FiArrowRight className="size-4" />}
         </button>
       </form>
@@ -174,6 +182,7 @@ function PairStep({
   onConnect: (c: Connection) => void;
   onBack: () => void;
 }) {
+  const { t } = useI18n();
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(initialError);
   const [busy, setBusy] = useState(false);
@@ -206,14 +215,17 @@ function PairStep({
   };
 
   return (
-    <Screen subtitle={sameOrigin ? "快完成了!輸入配對碼" : `連線到 ${agentUrl}`}>
+    <Screen subtitle={sameOrigin ? t("快完成了!輸入配對碼") : t("連線到 {url}", { url: agentUrl })}>
       <form className="flex flex-col gap-4 text-left" onSubmit={submit}>
         <p className="flex items-start gap-2 rounded-xl bg-card-soft px-3 py-2 text-xs text-ink-muted">
           <FiLock className="mt-0.5 size-4 shrink-0 text-pal" />
-          <span>在 agent 的視窗上找到配對碼(像 <b>8F3K-2QP7</b>),或直接貼上朋友給你的設定連結。</span>
+          <span>
+            {t("在 agent 的視窗上找到配對碼(像")} <b>8F3K-2QP7</b>
+            {t("),或直接貼上朋友給你的設定連結。")}
+          </span>
         </p>
         <label className={labelCls}>
-          配對碼
+          {t("配對碼")}
           <input
             className={`${inputCls} text-center font-mono text-lg tracking-widest`}
             value={code}
@@ -222,15 +234,15 @@ function PairStep({
             autoFocus
           />
         </label>
-        {error && <p className={errorCls}>{error}</p>}
+        {error && <p className={errorCls}>{t(error)}</p>}
         <button className={btn} disabled={busy || !code.trim()}>
-          {busy ? "連線中…" : "連線"}
+          {busy ? t("連線中…") : t("連線")}
         </button>
       </form>
 
       <div className="text-xs text-ink-muted">
         <button className="underline underline-offset-2 hover:text-ink" onClick={() => setShowToken((v) => !v)}>
-          進階:改用 API token 連線
+          {t("進階:改用 API token 連線")}
         </button>
         {showToken && (
           <form className="mt-2 flex flex-col gap-2 text-left" onSubmit={connectWithToken}>
@@ -239,10 +251,10 @@ function PairStep({
               value={token}
               onChange={(e) => setToken(e.target.value)}
               type="password"
-              placeholder="agent 視窗上的 API token"
+              placeholder={t("agent 視窗上的 API token")}
             />
             <button className={btnGhost} disabled={busy || !token.trim()}>
-              用 token 連線
+              {t("用 token 連線")}
             </button>
           </form>
         )}
@@ -250,7 +262,7 @@ function PairStep({
 
       {!sameOrigin && (
         <button className="text-xs text-ink-muted underline underline-offset-2 hover:text-ink" onClick={onBack}>
-          ← 改用別的位址
+          {t("← 改用別的位址")}
         </button>
       )}
     </Screen>

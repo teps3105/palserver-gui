@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FiCheck, FiCopy, FiEye, FiEyeOff } from "react-icons/fi";
 import { copyText } from "./clipboard";
+import { t, useI18n } from "./i18n";
 
 /**
  * Steam IDs identify a real person, so every surface that shows one masks it
@@ -22,6 +23,7 @@ export function maskSteamIdsInText(text: string): string {
 }
 
 export function SteamId({ userId }: { userId: string }) {
+  useI18n();
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
   const raw = userId.replace(/^steam_/, "");
@@ -39,16 +41,16 @@ export function SteamId({ userId }: { userId: string }) {
       <button
         onClick={() => setRevealed((v) => !v)}
         className="text-ink-muted transition hover:text-pal"
-        aria-label={revealed ? "隱藏 Steam ID" : "顯示 Steam ID"}
-        title={revealed ? "隱藏" : "顯示完整 Steam ID"}
+        aria-label={revealed ? t("隱藏 Steam ID") : t("顯示 Steam ID")}
+        title={revealed ? t("隱藏") : t("顯示完整 Steam ID")}
       >
         {revealed ? <FiEyeOff className="size-3.5" /> : <FiEye className="size-3.5" />}
       </button>
       <button
         onClick={copy}
         className="text-ink-muted transition hover:text-pal"
-        aria-label="複製 Steam ID"
-        title="複製"
+        aria-label={t("複製 Steam ID")}
+        title={t("複製")}
       >
         {copied ? <FiCheck className="size-3.5 text-grass" /> : <FiCopy className="size-3.5" />}
       </button>

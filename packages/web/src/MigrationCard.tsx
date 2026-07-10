@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FiX, FiUploadCloud, FiArrowRight } from "react-icons/fi";
 import { Markdown } from "./Markdown";
+import { t, useI18n } from "./i18n";
 import { card, btn as btnPrimary, btnGhost } from "./ui";
 
 /**
@@ -8,25 +9,28 @@ import { card, btn as btnPrimary, btnGhost } from "./ui";
  * 彈窗沿用跟公告一樣的 Markdown 介面。詳細內容精簡自 docs/MIGRATION.md。
  */
 export function MigrationCard() {
+  useI18n();
   const [open, setOpen] = useState(false);
   return (
     <div className={`${card} flex flex-col gap-3`}>
       <h3 className="inline-flex items-center gap-2 text-sm font-extrabold text-ink-muted">
-        <FiUploadCloud className="size-4 text-pal" /> 存檔遷移
+        <FiUploadCloud className="size-4 text-pal" /> {t("存檔遷移")}
       </h3>
       <p className="text-[13px] leading-relaxed text-ink-muted">
-        已經有一個 Palworld 世界想搬進來?不管是別台專用伺服器、v1 舊版,還是本機四人邀請碼存檔,
-        都能接管。<b className="text-ink">最關鍵的一步</b>是把「啟用世界」指到你的存檔 —— 在
-        <b className="text-ink">存檔備份</b>分頁按一下就好。
+        {t("已經有一個 Palworld 世界想搬進來?不管是別台專用伺服器、v1 舊版,還是本機四人邀請碼存檔,都能接管。")}
+        <b className="text-ink">{t("最關鍵的一步")}</b>
+        {t("是把「啟用世界」指到你的存檔 —— 在")}
+        <b className="text-ink">{t("存檔備份")}</b>
+        {t("分頁按一下就好。")}
       </p>
       <ul className="flex flex-col gap-1.5 text-[13px] text-ink-muted">
-        <li className="flex gap-2"><FiArrowRight className="mt-0.5 size-3.5 shrink-0 text-pal" /> 遷移前務必停止伺服器,來源端遊戲也要關閉</li>
-        <li className="flex gap-2"><FiArrowRight className="mt-0.5 size-3.5 shrink-0 text-pal" /> 新實例先啟動一次再停止,讓存檔資料夾生成</li>
-        <li className="flex gap-2"><FiArrowRight className="mt-0.5 size-3.5 shrink-0 text-pal" /> 本機邀請碼存檔需額外修正玩家角色</li>
+        <li className="flex gap-2"><FiArrowRight className="mt-0.5 size-3.5 shrink-0 text-pal" /> {t("遷移前務必停止伺服器,來源端遊戲也要關閉")}</li>
+        <li className="flex gap-2"><FiArrowRight className="mt-0.5 size-3.5 shrink-0 text-pal" /> {t("新實例先啟動一次再停止,讓存檔資料夾生成")}</li>
+        <li className="flex gap-2"><FiArrowRight className="mt-0.5 size-3.5 shrink-0 text-pal" /> {t("本機邀請碼存檔需額外修正玩家角色")}</li>
       </ul>
       <div className="mt-1">
         <button className={btnPrimary} onClick={() => setOpen(true)}>
-          查看完整教學
+          {t("查看完整教學")}
         </button>
       </div>
       {open && <MigrationModal onClose={() => setOpen(false)} />}
@@ -35,6 +39,7 @@ export function MigrationCard() {
 }
 
 function MigrationModal({ onClose }: { onClose: () => void }) {
+  useI18n();
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-[rgb(35_32_48/0.55)] p-6 backdrop-blur-[3px]"
@@ -43,18 +48,18 @@ function MigrationModal({ onClose }: { onClose: () => void }) {
       <div className={`${card} w-[560px] max-w-full`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3">
           <h2 className="inline-flex items-center gap-2 text-lg font-extrabold">
-            <FiUploadCloud className="size-5 text-pal" /> 存檔遷移教學
+            <FiUploadCloud className="size-5 text-pal" /> {t("存檔遷移教學")}
           </h2>
-          <button className="text-ink-muted transition hover:text-ink" onClick={onClose} aria-label="關閉">
+          <button className="text-ink-muted transition hover:text-ink" onClick={onClose} aria-label={t("關閉")}>
             <FiX className="size-5" />
           </button>
         </div>
         <div className="mt-3 max-h-[68vh] overflow-y-auto pr-1 text-[13px] leading-relaxed text-ink">
-          <Markdown source={GUIDE} />
+          <Markdown source={t(GUIDE)} />
         </div>
         <div className="mt-4 flex justify-end">
           <button className={btnGhost} onClick={onClose}>
-            關閉
+            {t("關閉")}
           </button>
         </div>
       </div>

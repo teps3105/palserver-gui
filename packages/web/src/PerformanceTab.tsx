@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { FiCpu, FiActivity, FiClock, FiLayers, FiZap, FiHardDrive } from "react-icons/fi";
 import type { InstanceStats, LiveStatus } from "@palserver/shared";
 import type { AgentClient } from "./api";
+import { t, useI18n } from "./i18n";
 import { card } from "./ui";
 
 /** 走勢圖保留的取樣點數(約 5 分鐘,以 5 秒輪詢計)。 */
@@ -27,6 +28,7 @@ export function PerformanceTab({
   instanceId: string;
   running: boolean;
 }) {
+  useI18n();
   const [stats, setStats] = useState<InstanceStats | null>(null);
   const [live, setLive] = useState<LiveStatus | null>(null);
   const [history, setHistory] = useState<Sample[]>([]);
@@ -78,7 +80,7 @@ export function PerformanceTab({
     return (
       <div className="rounded-(--radius-cute) border-2 border-dashed border-line px-6 py-12 text-center text-ink-muted">
         <FiActivity className="mx-auto mb-2 size-11" />
-        <p className="text-[13px]">伺服器未在運作中,啟動後即可看到即時效能。</p>
+        <p className="text-[13px]">{t("伺服器未在運作中,啟動後即可看到即時效能。")}</p>
       </div>
     );
   }
@@ -95,67 +97,67 @@ export function PerformanceTab({
           icon={<FiCpu className="size-4" />}
           label="CPU"
           value={stats ? `${stats.cpuPercent.toFixed(0)}%` : "—"}
-          sub={stats ? `共 ${cores} 核 · 佔總算力 ${(cpuOfTotal * 100).toFixed(0)}%` : undefined}
+          sub={stats ? t("共 {cores} 核 · 佔總算力 {pct}%", { cores, pct: (cpuOfTotal * 100).toFixed(0) }) : undefined}
         />
         <Stat
           icon={<FiHardDrive className="size-4" />}
-          label="記憶體"
+          label={t("記憶體")}
           value={stats ? fmtBytes(stats.memoryBytes) : "—"}
           sub={stats ? `／ ${fmtBytes(stats.memoryLimitBytes)}` : undefined}
         />
         <Stat
           icon={<FiZap className="size-4" />}
-          label="伺服器 FPS"
+          label={t("伺服器 FPS")}
           value={metrics ? String(metrics.serverfps) : "—"}
-          sub={metrics ? `影格 ${metrics.serverframetime.toFixed(1)} ms` : "需啟用 REST API"}
+          sub={metrics ? t("影格 {ms} ms", { ms: metrics.serverframetime.toFixed(1) }) : t("需啟用 REST API")}
         />
         <Stat
           icon={<FiClock className="size-4" />}
-          label="運行時間"
+          label={t("運行時間")}
           value={stats?.uptimeSeconds != null ? fmtDuration(stats.uptimeSeconds) : "—"}
-          sub={stats?.processCount != null ? `${stats.processCount} 個行程` : undefined}
+          sub={stats?.processCount != null ? t("{n} 個行程", { n: stats.processCount }) : undefined}
         />
       </div>
 
       {/* 詳細用量條 */}
       <div className={`${card} flex flex-col gap-4`}>
         <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
-          <FiActivity className="size-4 text-pal" /> 資源用量
+          <FiActivity className="size-4 text-pal" /> {t("資源用量")}
         </h3>
         {stats ? (
           <>
             <Meter
-              label="CPU（佔總算力）"
+              label={t("CPU（佔總算力）")}
               text={`${(cpuOfTotal * 100).toFixed(1)}%`}
               ratio={Math.min(cpuOfTotal, 1)}
             />
             <Meter
-              label="記憶體"
+              label={t("記憶體")}
               text={`${fmtBytes(stats.memoryBytes)} / ${fmtBytes(stats.memoryLimitBytes)}`}
               ratio={stats.memoryLimitBytes ? stats.memoryBytes / stats.memoryLimitBytes : 0}
             />
           </>
         ) : (
-          <p className="text-sm text-ink-muted">讀取中…</p>
+          <p className="text-sm text-ink-muted">{t("讀取中…")}</p>
         )}
       </div>
 
       {/* 走勢圖 */}
       <div className={`${card} flex flex-col gap-4`}>
         <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
-          <FiActivity className="size-4 text-pal" /> 即時走勢
-          <span className="text-xs font-normal text-ink-muted">(最近約 5 分鐘)</span>
+          <FiActivity className="size-4 text-pal" /> {t("即時走勢")}
+          <span className="text-xs font-normal text-ink-muted">{t("(最近約 5 分鐘)")}</span>
         </h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <Trend
-            title="CPU 佔總算力"
+            title={t("CPU 佔總算力")}
             unit="%"
             color="#F4A64D"
             values={history.map((h) => h.cpu / (cores * 100) * 100)}
             max={100}
           />
           <Trend
-            title="記憶體使用率"
+            title={t("記憶體使用率")}
             unit="%"
             color="#7BB0E8"
             values={history.map((h) => h.memPct * 100)}
@@ -163,7 +165,7 @@ export function PerformanceTab({
           />
           {metrics && (
             <Trend
-              title="伺服器 FPS"
+              title={t("伺服器 FPS")}
               unit=""
               color="#8FCf8F"
               values={history.map((h) => h.fps ?? 0)}
@@ -171,21 +173,21 @@ export function PerformanceTab({
             />
           )}
         </div>
-        {history.length < 2 && <p className="text-xs text-ink-muted">收集資料中,稍待幾秒走勢就會出現。</p>}
+        {history.length < 2 && <p className="text-xs text-ink-muted">{t("收集資料中,稍待幾秒走勢就會出現。")}</p>}
       </div>
 
       {metrics && (
         <div className={`${card} flex flex-col gap-3`}>
           <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
-            <FiLayers className="size-4 text-pal" /> 伺服器效能
+            <FiLayers className="size-4 text-pal" /> {t("伺服器效能")}
           </h3>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
-            <Row k="伺服器 FPS" v={String(metrics.serverfps)} />
-            <Row k="影格時間" v={`${metrics.serverframetime.toFixed(1)} ms`} />
-            <Row k="伺服器運行" v={fmtDuration(metrics.uptime)} />
+            <Row k={t("伺服器 FPS")} v={String(metrics.serverfps)} />
+            <Row k={t("影格時間")} v={`${metrics.serverframetime.toFixed(1)} ms`} />
+            <Row k={t("伺服器運行")} v={fmtDuration(metrics.uptime)} />
           </dl>
           <p className="text-xs text-ink-muted">
-            伺服器 FPS 越接近設定的目標越流暢;明顯偏低代表 CPU 吃緊,可到「引擎微調」分頁調整。
+            {t("伺服器 FPS 越接近設定的目標越流暢;明顯偏低代表 CPU 吃緊,可到「引擎微調」分頁調整。")}
           </p>
         </div>
       )}
@@ -294,8 +296,8 @@ function fmtDuration(sec: number): string {
   const d = Math.floor(s / 86400);
   const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return `${d} 天 ${h} 時`;
-  if (h > 0) return `${h} 時 ${m} 分`;
-  if (m > 0) return `${m} 分`;
-  return `${s} 秒`;
+  if (d > 0) return t("{d} 天 {h} 時", { d, h });
+  if (h > 0) return t("{h} 時 {m} 分", { h, m });
+  if (m > 0) return t("{m} 分", { m });
+  return t("{s} 秒", { s });
 }

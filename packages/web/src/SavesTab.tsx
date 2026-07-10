@@ -14,6 +14,7 @@ import {
 import type { BackupSchedule, SavesStatus, WorldSave } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { FileBrowserDialog } from "./FileManager";
+import { t, useI18n } from "./i18n";
 import { btn, btnGhost, card, errorCls, inputCls } from "./ui";
 
 /** Where a world's .sav files live, relative to the server directory. */
@@ -32,6 +33,7 @@ export function SavesTab({
   instanceId: string;
   running: boolean;
 }) {
+  useI18n();
   const [saves, setSaves] = useState<SavesStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -70,13 +72,13 @@ export function SavesTab({
     }
   };
 
-  if (!saves) return <p className="text-ink-muted">{error ?? "載入中…"}</p>;
+  if (!saves) return <p className="text-ink-muted">{error ?? t("載入中…")}</p>;
 
   if (!saves.supported && saves.worlds.length === 0 && saves.backups.length === 0) {
     return (
       <div className="rounded-(--radius-cute) border-2 border-dashed border-line px-6 py-12 text-center text-ink-muted">
         <FiArchive className="mx-auto mb-2 size-11" />
-        <p className="font-bold">尚無存檔</p>
+        <p className="font-bold">{t("尚無存檔")}</p>
         <p className="mt-1 text-[13px]">{saves.reason}</p>
       </div>
     );
@@ -85,15 +87,14 @@ export function SavesTab({
   const restore = async (name: string) => {
     if (
       !confirm(
-        `還原備份「${name}」會覆蓋目前的世界存檔。\n\n` +
-          `還原前會自動先幫現有存檔做一份安全備份。確定要繼續嗎?`,
+        t("還原備份「{name}」會覆蓋目前的世界存檔。\n\n還原前會自動先幫現有存檔做一份安全備份。確定要繼續嗎?", { name }),
       )
     )
       return;
     await act(async () => {
       const res = await client.restoreBackup(instanceId, name);
-      flash(`已還原 ${res.worldGuid};原存檔已備份為 ${res.safetyBackup}`);
-    }, "已還原");
+      flash(t("已還原 {guid};原存檔已備份為 {backup}", { guid: res.worldGuid, backup: res.safetyBackup }));
+    }, t("已還原"));
   };
 
   return (
@@ -104,7 +105,7 @@ export function SavesTab({
       )}
       {running && (
         <p className="rounded-xl bg-sun/10 px-3 py-2 text-[13px] font-bold text-sun">
-          伺服器運作中:可以建立備份,但還原存檔、切換世界、刪除玩家存檔需要先停止伺服器。
+          {t("伺服器運作中:可以建立備份,但還原存檔、切換世界、刪除玩家存檔需要先停止伺服器。")}
         </p>
       )}
 
@@ -124,24 +125,24 @@ export function SavesTab({
           world={world}
           busy={busy}
           running={running}
-          onBackup={() => act(() => client.createBackup(instanceId, world.guid), "已建立備份")}
+          onBackup={() => act(() => client.createBackup(instanceId, world.guid), t("已建立備份"))}
           onActivate={() =>
-            act(() => client.setActiveWorld(instanceId, world.guid), "已設為啟用世界(下次啟動生效)")
+            act(() => client.setActiveWorld(instanceId, world.guid), t("已設為啟用世界(下次啟動生效)"))
           }
           onBrowse={() => setBrowsing(worldPath(world.guid))}
           onDeletePlayer={(file) => {
-            if (!confirm(`刪除玩家存檔「${file}」後,該玩家再次加入時會是全新角色。\n\n確定嗎?`)) return;
-            void act(() => client.deletePlayerSave(instanceId, world.guid, file), "已刪除玩家存檔");
+            if (!confirm(t("刪除玩家存檔「{file}」後,該玩家再次加入時會是全新角色。\n\n確定嗎?", { file }))) return;
+            void act(() => client.deletePlayerSave(instanceId, world.guid, file), t("已刪除玩家存檔"));
           }}
         />
       ))}
 
       <div className={`${card} p-0`}>
         <h3 className="border-b-2 border-line px-5 py-3 text-sm font-extrabold text-ink-muted">
-          備份({saves.backups.length})
+          {t("備份")}({saves.backups.length})
         </h3>
         {saves.backups.length === 0 ? (
-          <p className="px-5 py-8 text-center text-[13px] text-ink-muted">尚無備份。</p>
+          <p className="px-5 py-8 text-center text-[13px] text-ink-muted">{t("尚無備份。")}</p>
         ) : (
           <div className="flex flex-col divide-y divide-line">
             {saves.backups.map((backup) => (
@@ -158,21 +159,21 @@ export function SavesTab({
                     href={client.backupDownloadUrl(instanceId, backup.name)}
                     download
                   >
-                    <FiDownload className="size-3.5" /> 下載
+                    <FiDownload className="size-3.5" /> {t("下載")}
                   </a>
                   <button
                     className={`${btnGhost} inline-flex items-center gap-1.5`}
                     onClick={() => restore(backup.name)}
                     disabled={busy || running}
-                    title={running ? "請先停止伺服器" : undefined}
+                    title={running ? t("請先停止伺服器") : undefined}
                   >
-                    <FiRotateCcw className="size-3.5" /> 還原
+                    <FiRotateCcw className="size-3.5" /> {t("還原")}
                   </button>
                   <button
                     className={`${btnGhost} inline-flex items-center gap-1.5 text-berry hover:border-berry`}
                     onClick={() => {
-                      if (confirm(`刪除備份「${backup.name}」?`))
-                        void act(() => client.deleteBackup(instanceId, backup.name), "已刪除備份");
+                      if (confirm(t("刪除備份「{name}」?", { name: backup.name })))
+                        void act(() => client.deleteBackup(instanceId, backup.name), t("已刪除備份"));
                     }}
                     disabled={busy}
                   >
@@ -226,12 +227,12 @@ function WorldCard({
             {world.guid}
             {world.active && (
               <span className="inline-flex items-center gap-1 rounded-full border-[1.5px] border-grass/40 bg-grass/15 px-2 py-0.5 font-sans text-xs font-bold text-grass">
-                <FiCheck className="size-3" /> 啟用中
+                <FiCheck className="size-3" /> {t("啟用中")}
               </span>
             )}
           </p>
           <p className="mt-1 text-[13px] text-ink-muted">
-            {fmtSize(world.sizeBytes)} · {world.playerSaves.length} 位玩家存檔 · 更新於{" "}
+            {fmtSize(world.sizeBytes)} · {t("{n} 位玩家存檔", { n: world.playerSaves.length })} · {t("更新於")}{" "}
             {fmtWhen(world.modifiedAt)}
           </p>
         </div>
@@ -241,28 +242,28 @@ function WorldCard({
             onClick={onBackup}
             disabled={busy}
           >
-            <FiSave className="size-4" /> 立即備份
+            <FiSave className="size-4" /> {t("立即備份")}
           </button>
           {!world.active && (
             <button
               className={btnGhost}
               onClick={onActivate}
               disabled={busy || running}
-              title={running ? "請先停止伺服器" : "把伺服器指向這個世界"}
+              title={running ? t("請先停止伺服器") : t("把伺服器指向這個世界")}
             >
-              設為啟用世界
+              {t("設為啟用世界")}
             </button>
           )}
           <button
             className={`${btnGhost} inline-flex items-center gap-1.5`}
             onClick={onBrowse}
-            title="瀏覽、編輯或上傳這個世界的存檔檔案"
+            title={t("瀏覽、編輯或上傳這個世界的存檔檔案")}
           >
-            <FiFolder className="size-4" /> 開啟存檔資料夾
+            <FiFolder className="size-4" /> {t("開啟存檔資料夾")}
           </button>
           {world.playerSaves.length > 0 && (
             <button className={btnGhost} onClick={() => setShowPlayers((v) => !v)}>
-              <FiUser className="inline size-4" /> 玩家存檔
+              <FiUser className="inline size-4" /> {t("玩家存檔")}
             </button>
           )}
         </div>
@@ -280,9 +281,9 @@ function WorldCard({
                 className={`${btnGhost} inline-flex items-center gap-1.5 text-berry hover:border-berry`}
                 onClick={() => onDeletePlayer(p.file)}
                 disabled={busy || running}
-                title={running ? "請先停止伺服器" : "刪除後該玩家會以全新角色加入"}
+                title={running ? t("請先停止伺服器") : t("刪除後該玩家會以全新角色加入")}
               >
-                <FiTrash2 className="size-3.5" /> 刪除
+                <FiTrash2 className="size-3.5" /> {t("刪除")}
               </button>
             </div>
           ))}
@@ -324,7 +325,7 @@ function ScheduleCard({
     setSaving(true);
     try {
       await client.updateBackupSchedule(instanceId, draft);
-      onNotice("已儲存自動備份設定");
+      onNotice(t("已儲存自動備份設定"));
       onChanged();
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
@@ -337,7 +338,7 @@ function ScheduleCard({
     setSaving(true);
     try {
       const result = await client.runBackupSchedule(instanceId);
-      onNotice(`測試執行:${result.lastResult}`);
+      onNotice(t("測試執行:{result}", { result: result.lastResult ?? "" }));
       onChanged();
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
@@ -350,7 +351,7 @@ function ScheduleCard({
     <div className={`${card} flex flex-col gap-3`}>
       <div className="flex items-center justify-between gap-3">
         <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
-          <FiClock className="size-4 text-pal" /> 自動備份
+          <FiClock className="size-4 text-pal" /> {t("自動備份")}
         </h3>
         <button
           type="button"
@@ -368,7 +369,7 @@ function ScheduleCard({
       {draft.enabled && (
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5 text-[13px] font-bold text-ink-muted">
-            每隔幾分鐘備份
+            {t("每隔幾分鐘備份")}
             <input
               className={inputCls}
               type="number"
@@ -379,7 +380,7 @@ function ScheduleCard({
             />
           </label>
           <label className="flex flex-col gap-1.5 text-[13px] font-bold text-ink-muted">
-            保留幾份備份
+            {t("保留幾份備份")}
             <input
               className={inputCls}
               type="number"
@@ -396,27 +397,27 @@ function ScheduleCard({
               checked={draft.skipWhenEmpty}
               onChange={(e) => setDraft((d) => ({ ...d, skipWhenEmpty: e.target.checked }))}
             />
-            沒有玩家在線上時跳過(避免堆積一模一樣的備份)
+            {t("沒有玩家在線上時跳過(避免堆積一模一樣的備份)")}
           </label>
         </div>
       )}
 
       <p className="text-[13px] text-ink-muted">
         {schedule.lastRunAt
-          ? `上次執行 ${fmtWhen(schedule.lastRunAt)} — ${schedule.lastResult ?? ""}`
-          : "尚未執行過。備份只在伺服器運作中進行。"}
+          ? `${t("上次執行")} ${fmtWhen(schedule.lastRunAt)} — ${schedule.lastResult ?? ""}`
+          : t("尚未執行過。備份只在伺服器運作中進行。")}
       </p>
 
       <div className="flex gap-2">
         <button className={btn} onClick={save} disabled={!dirty || saving || busy}>
-          {saving ? "儲存中…" : "儲存設定"}
+          {saving ? t("儲存中…") : t("儲存設定")}
         </button>
         <button
           className={`${btnGhost} inline-flex items-center gap-1.5`}
           onClick={runNow}
           disabled={saving || busy}
         >
-          <FiPlay className="size-4" /> 立即測試執行
+          <FiPlay className="size-4" /> {t("立即測試執行")}
         </button>
       </div>
     </div>

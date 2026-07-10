@@ -4,6 +4,7 @@ import { FiDownload, FiCheck, FiPackage, FiFolder, FiTrash2, FiAlertTriangle } f
 import type { ModComponent, ModsStatus } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { FileBrowserDialog } from "./FileManager";
+import { t, useI18n } from "./i18n";
 import { btn, btnGhost, card, errorCls } from "./ui";
 
 const COMPONENTS: {
@@ -35,6 +36,7 @@ export function ModsTab({
   instanceId: string;
   running: boolean;
 }) {
+  useI18n();
   const [mods, setMods] = useState<ModsStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export function ModsTab({
   }, [refresh]);
 
   const install = async (component: ModComponent, channel: "stable" | "beta" = "stable") => {
-    if (channel === "beta" && !confirm("測試版(Beta)可能不穩定,但含較新的功能(例如玩家細節 API)。\n\n確定要安裝最新測試版嗎?")) {
+    if (channel === "beta" && !confirm(t("測試版(Beta)可能不穩定,但含較新的功能(例如玩家細節 API)。\n\n確定要安裝最新測試版嗎?"))) {
       return;
     }
     setBusy(component);
@@ -71,7 +73,7 @@ export function ModsTab({
 
   const uninstall = async (component: ModComponent) => {
     const label = component === "paldefender" ? "PalDefender" : "UE4SS";
-    if (!confirm(`確定要移除 ${label} 嗎?\n\n會刪除它安裝的檔案(${label === "UE4SS" ? "含 Lua 模組" : "含設定檔"}也會一併移除)。此動作無法復原,重啟後生效。`)) {
+    if (!confirm(t("確定要移除 {label} 嗎?\n\n會刪除它安裝的檔案({extra}也會一併移除)。此動作無法復原,重啟後生效。", { label, extra: label === "UE4SS" ? t("含 Lua 模組") : t("含設定檔") }))) {
       return;
     }
     setBusy(component);
@@ -94,7 +96,7 @@ export function ModsTab({
     }
   };
 
-  if (!mods) return <p className="text-ink-muted">{error ?? "載入中…"}</p>;
+  if (!mods) return <p className="text-ink-muted">{error ?? t("載入中…")}</p>;
 
   if (!mods.supported) {
     return (
@@ -111,13 +113,12 @@ export function ModsTab({
       <p className="inline-flex items-start gap-2 rounded-xl border-2 border-sun/40 bg-sun/10 px-3 py-2 text-[13px] text-sun">
         <FiAlertTriangle className="mt-0.5 size-4 shrink-0" />
         <span>
-          每次 <b>Palworld 改版</b>後,PalDefender / UE4SS 常會<b>暫時無法使用</b>,要等模組作者釋出相容版本
-          (通常改版後幾天內)。若改版後伺服器啟動異常或閃退,先回這裡<b>更新到最新版</b>,或先<b>移除</b>模組再開服。
+          {t("每次")} <b>{t("Palworld 改版")}</b>{t("後,PalDefender / UE4SS 常會")}<b>{t("暫時無法使用")}</b>{t(",要等模組作者釋出相容版本(通常改版後幾天內)。若改版後伺服器啟動異常或閃退,先回這裡")}<b>{t("更新到最新版")}</b>{t(",或先")}<b>{t("移除")}</b>{t("模組再開服。")}
         </span>
       </p>
       {running && (
         <p className="rounded-xl bg-sun/10 px-3 py-2 text-[13px] font-bold text-sun">
-          伺服器運作中:安裝、更新或移除模組需要先停止伺服器(執行中時模組檔案被鎖定)。
+          {t("伺服器運作中:安裝、更新或移除模組需要先停止伺服器(執行中時模組檔案被鎖定)。")}
         </p>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
@@ -129,48 +130,48 @@ export function ModsTab({
                 {c.icon}
                 <div className="flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-base font-extrabold">{c.title}</h3>
+                    <h3 className="text-base font-extrabold">{t(c.title)}</h3>
                     {state.installed && (
                       <span className="inline-flex items-center gap-1 rounded-full border-[1.5px] border-grass/40 bg-grass/15 px-3 py-1 text-xs font-bold text-grass">
                         <FiCheck className="size-3.5" />
-                        已安裝{state.version ? ` ${state.version}` : ""}
+                        {t("已安裝")}{state.version ? ` ${state.version}` : ""}
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-[13px] text-ink-muted">{c.desc}</p>
+                  <p className="mt-1 text-[13px] text-ink-muted">{t(c.desc)}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       className={`${btn} inline-flex items-center gap-1.5`}
                       onClick={() => install(c.id)}
                       disabled={busy !== null || running}
-                      title={running ? "請先停止伺服器" : undefined}
+                      title={running ? t("請先停止伺服器") : undefined}
                     >
                       <FiDownload className="size-4" />
-                      {busy === c.id ? "安裝中…" : state.installed ? "更新到最新版" : "安裝穩定版"}
+                      {busy === c.id ? t("安裝中…") : state.installed ? t("更新到最新版") : t("安裝穩定版")}
                     </button>
                     <button
                       className={`${btnGhost} inline-flex items-center gap-1.5`}
                       onClick={() => install(c.id, "beta")}
                       disabled={busy !== null || running}
-                      title={running ? "請先停止伺服器" : "安裝最新測試版(含較新功能,可能不穩定)"}
+                      title={running ? t("請先停止伺服器") : t("安裝最新測試版(含較新功能,可能不穩定)")}
                     >
-                      安裝測試版
+                      {t("安裝測試版")}
                     </button>
                     {state.installed && (
                       <button
                         className={`${btnGhost} inline-flex items-center gap-1.5 text-berry hover:border-berry`}
                         onClick={() => uninstall(c.id)}
                         disabled={busy !== null || running}
-                        title={running ? "請先停止伺服器" : "移除此模組"}
+                        title={running ? t("請先停止伺服器") : t("移除此模組")}
                       >
                         <FiTrash2 className="size-4" />
-                        {busy === c.id ? "處理中…" : "移除"}
+                        {busy === c.id ? t("處理中…") : t("移除")}
                       </button>
                     )}
                   </div>
                   {c.id === "paldefender" && (
                     <p className="mt-2 text-xs text-ink-muted">
-                      「玩家細節(查看帕魯/背包)」需要 v1.8.0 以上的測試版才支援。
+                      {t("「玩家細節(查看帕魯/背包)」需要 v1.8.0 以上的測試版才支援。")}
                     </p>
                   )}
                 </div>
@@ -179,25 +180,25 @@ export function ModsTab({
           );
         })}
       </div>
-      <p className="text-[13px] text-ink-muted">安裝或更新後,重啟伺服器才會生效。</p>
+      <p className="text-[13px] text-ink-muted">{t("安裝或更新後,重啟伺服器才會生效。")}</p>
 
       <div className={card}>
         <div className="mb-2 flex items-center justify-between gap-2">
-          <h3 className="text-sm font-extrabold text-ink-muted">Lua 模組(UE4SS)</h3>
+          <h3 className="text-sm font-extrabold text-ink-muted">{t("Lua 模組(UE4SS)")}</h3>
           <button
             className={`${btnGhost} inline-flex items-center gap-1.5`}
             onClick={() => setBrowsing(mods.luaModsDir!)}
             disabled={mods.luaModsDir === null}
-            title={mods.luaModsDir ?? "先安裝 UE4SS"}
+            title={mods.luaModsDir ?? t("先安裝 UE4SS")}
           >
-            <FiFolder className="size-4" /> 開啟 Lua 模組資料夾
+            <FiFolder className="size-4" /> {t("開啟 Lua 模組資料夾")}
           </button>
         </div>
         {mods.luaMods.length === 0 ? (
           <p className="text-[13px] text-ink-muted">
             {mods.luaModsDir === null
-              ? "尚無 Lua 模組。先安裝 UE4SS,之後就能在此上傳與管理模組。"
-              : "尚無 Lua 模組。用上方的「開啟 Lua 模組資料夾」上傳模組資料夾。"}
+              ? t("尚無 Lua 模組。先安裝 UE4SS,之後就能在此上傳與管理模組。")
+              : t("尚無 Lua 模組。用上方的「開啟 Lua 模組資料夾」上傳模組資料夾。")}
           </p>
         ) : (
           <div className="flex flex-col divide-y divide-line">
@@ -223,17 +224,17 @@ export function ModsTab({
 
       <div className={card}>
         <div className="mb-2 flex items-center justify-between gap-2">
-          <h3 className="text-sm font-extrabold text-ink-muted">Pak 模組</h3>
+          <h3 className="text-sm font-extrabold text-ink-muted">{t("Pak 模組")}</h3>
           <button
             className={`${btnGhost} inline-flex items-center gap-1.5`}
             onClick={() => setBrowsing("Pal/Content/Paks")}
           >
-            <FiFolder className="size-4" /> 開啟 Paks 資料夾
+            <FiFolder className="size-4" /> {t("開啟 Paks 資料夾")}
           </button>
         </div>
         {mods.pakMods.length === 0 ? (
           <p className="text-[13px] text-ink-muted">
-            尚無 Pak 模組。用上方的「開啟 Paks 資料夾」上傳 .pak 檔(Blueprint 模組放 LogicMods 子資料夾)。
+            {t("尚無 Pak 模組。用上方的「開啟 Paks 資料夾」上傳 .pak 檔(Blueprint 模組放 LogicMods 子資料夾)。")}
           </p>
         ) : (
           <ul className="flex flex-col gap-1.5">
@@ -248,16 +249,16 @@ export function ModsTab({
 
       <div className={card}>
         <div className="mb-2 flex items-center justify-between gap-2">
-          <h3 className="text-sm font-extrabold text-ink-muted">伺服器檔案</h3>
+          <h3 className="text-sm font-extrabold text-ink-muted">{t("伺服器檔案")}</h3>
           <button
             className={`${btnGhost} inline-flex items-center gap-1.5`}
             onClick={() => setBrowsing("")}
           >
-            <FiFolder className="size-4" /> 瀏覽全部
+            <FiFolder className="size-4" /> {t("瀏覽全部")}
           </button>
         </div>
         <p className="text-[13px] text-ink-muted">
-          直接編輯、上傳或刪除伺服器目錄裡的檔案(例如 PalDefender 的 Config.json)。
+          {t("直接編輯、上傳或刪除伺服器目錄裡的檔案(例如 PalDefender 的 Config.json)。")}
         </p>
       </div>
 

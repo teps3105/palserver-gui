@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FiMoon, FiSun } from "react-icons/fi";
+import { useI18n } from "./i18n";
 
 /**
  * 深淺色模式:預設跟隨系統(auto),但 auto 只是還沒選過的初始狀態 ——
@@ -32,6 +33,7 @@ export function applyThemeMode(mode: ThemeMode): void {
  * 系統外觀走,系統切換時圖示也即時跟著換。
  */
 export function ThemeToggle() {
+  const { t } = useI18n();
   const [mode, setMode] = useState<ThemeMode>(loadThemeMode);
   const [systemDark, setSystemDark] = useState(
     () => window.matchMedia("(prefers-color-scheme: dark)").matches,
@@ -54,13 +56,13 @@ export function ThemeToggle() {
     }
   };
   const Icon = isDark ? FiMoon : FiSun;
-  const label = isDark ? "深色模式" : "淺色模式";
+  const label = isDark ? t("深色模式") : t("淺色模式");
   return (
     <button
       className="rounded-full border-2 border-line bg-card-soft p-2 text-ink transition hover:-translate-y-px hover:border-pal active:translate-y-0 active:scale-95"
       onClick={toggle}
-      title={`外觀:${label}(點擊切換)`}
-      aria-label={`外觀:${label}`}
+      title={t("外觀:{label}(點擊切換)", { label })}
+      aria-label={t("外觀:{label}(點擊切換)", { label })}
     >
       <Icon className="size-4" />
     </button>

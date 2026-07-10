@@ -12,6 +12,7 @@ import {
 } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { FileEditor } from "./FileManager";
+import { t, useI18n } from "./i18n";
 import { btn, btnGhost, card, errorCls, inputCls } from "./ui";
 
 const KEYS = Object.keys(PALDEFENDER_OPTIONS) as PdOptionKey[];
@@ -28,6 +29,7 @@ export function PalDefenderTab({
   instanceId: string;
   running: boolean;
 }) {
+  useI18n();
   const [status, setStatus] = useState<PalDefenderConfigStatus | null>(null);
   const [draft, setDraft] = useState<PalDefenderConfig>({});
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +62,7 @@ export function PalDefenderTab({
     return KEYS.filter((k) => draft[k] !== effective(status.values, k));
   }, [draft, status]);
 
-  if (!status) return <p className="text-ink-muted">{error ?? "載入中…"}</p>;
+  if (!status) return <p className="text-ink-muted">{error ?? t("載入中…")}</p>;
 
   if (!status.supported) {
     return (
@@ -76,7 +78,7 @@ export function PalDefenderTab({
     setError(null);
     try {
       await client.updatePalDefenderConfig(instanceId, draft);
-      setNotice("已儲存並嘗試熱重載(若 RCON 未啟用則於重啟後生效)");
+      setNotice(t("已儲存並嘗試熱重載(若 RCON 未啟用則於重啟後生效)"));
       setTimeout(() => setNotice(null), 3500);
       await refresh();
     } catch (err) {
@@ -88,7 +90,7 @@ export function PalDefenderTab({
 
   const grouped = new Map<string, PdOptionKey[]>();
   for (const key of KEYS) {
-    const label = PD_CATEGORY_LABELS[PALDEFENDER_OPTIONS[key].category as PdOptionCategory];
+    const label = t(PD_CATEGORY_LABELS[PALDEFENDER_OPTIONS[key].category as PdOptionCategory]);
     grouped.set(label, [...(grouped.get(label) ?? []), key]);
   }
 
@@ -101,15 +103,15 @@ export function PalDefenderTab({
 
       <div className={`${card} flex flex-wrap items-center justify-between gap-2`}>
         <p className="inline-flex items-center gap-2 text-sm font-extrabold">
-          <FiShield className="size-4 text-pal" /> PalDefender 反外掛設定
+          <FiShield className="size-4 text-pal" /> {t("PalDefender 反外掛設定")}
         </p>
         <button
           className={`${btnGhost} inline-flex items-center gap-1.5`}
           onClick={() => setEditingRaw(RAW_PATH)}
           disabled={!status.exists}
-          title={status.exists ? "直接編輯 Config.json" : "檔案尚未產生"}
+          title={status.exists ? t("直接編輯 Config.json") : t("檔案尚未產生")}
         >
-          <FiFileText className="size-4" /> 編輯 Config.json
+          <FiFileText className="size-4" /> {t("編輯 Config.json")}
         </button>
       </div>
       {!status.exists && status.reason && <p className="text-[13px] text-sun">{status.reason}</p>}
@@ -121,7 +123,7 @@ export function PalDefenderTab({
           setError(null);
           try {
             await client.setPalDefenderRestEnabled(instanceId, enabled);
-            setNotice(enabled ? "已啟用 REST API — 重啟伺服器後生效" : "已停用 REST API — 重啟後生效");
+            setNotice(enabled ? t("已啟用 REST API — 重啟伺服器後生效") : t("已停用 REST API — 重啟後生效"));
             setTimeout(() => setNotice(null), 4000);
             await refresh();
           } catch (err) {
@@ -132,7 +134,7 @@ export function PalDefenderTab({
           setError(null);
           try {
             await client.provisionPalDefenderToken(instanceId, rest?.hasToken ?? false);
-            setNotice("存取權杖已就緒 — 若查詢顯示尚未生效,重啟伺服器一次");
+            setNotice(t("存取權杖已就緒 — 若查詢顯示尚未生效,重啟伺服器一次"));
             setTimeout(() => setNotice(null), 4000);
             await refresh();
           } catch (err) {
@@ -161,14 +163,14 @@ export function PalDefenderTab({
       {dirtyKeys.length > 0 && (
         <div className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-(--radius-cute) border-2 border-sun/50 bg-card p-3 shadow-(--shadow-cute)">
           <span className="text-[13px] font-bold text-ink-muted">
-            小心~您有 {dirtyKeys.length} 項變更尚未儲存!
+            {t("小心~您有 {n} 項變更尚未儲存!", { n: dirtyKeys.length })}
           </span>
           <div className="flex gap-2">
             <button className={btnGhost} onClick={() => void refresh()} disabled={saving}>
-              重置
+              {t("重置")}
             </button>
             <button className={btn} onClick={save} disabled={saving}>
-              {saving ? "儲存中…" : "確定修改"}
+              {saving ? t("儲存中…") : t("確定修改")}
             </button>
           </div>
         </div>
@@ -212,7 +214,7 @@ function RestStatusCard({
           type="button"
           role="switch"
           aria-checked={rest.enabled}
-          aria-label="啟用 REST API"
+          aria-label={t("啟用 REST API")}
           onClick={() => rest.configExists && onToggle(!rest.enabled)}
           disabled={!rest.configExists}
           className={`relative h-7 w-12 rounded-full transition disabled:opacity-40 ${rest.enabled ? "bg-grass" : "bg-line"}`}
@@ -225,31 +227,31 @@ function RestStatusCard({
 
       <p className="text-[13px] text-ink-muted">
         {!rest.configExists
-          ? rest.reason ?? "尚未生成 REST 設定 — 啟動一次伺服器即會產生。"
+          ? rest.reason ?? t("尚未生成 REST 設定 — 啟動一次伺服器即會產生。")
           : rest.enabled
-            ? "啟用後,可在玩家分頁點玩家查看其帕魯與背包。變更需重啟伺服器才會生效。"
-            : "啟用後,可在玩家分頁點玩家查看其帕魯與背包。"}
+            ? t("啟用後,可在玩家分頁點玩家查看其帕魯與背包。變更需重啟伺服器才會生效。")
+            : t("啟用後,可在玩家分頁點玩家查看其帕魯與背包。")}
       </p>
 
       {rest.enabled && rest.configExists && (
         <div className="flex flex-wrap items-center gap-3 border-t-2 border-line pt-3">
           <span className="text-[13px] font-bold">
-            存取權杖:
+            {t("存取權杖:")}
             {rest.hasToken ? (
               <span className="ml-1 inline-flex items-center gap-1 text-grass">
-                <FiCheck className="size-3.5" /> 已設定
+                <FiCheck className="size-3.5" /> {t("已設定")}
               </span>
             ) : (
-              <span className="ml-1 text-sun">尚未設定</span>
+              <span className="ml-1 text-sun">{t("尚未設定")}</span>
             )}
           </span>
           <button
             className={`${rest.hasToken ? btnGhost : btn} inline-flex items-center gap-1.5`}
             onClick={onProvisionToken}
           >
-            <FiKey className="size-4" /> {rest.hasToken ? "重新產生權杖" : "建立存取權杖"}
+            <FiKey className="size-4" /> {rest.hasToken ? t("重新產生權杖") : t("建立存取權杖")}
           </button>
-          <span className="text-xs text-ink-muted">agent 用它讀取玩家資料,只在本機使用。</span>
+          <span className="text-xs text-ink-muted">{t("agent 用它讀取玩家資料,只在本機使用。")}</span>
         </div>
       )}
     </div>
@@ -267,22 +269,23 @@ function OptionRow({
   fileValue: number | boolean | undefined;
   onChange: (value: number | boolean) => void;
 }) {
+  useI18n();
   const meta: PdOptionMeta = PALDEFENDER_OPTIONS[optionKey];
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-3">
       <div className="min-w-64 flex-1">
         <p className="text-sm font-bold">
-          {meta.label}
+          {t(meta.label)}
           {fileValue === undefined && (
-            <span className="ml-2 text-xs font-normal text-ink-muted">(未設定,使用預設)</span>
+            <span className="ml-2 text-xs font-normal text-ink-muted">{t("(未設定,使用預設)")}</span>
           )}
         </p>
         <p className="font-mono text-xs text-ink-muted">{optionKey}</p>
-        {meta.hint && <p className="mt-1 max-w-xl text-xs text-ink-muted">{meta.hint}</p>}
+        {meta.hint && <p className="mt-1 max-w-xl text-xs text-ink-muted">{t(meta.hint)}</p>}
         {meta.warn && (
           <p className="mt-1 inline-flex max-w-xl items-start gap-1.5 text-xs text-sun">
             <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-            {meta.warn}
+            {t(meta.warn)}
           </p>
         )}
       </div>
@@ -292,7 +295,7 @@ function OptionRow({
             type="button"
             role="switch"
             aria-checked={Boolean(value)}
-            aria-label={meta.label}
+            aria-label={t(meta.label)}
             onClick={() => onChange(!value)}
             className={`relative h-7 w-12 rounded-full transition ${value ? "bg-grass" : "bg-line"}`}
           >

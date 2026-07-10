@@ -4,6 +4,7 @@ import type { AgentClient, Connection, TelemetryStatus } from "./api";
 import { copyText } from "./clipboard";
 import { PrivacyModal } from "./PrivacyModal";
 import { UpdateCard } from "./UpdateCard";
+import { useI18n } from "./i18n";
 import { Overlay, card, btn, btnGhost } from "./ui";
 
 /**
@@ -20,6 +21,7 @@ export function SettingsModal({
   conn: Connection;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [code, setCode] = useState<string | null>(null);
   const [addrs, setAddrs] = useState<{ ip: string; tailscale: boolean }[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -46,7 +48,7 @@ export function SettingsModal({
   const linkFor = (ip: string) => `${scheme}//${ip}:${port}/?setup=${code ?? ""}`;
 
   const rotate = async () => {
-    if (!confirm("重新產生配對碼?\n\n舊的配對碼與登入連結會立刻失效,已連線的裝置不受影響。")) return;
+    if (!confirm(t("重新產生配對碼?\n\n舊的配對碼與登入連結會立刻失效,已連線的裝置不受影響。"))) return;
     setBusy(true);
     try {
       const r = await client.rotatePairingCode();
@@ -59,7 +61,7 @@ export function SettingsModal({
   const clearData = () => {
     if (
       !confirm(
-        "清除這個瀏覽器上的暫存資料?\n\n會清掉:已儲存的連線、看過的公告、地圖校正、偏好設定等。\n頁面會重新整理,伺服器與存檔完全不受影響。",
+        t("清除這個瀏覽器上的暫存資料?\n\n會清掉:已儲存的連線、看過的公告、地圖校正、偏好設定等。\n頁面會重新整理,伺服器與存檔完全不受影響。"),
       )
     ) {
       return;
@@ -86,23 +88,22 @@ export function SettingsModal({
       >
         <div className="flex items-center justify-between">
           <h2 className="inline-flex items-center gap-2 text-lg font-extrabold">
-            <FiSmartphone className="size-5 text-pal" /> 設定
+            <FiSmartphone className="size-5 text-pal" /> {t("設定")}
           </h2>
-          <button className="text-ink-muted transition hover:text-ink" onClick={onClose} aria-label="關閉">
+          <button className="text-ink-muted transition hover:text-ink" onClick={onClose} aria-label={t("關閉")}>
             <FiX className="size-5" />
           </button>
         </div>
 
         {/* 在其他裝置連線 */}
         <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-extrabold">在其他裝置連線</h3>
+          <h3 className="text-sm font-extrabold">{t("在其他裝置連線")}</h3>
           <p className="text-[13px] text-ink-muted">
-            想在手機或另一台電腦管理這台伺服器?在那台裝置的瀏覽器打開下面的連結(或打開 agent 網址後輸入配對碼)即可登入。
-            對方需要和這台主機在同一區網或 VPN 內。
+            {t("想在手機或另一台電腦管理這台伺服器?在那台裝置的瀏覽器打開下面的連結(或打開 agent 網址後輸入配對碼)即可登入。對方需要和這台主機在同一區網或 VPN 內。")}
           </p>
 
           <div>
-            <p className="mb-1 text-xs font-bold text-ink-muted">配對碼</p>
+            <p className="mb-1 text-xs font-bold text-ink-muted">{t("配對碼")}</p>
             <Copyable text={code ?? "…"} mono big />
           </div>
 
@@ -110,7 +111,7 @@ export function SettingsModal({
             // agent 已把最適合遠端連線的位址(Tailscale/VPN 優先)排在最前面,
             // 只給那一條 —— 列出一堆區網位址反而讓人不知道該複製哪個。
             <div>
-              <p className="mb-1 text-xs font-bold text-ink-muted">一鍵登入連結(複製給其他裝置打開)</p>
+              <p className="mb-1 text-xs font-bold text-ink-muted">{t("一鍵登入連結(複製給其他裝置打開)")}</p>
               <div className="flex items-center gap-2">
                 <Copyable text={linkFor(addrs[0].ip)} mono />
                 {addrs[0].tailscale && (
@@ -122,16 +123,16 @@ export function SettingsModal({
             </div>
           ) : (
             <p className="rounded-xl bg-card-soft px-3 py-2 text-xs text-ink-muted">
-              偵測不到區網/VPN 位址。若要讓其他裝置連線,請確認這台主機已連上區網或 VPN,
-              並用該位址(例如 Tailscale 的 100.x)加上 <span className="font-mono">/?setup=配對碼</span> 開啟。
+              {t("偵測不到區網/VPN 位址。若要讓其他裝置連線,請確認這台主機已連上區網或 VPN,並用該位址(例如 Tailscale 的 100.x)加上")}{" "}
+              <span className="font-mono">/?setup={t("配對碼")}</span> {t("開啟。")}
             </p>
           )}
 
           <div>
             <button className={`${btnGhost} inline-flex items-center gap-1.5`} onClick={rotate} disabled={busy}>
-              <FiRefreshCw className="size-4" /> {busy ? "產生中…" : "重新產生配對碼"}
+              <FiRefreshCw className="size-4" /> {busy ? t("產生中…") : t("重新產生配對碼")}
             </button>
-            <p className="mt-1 text-xs text-ink-muted">舊連結外流時可重設;重設後舊的配對碼即失效。</p>
+            <p className="mt-1 text-xs text-ink-muted">{t("舊連結外流時可重設;重設後舊的配對碼即失效。")}</p>
           </div>
         </div>
 
@@ -141,7 +142,7 @@ export function SettingsModal({
             className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-muted hover:text-ink"
             onClick={() => setShowToken((v) => !v)}
           >
-            <FiKey className="size-4" /> 進階:API token(自動化用)
+            <FiKey className="size-4" /> {t("進階:API token(自動化用)")}
           </button>
           {showToken &&
             (conn.token ? (
@@ -150,7 +151,7 @@ export function SettingsModal({
               </div>
             ) : (
               <p className="mt-2 rounded-xl bg-card-soft px-3 py-2 text-xs text-ink-muted">
-                你目前是本機免密碼連線,手上沒有 token。API token 顯示在 agent 啟動的視窗裡(標示「API token」那行)。
+                {t("你目前是本機免密碼連線,手上沒有 token。API token 顯示在 agent 啟動的視窗裡(標示「API token」那行)。")}
               </p>
             ))}
         </div>
@@ -161,18 +162,18 @@ export function SettingsModal({
         {/* 匿名使用統計 */}
         {telemetry && (
           <div className="border-t border-line pt-3">
-            <h3 className="text-sm font-extrabold">匿名使用統計</h3>
+            <h3 className="text-sm font-extrabold">{t("匿名使用統計")}</h3>
             <p className="mt-1 text-xs text-ink-muted">
-              回報匿名的使用計數(安裝數、伺服器建立/啟動數、不重複玩家數),幫助我們了解使用規模。
-              <b className="text-ink">不含任何個資、IP、伺服器名稱或存檔內容</b>,詳見
+              {t("回報匿名的使用計數(安裝數、伺服器建立/啟動數、不重複玩家數),幫助我們了解使用規模。")}
+              <b className="text-ink">{t("不含任何個資、IP、伺服器名稱或存檔內容")}</b>{t(",詳見")}
               <button className="underline underline-offset-2 hover:text-pal" onClick={() => setShowPrivacy(true)}>
-                隱私權政策
+                {t("隱私權政策")}
               </button>
               。
             </p>
             {telemetry.envDisabled ? (
               <p className="mt-2 rounded-xl bg-card-soft px-3 py-2 text-xs text-ink-muted">
-                已由環境變數 <span className="font-mono">PALSERVER_TELEMETRY=0</span> 強制停用。
+                {t("已由環境變數")} <span className="font-mono">PALSERVER_TELEMETRY=0</span> {t("強制停用。")}
               </p>
             ) : (
               <label className="mt-2 flex items-center gap-2 text-[13px] font-bold text-ink-muted">
@@ -187,7 +188,7 @@ export function SettingsModal({
                       .catch(() => {});
                   }}
                 />
-                參與匿名使用統計
+                {t("參與匿名使用統計")}
               </label>
             )}
           </div>
@@ -196,22 +197,22 @@ export function SettingsModal({
 
         {/* 清除暫存資料 */}
         <div className="border-t border-line pt-3">
-          <h3 className="text-sm font-extrabold">清除暫存資料</h3>
+          <h3 className="text-sm font-extrabold">{t("清除暫存資料")}</h3>
           <p className="mt-1 text-xs text-ink-muted">
-            清掉這個瀏覽器上存的連線、看過的公告與偏好設定(localStorage / cookie)。
-            遇到畫面卡舊資料、或想登出重連時很有用。<b className="text-ink">不會動到伺服器與存檔。</b>
+            {t("清掉這個瀏覽器上存的連線、看過的公告與偏好設定(localStorage / cookie)。遇到畫面卡舊資料、或想登出重連時很有用。")}
+            <b className="text-ink">{t("不會動到伺服器與存檔。")}</b>
           </p>
           <button
             className={`${btnGhost} mt-2 inline-flex items-center gap-1.5 text-berry hover:border-berry`}
             onClick={clearData}
           >
-            <FiTrash2 className="size-4" /> 清除暫存並重新整理
+            <FiTrash2 className="size-4" /> {t("清除暫存並重新整理")}
           </button>
         </div>
 
         <div className="flex justify-end">
           <button className={btn} onClick={onClose}>
-            完成
+            {t("完成")}
           </button>
         </div>
       </div>
@@ -220,6 +221,7 @@ export function SettingsModal({
 }
 
 function Copyable({ text, mono, big }: { text: string; mono?: boolean; big?: boolean }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     if (await copyText(text)) {
@@ -230,7 +232,7 @@ function Copyable({ text, mono, big }: { text: string; mono?: boolean; big?: boo
   return (
     <button
       onClick={copy}
-      title="點擊複製"
+      title={t("點擊複製")}
       className={`flex w-full items-center justify-between gap-2 rounded-lg border-2 border-line bg-card-soft px-3 py-2 text-left transition hover:border-pal ${
         mono ? "font-mono" : ""
       } ${big ? "text-lg font-bold tracking-widest" : "text-sm"}`}

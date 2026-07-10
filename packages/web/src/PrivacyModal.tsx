@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FiX, FiShield, FiDownload, FiUser, FiUsers, FiServer, FiPlay } from "react-icons/fi";
 import { Markdown } from "./Markdown";
 import { fetchGlobalStats, type GlobalStats } from "./stats";
+import { t, useI18n } from "./i18n";
 import { Overlay, card, btn } from "./ui";
 
 /**
@@ -10,6 +11,7 @@ import { Overlay, card, btn } from "./ui";
  * 遙測開關在「設定」裡(需要已連線的 agent),這裡純資訊。
  */
 export function PrivacyModal({ onClose }: { onClose: () => void }) {
+  useI18n();
   const [policy, setPolicy] = useState<string | null>(null);
   const [stats, setStats] = useState<GlobalStats | null>(null);
 
@@ -17,7 +19,7 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
     fetch("/privacy.md", { signal: AbortSignal.timeout(6000) })
       .then((r) => (r.ok ? r.text() : Promise.reject()))
       .then(setPolicy)
-      .catch(() => setPolicy("讀取失敗 —— 政策全文請見 GitHub repo 的 PRIVACY.md。"));
+      .catch(() => setPolicy(t("讀取失敗 —— 政策全文請見 GitHub repo 的 PRIVACY.md。")));
     void fetchGlobalStats().then(setStats);
   }, []);
 
@@ -29,30 +31,30 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
       >
         <div className="flex items-center justify-between">
           <h2 className="inline-flex items-center gap-2 text-lg font-extrabold">
-            <FiShield className="size-5 text-pal" /> 隱私權政策
+            <FiShield className="size-5 text-pal" /> {t("隱私權政策")}
           </h2>
-          <button className="text-ink-muted transition hover:text-ink" onClick={onClose} aria-label="關閉">
+          <button className="text-ink-muted transition hover:text-ink" onClick={onClose} aria-label={t("關閉")}>
             <FiX className="size-5" />
           </button>
         </div>
 
         {stats && (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            <Stat icon={<FiDownload />} label="總下載" value={stats.downloads} />
-            <Stat icon={<FiUser />} label="管理者" value={stats.admins} />
-            <Stat icon={<FiServer />} label="伺服器建立" value={stats.instancesCreated} />
-            <Stat icon={<FiPlay />} label="啟動次數" value={stats.serverStarts} />
-            <Stat icon={<FiUsers />} label="玩家" value={stats.players} />
+            <Stat icon={<FiDownload />} label={t("總下載")} value={stats.downloads} />
+            <Stat icon={<FiUser />} label={t("管理者")} value={stats.admins} />
+            <Stat icon={<FiServer />} label={t("伺服器建立")} value={stats.instancesCreated} />
+            <Stat icon={<FiPlay />} label={t("啟動次數")} value={stats.serverStarts} />
+            <Stat icon={<FiUsers />} label={t("玩家")} value={stats.players} />
           </div>
         )}
 
         <div className="overflow-y-auto pr-1 text-[13px]">
-          {policy === null ? <p className="text-ink-muted">載入中…</p> : <Markdown source={policy} />}
+          {policy === null ? <p className="text-ink-muted">{t("載入中…")}</p> : <Markdown source={policy} />}
         </div>
 
         <div className="flex justify-end">
           <button className={btn} onClick={onClose}>
-            我知道了
+            {t("我知道了")}
           </button>
         </div>
       </div>

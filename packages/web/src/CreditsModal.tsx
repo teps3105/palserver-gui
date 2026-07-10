@@ -1,5 +1,6 @@
 import { FiCoffee, FiExternalLink, FiHeart, FiX } from "react-icons/fi";
 import { usePromoConfig } from "./promoConfig";
+import { useI18n } from "./i18n";
 import { Overlay, btn, card } from "./ui";
 
 /**
@@ -7,21 +8,22 @@ import { Overlay, btn, card } from "./ui";
  * (遠端可改,見 promoConfig.ts),不用改版就能增減人員或換連結。
  */
 export function CreditsModal({ onClose }: { onClose: () => void }) {
+  const { t } = useI18n();
   const promo = usePromoConfig();
   return (
     <Overlay onClose={onClose}>
       <div className={`${card} flex w-[430px] max-w-full flex-col gap-4`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="inline-flex items-center gap-2 text-lg font-extrabold">
-            <FiHeart className="size-5 text-pal" /> 感謝名單
+            <FiHeart className="size-5 text-pal" /> {t("感謝名單")}
           </h2>
-          <button className="text-ink-muted transition hover:text-ink" onClick={onClose} aria-label="關閉">
+          <button className="text-ink-muted transition hover:text-ink" onClick={onClose} aria-label={t("關閉")}>
             <FiX className="size-5" />
           </button>
         </div>
 
         <div className="flex flex-col gap-2">
-          <h3 className="text-sm font-extrabold">開發人員</h3>
+          <h3 className="text-sm font-extrabold">{t("開發人員")}</h3>
           {promo.credits.developers.map((d) =>
             d.url ? (
               <a
@@ -33,23 +35,23 @@ export function CreditsModal({ onClose }: { onClose: () => void }) {
               >
                 <span>
                   <span className="block text-sm font-extrabold">{d.name}</span>
-                  <span className="block text-xs text-ink-muted">{d.role}</span>
+                  <span className="block text-xs text-ink-muted">{t(d.role)}</span>
                 </span>
                 <FiExternalLink className="size-4 shrink-0 text-ink-muted" />
               </a>
             ) : (
               <div key={d.name} className="rounded-xl border-2 border-line bg-card-soft px-3 py-2">
                 <span className="block text-sm font-extrabold">{d.name}</span>
-                <span className="block text-xs text-ink-muted">{d.role}</span>
+                <span className="block text-xs text-ink-muted">{t(d.role)}</span>
               </div>
             ),
           )}
         </div>
 
         <div className="border-t border-line pt-3">
-          <h3 className="mb-2 text-sm font-extrabold">捐贈名單</h3>
+          <h3 className="mb-2 text-sm font-extrabold">{t("捐贈名單")}</h3>
           <p className="mb-2 text-[13px] text-ink-muted">
-            感謝每一位支持 palserver GUI 的贊助者,完整名單請見:
+            {t("感謝每一位支持 palserver GUI 的贊助者,完整名單請見:")}
           </p>
           <a
             className={`${btn} inline-flex items-center gap-1.5`}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FiCrosshair, FiImage, FiRefreshCw, FiRepeat, FiX } from "react-icons/fi";
 import { MAP_BOUND, savToMap, type LiveStatus, type RestPlayer } from "@palserver/shared";
 import type { AgentClient } from "./api";
+import { t, useI18n } from "./i18n";
 import { btn, btnGhost, card, errorCls, inputCls } from "./ui";
 
 /**
@@ -35,6 +36,7 @@ function loadCalibration(): Calibration {
 }
 
 export function MapTab({ client, instanceId }: { client: AgentClient; instanceId: string }) {
+  useI18n();
   const [live, setLive] = useState<LiveStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [background, setBackground] = useState(() => localStorage.getItem(BG_KEY) ?? "");
@@ -92,11 +94,11 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
     localStorage.setItem(CALIB_KEY, JSON.stringify(next));
   };
 
-  if (!live) return <p className="text-ink-muted">{error ?? "載入中…"}</p>;
+  if (!live) return <p className="text-ink-muted">{error ?? t("載入中…")}</p>;
   if (!live.available) {
     return (
       <div className="rounded-(--radius-cute) border-2 border-dashed border-line px-6 py-12 text-center text-ink-muted">
-        <p className="font-bold">無法連線到伺服器的 REST API</p>
+        <p className="font-bold">{t("無法連線到伺服器的 REST API")}</p>
         <p className="mt-1 text-[13px]">{live.reason}</p>
       </div>
     );
@@ -108,31 +110,31 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[13px] font-bold text-ink-muted">
-          在線玩家 {live.players.length} 人{background ? "" : " · 尚未設定地圖底圖"}
+          {t("在線玩家 {n} 人", { n: live.players.length })}{background ? "" : ` · ${t("尚未設定地圖底圖")}`}
         </p>
         <div className="flex flex-wrap gap-2">
-          <button className={btnGhost} onClick={refresh} aria-label="重新整理">
+          <button className={btnGhost} onClick={refresh} aria-label={t("重新整理")}>
             <FiRefreshCw className="size-4" />
           </button>
           <button
             className={`${btnGhost} inline-flex items-center gap-1.5 ${flipY ? "border-pal text-pal" : ""}`}
             onClick={toggleFlipY}
-            title="若玩家位置南北顛倒,按此翻轉"
+            title={t("若玩家位置南北顛倒,按此翻轉")}
           >
-            <FiRepeat className="size-4" /> 翻轉南北
+            <FiRepeat className="size-4" /> {t("翻轉南北")}
           </button>
           <button
             className={`${btnGhost} inline-flex items-center gap-1.5 ${flipX ? "border-pal text-pal" : ""}`}
             onClick={toggleFlipX}
-            title="若玩家位置東西顛倒,按此翻轉"
+            title={t("若玩家位置東西顛倒,按此翻轉")}
           >
-            <FiRepeat className="size-4 rotate-90" /> 翻轉東西
+            <FiRepeat className="size-4 rotate-90" /> {t("翻轉東西")}
           </button>
           <button
             className={`${btnGhost} inline-flex items-center gap-1.5`}
             onClick={() => fileRef.current?.click()}
           >
-            <FiImage className="size-4" /> 上傳底圖
+            <FiImage className="size-4" /> {t("上傳底圖")}
           </button>
           {background && (
             <>
@@ -140,13 +142,13 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
                 className={`${btnGhost} inline-flex items-center gap-1.5 ${showCalib ? "border-pal text-pal" : ""}`}
                 onClick={() => setShowCalib((v) => !v)}
               >
-                <FiCrosshair className="size-4" /> 校正底圖
+                <FiCrosshair className="size-4" /> {t("校正底圖")}
               </button>
               <button
                 className={`${btnGhost} inline-flex items-center gap-1.5 text-berry hover:border-berry`}
                 onClick={() => saveBackground("")}
               >
-                <FiX className="size-4" /> 移除底圖
+                <FiX className="size-4" /> {t("移除底圖")}
               </button>
             </>
           )}
@@ -163,7 +165,7 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
       {!background && (
         <div className={`${card} flex flex-wrap items-center gap-2`}>
           <p className="min-w-52 flex-1 text-[13px] text-ink-muted">
-            貼上地圖圖片網址,或用「上傳底圖」選擇你自己的世界地圖截圖(圖片需為整張方形世界地圖)。
+            {t("貼上地圖圖片網址,或用「上傳底圖」選擇你自己的世界地圖截圖(圖片需為整張方形世界地圖)。")}
           </p>
           <input
             className={`${inputCls} min-w-52 flex-1`}
@@ -172,7 +174,7 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
             placeholder="https://…/palworld-map.png"
           />
           <button className={btn} onClick={() => saveBackground(urlDraft.trim())} disabled={!urlDraft.trim()}>
-            套用
+            {t("套用")}
           </button>
         </div>
       )}
@@ -180,10 +182,10 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
       {background && showCalib && (
         <div className={`${card} flex flex-col gap-3`}>
           <p className="text-[13px] text-ink-muted">
-            調整底圖直到地形與玩家實際位置吻合(不同來源、不同遊戲版本的地圖裁切範圍不一樣)。
+            {t("調整底圖直到地形與玩家實際位置吻合(不同來源、不同遊戲版本的地圖裁切範圍不一樣)。")}
           </p>
           <Slider
-            label="縮放"
+            label={t("縮放")}
             value={calib.scale}
             min={0.5}
             max={2}
@@ -192,7 +194,7 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
             onChange={(scale) => setCalibration({ scale })}
           />
           <Slider
-            label="水平位移(東西)"
+            label={t("水平位移(東西)")}
             value={calib.offsetX}
             min={-MAP_BOUND}
             max={MAP_BOUND}
@@ -201,7 +203,7 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
             onChange={(offsetX) => setCalibration({ offsetX })}
           />
           <Slider
-            label="垂直位移(南北)"
+            label={t("垂直位移(南北)")}
             value={calib.offsetY}
             min={-MAP_BOUND}
             max={MAP_BOUND}
@@ -211,7 +213,7 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
           />
           <div>
             <button className={btnGhost} onClick={() => setCalibration(DEFAULT_CALIBRATION)}>
-              重置校正
+              {t("重置校正")}
             </button>
           </div>
         </div>
@@ -247,8 +249,7 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
       </div>
 
       <p className="text-[13px] text-ink-muted">
-        座標為遊戲內地圖座標(範圍 ±{MAP_BOUND},x 向東、y 向北,北方朝上)。
-        底圖方向若與遊戲不同,可用「翻轉南北 / 翻轉東西」校正。
+        {t("座標為遊戲內地圖座標(範圍 ±{bound},x 向東、y 向北,北方朝上)。底圖方向若與遊戲不同,可用「翻轉南北 / 翻轉東西」校正。", { bound: MAP_BOUND })}
       </p>
     </div>
   );

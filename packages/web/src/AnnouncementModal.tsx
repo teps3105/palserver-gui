@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FiBell, FiArrowRight } from "react-icons/fi";
 import { useAnnouncements, seenIds, markSeen, isActive, type Announcement } from "./announcement";
 import { Markdown } from "./Markdown";
+import { t, useI18n } from "./i18n";
 import { card, btn as btnPrimary } from "./ui";
 
 /**
@@ -9,6 +10,7 @@ import { card, btn as btnPrimary } from "./ui";
  * (沒有背景關閉、沒有 X)。內容來自 announcement.md,渲染用共用的 Markdown 元件。
  */
 export function AnnouncementPopup() {
+  useI18n();
   const all = useAnnouncements();
   // 進場時捕捉這次要顯示的佇列(未看過的,依順序),之後不隨資料變動而改變,
   // 避免顯示到一半數量跳動。資料就緒(all 有內容)後才捕捉一次。
@@ -41,7 +43,7 @@ export function AnnouncementPopup() {
           </h2>
           {queue.length > 1 && (
             <span className="shrink-0 rounded-full bg-card-soft px-2.5 py-1 text-xs font-bold text-ink-muted">
-              第 {index + 1} / {queue.length} 則
+              {t("第 {i} / {n} 則", { i: index + 1, n: queue.length })}
             </span>
           )}
         </div>
@@ -50,7 +52,7 @@ export function AnnouncementPopup() {
         </div>
         <div className="mt-4 flex justify-end">
           <button className={`${btnPrimary} inline-flex items-center gap-1.5`} onClick={next}>
-            {isLast ? "我知道了" : "下一則"}
+            {isLast ? t("我知道了") : t("下一則")}
             {!isLast && <FiArrowRight className="size-4" />}
           </button>
         </div>

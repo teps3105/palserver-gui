@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiX } from "react-icons/fi";
 import { displayName, type GameEntity } from "./gameData";
+import { t, useI18n } from "./i18n";
 import { inputCls } from "./ui";
 
 /**
@@ -21,6 +22,7 @@ export function EntityPicker({
   onChange: (id: string) => void;
   placeholder?: string;
 }) {
+  useI18n();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
@@ -76,7 +78,7 @@ export function EntityPicker({
               onChange("");
               setOpen(true);
             }}
-            aria-label="清除"
+            aria-label={t("清除")}
           >
             <FiX className="size-4" />
           </button>
@@ -90,7 +92,7 @@ export function EntityPicker({
       <input
         className={inputCls + " w-full"}
         value={query}
-        placeholder={placeholder ?? "搜尋名稱或直接輸入 ID…"}
+        placeholder={placeholder ?? t("搜尋名稱或直接輸入 ID…")}
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);
@@ -111,7 +113,7 @@ export function EntityPicker({
           className="absolute top-1/2 right-2 -translate-y-1/2 text-xs font-bold text-pal"
           onClick={() => pick({ id: query.trim(), name: query.trim() })}
         >
-          用此 ID
+          {t("用此 ID")}
         </button>
       )}
       {open && matches.length > 0 && (

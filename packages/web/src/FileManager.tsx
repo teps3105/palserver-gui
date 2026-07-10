@@ -11,6 +11,7 @@ import {
 } from "react-icons/fi";
 import type { DirEntry } from "@palserver/shared";
 import type { AgentClient } from "./api";
+import { t, useI18n } from "./i18n";
 import { btn, btnGhost, card, errorCls, inputCls } from "./ui";
 
 const joinPath = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
@@ -28,6 +29,7 @@ export function FileManager({
   instanceId: string;
   initialPath?: string;
 }) {
+  useI18n();
   const [dir, setDir] = useState(initialPath);
   const [entries, setEntries] = useState<DirEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,8 +54,8 @@ export function FileManager({
   }, [refresh]);
 
   const remove = async (entry: DirEntry) => {
-    const what = entry.isDir ? "資料夾(含所有內容)" : "檔案";
-    if (!confirm(`確定要刪除${what}「${entry.name}」嗎?此動作無法復原。`)) return;
+    const what = entry.isDir ? t("資料夾(含所有內容)") : t("檔案");
+    if (!confirm(t("確定要刪除{what}「{name}」嗎?此動作無法復原。", { what, name: entry.name }))) return;
     setBusy(true);
     try {
       await client.deleteFile(instanceId, joinPath(dir, entry.name));
@@ -83,7 +85,7 @@ export function FileManager({
   };
 
   const newFolder = async () => {
-    const name = prompt("新資料夾名稱");
+    const name = prompt(t("新資料夾名稱"));
     if (!name?.trim()) return;
     setBusy(true);
     try {
@@ -103,7 +105,7 @@ export function FileManager({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <nav className="flex flex-wrap items-center gap-1 text-[13px] font-bold">
           <button className="text-pal hover:underline" onClick={() => setDir("")}>
-            伺服器根目錄
+            {t("伺服器根目錄")}
           </button>
           {segments.map((seg, i) => (
             <span key={i} className="flex items-center gap-1">
@@ -118,7 +120,7 @@ export function FileManager({
           ))}
         </nav>
         <div className="flex gap-2">
-          <button className={btnGhost} onClick={refresh} disabled={busy} aria-label="重新整理">
+          <button className={btnGhost} onClick={refresh} disabled={busy} aria-label={t("重新整理")}>
             <FiRefreshCw className="size-4" />
           </button>
           <button
@@ -126,14 +128,14 @@ export function FileManager({
             onClick={newFolder}
             disabled={busy}
           >
-            <FiFolderPlus className="size-4" /> 新資料夾
+            <FiFolderPlus className="size-4" /> {t("新資料夾")}
           </button>
           <button
             className={`${btn} inline-flex items-center gap-1.5`}
             onClick={() => uploadRef.current?.click()}
             disabled={busy}
           >
-            <FiUpload className="size-4" /> {busy ? "處理中…" : "上傳檔案"}
+            <FiUpload className="size-4" /> {busy ? t("處理中…") : t("上傳檔案")}
           </button>
           <input
             ref={uploadRef}
@@ -149,9 +151,9 @@ export function FileManager({
 
       <div className={`${card} p-0`}>
         {entries === null ? (
-          <p className="p-5 text-[13px] text-ink-muted">載入中…</p>
+          <p className="p-5 text-[13px] text-ink-muted">{t("載入中…")}</p>
         ) : entries.length === 0 ? (
-          <p className="p-5 text-[13px] text-ink-muted">這個資料夾是空的。</p>
+          <p className="p-5 text-[13px] text-ink-muted">{t("這個資料夾是空的。")}</p>
         ) : (
           <div className="flex flex-col divide-y divide-line">
             {entries.map((entry) => (
@@ -177,7 +179,7 @@ export function FileManager({
                       className="rounded-full border-[1.5px] border-line px-3 py-1 text-xs font-bold text-ink transition hover:border-pal"
                       onClick={() => setEditing(joinPath(dir, entry.name))}
                     >
-                      <FiEdit2 className="inline size-3.5" /> 編輯
+                      <FiEdit2 className="inline size-3.5" /> {t("編輯")}
                     </button>
                   )}
                   <button
@@ -219,6 +221,7 @@ export function FileBrowserDialog({
   initialPath: string;
   onClose: () => void;
 }) {
+  useI18n();
   return (
     <div
       className="fixed inset-0 flex items-start justify-center overflow-y-auto bg-[rgb(35_32_48/0.55)] p-6 backdrop-blur-[3px]"
@@ -229,9 +232,9 @@ export function FileBrowserDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-extrabold">檔案管理</h2>
+          <h2 className="text-lg font-extrabold">{t("檔案管理")}</h2>
           <button className={btnGhost} onClick={onClose}>
-            關閉
+            {t("關閉")}
           </button>
         </div>
         <FileManager client={client} instanceId={instanceId} initialPath={initialPath} />
@@ -254,6 +257,7 @@ export function FileEditor({
   onClose: () => void;
   onSaved?: () => void;
 }) {
+  useI18n();
   const [content, setContent] = useState<string | null>(null);
   const [original, setOriginal] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -287,7 +291,7 @@ export function FileEditor({
   };
 
   const close = () => {
-    if (dirty && !confirm("有未儲存的變更,確定要關閉嗎?")) return;
+    if (dirty && !confirm(t("有未儲存的變更,確定要關閉嗎?"))) return;
     onClose();
   };
 
@@ -304,16 +308,16 @@ export function FileEditor({
           <h2 className="truncate text-lg font-extrabold">{path}</h2>
           <div className="flex shrink-0 gap-2">
             <button className={btn} onClick={save} disabled={!dirty || saving || content === null}>
-              {saving ? "儲存中…" : "儲存"}
+              {saving ? t("儲存中…") : t("儲存")}
             </button>
             <button className={btnGhost} onClick={close}>
-              關閉
+              {t("關閉")}
             </button>
           </div>
         </div>
         {error && <p className={errorCls}>{error}</p>}
         {content === null ? (
-          <p className="text-[13px] text-ink-muted">載入中…</p>
+          <p className="text-[13px] text-ink-muted">{t("載入中…")}</p>
         ) : (
           <textarea
             className={`${inputCls} flex-1 resize-none font-mono text-xs leading-relaxed`}
@@ -323,7 +327,7 @@ export function FileEditor({
           />
         )}
         <p className="text-[13px] text-ink-muted">
-          {dirty ? "小心~有變更尚未儲存!" : "儲存後,重啟伺服器才會生效。"}
+          {dirty ? t("小心~有變更尚未儲存!") : t("儲存後,重啟伺服器才會生效。")}
         </p>
       </div>
     </div>

@@ -11,6 +11,7 @@ import { Mascot } from "./Mascot";
 import { AnnouncementPopup } from "./AnnouncementModal";
 import { SiteFooter } from "./SiteFooter";
 import { ThemeToggle } from "./theme";
+import { LangSelect, useI18n } from "./i18n";
 import { Overlay, StatusBadge, btn, btnGhost, card, errorCls, inputCls, labelCls } from "./ui";
 
 export default function App() {
@@ -46,6 +47,7 @@ export default function App() {
 function Shell({ conn, onDisconnect }: { conn: Connection; onDisconnect: () => void }) {
   // 把 onDisconnect 當作 401 處理:token 失效(換過/重置)時自動清掉連線、退回
   // 連線畫面重新配對,而不是一直用壞掉的 token 重試。
+  const { t } = useI18n();
   const client = useRef(new AgentClient(conn, onDisconnect)).current;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -61,21 +63,22 @@ function Shell({ conn, onDisconnect }: { conn: Connection; onDisconnect: () => v
         </button>
         <div className="flex items-center gap-2.5">
           <span className="hidden text-[13px] text-ink-muted sm:inline">{conn.url}</span>
+          <LangSelect />
           <ThemeToggle />
           <button
             className={`${btnGhost} inline-flex items-center gap-1.5`}
             onClick={() => setShowCredits(true)}
           >
-            <FiHeart className="size-4" /> 感謝名單
+            <FiHeart className="size-4" /> {t("感謝名單")}
           </button>
           <button
             className={`${btnGhost} inline-flex items-center gap-1.5`}
             onClick={() => setShowSettings(true)}
           >
-            <FiSettings className="size-4" /> 設定
+            <FiSettings className="size-4" /> {t("設定")}
           </button>
           <button className={btnGhost} onClick={onDisconnect}>
-            中斷連線
+            {t("中斷連線")}
           </button>
         </div>
       </header>
@@ -98,6 +101,7 @@ function Shell({ conn, onDisconnect }: { conn: Connection; onDisconnect: () => v
 }
 
 function Dashboard({ client, onOpen }: { client: AgentClient; onOpen: (id: string) => void }) {
+  const { t } = useI18n();
   const [instances, setInstances] = useState<InstanceSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -123,20 +127,20 @@ function Dashboard({ client, onOpen }: { client: AgentClient; onOpen: (id: strin
       <AnnouncementPopup />
       {error && <p className={errorCls}>{error}</p>}
       <div className="flex items-center justify-between">
-        <h2 className="my-3.5 text-[17px] font-extrabold">伺服器</h2>
+        <h2 className="my-3.5 text-[17px] font-extrabold">{t("伺服器")}</h2>
         <button className={`${btn} inline-flex items-center gap-1.5`} onClick={() => setShowCreate(true)}>
-          <FiPlus className="size-4" /> 建立伺服器
+          <FiPlus className="size-4" /> {t("建立伺服器")}
         </button>
       </div>
       {instances === null ? (
         <div className="rounded-(--radius-cute) border-2 border-dashed border-line px-6 py-12 text-center text-ink-muted">
           <GiEggClutch className="mx-auto mb-2 size-11 animate-bounce" />
-          載入中…
+          {t("載入中…")}
         </div>
       ) : instances.length === 0 ? (
         <div className="rounded-(--radius-cute) border-2 border-dashed border-line px-6 py-12 text-center text-ink-muted">
           <GiSheep className="mx-auto mb-2 size-11" />
-          還沒有伺服器,建立第一個吧!
+          {t("還沒有伺服器,建立第一個吧!")}
         </div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] gap-3.5">
@@ -151,12 +155,12 @@ function Dashboard({ client, onOpen }: { client: AgentClient; onOpen: (id: strin
                 <StatusBadge status={inst.status} />
               </div>
               <p className="mt-1 text-[13px] text-ink-muted">
-                {inst.enhancements.length > 0 ? "強化" : "原味"} · UDP {inst.gamePort}
+                {inst.enhancements.length > 0 ? t("強化") : t("原味")} · UDP {inst.gamePort}
                 {inst.gameVersion && ` · ${inst.gameVersion}`}
               </p>
               {inst.updateAvailable && (
                 <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-sun/40 bg-sun/15 px-2.5 py-1 text-xs font-bold text-sun">
-                  <FiDownload className="size-3.5" /> 有新版本可更新
+                  <FiDownload className="size-3.5" /> {t("有新版本可更新")}
                 </p>
               )}
             </button>
@@ -186,6 +190,7 @@ function CreateDialog({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useI18n();
   const [name, setName] = useState("");
   const [backend, setBackend] = useState<"native" | "docker">("native");
   const [serverDir, setServerDir] = useState("");
@@ -231,17 +236,16 @@ function CreateDialog({
         onSubmit={submit}
       >
         <h2 className="inline-flex items-center gap-2 text-lg font-extrabold">
-          <GiEggClutch className="size-5 text-pal" /> 建立伺服器
+          <GiEggClutch className="size-5 text-pal" /> {t("建立伺服器")}
         </h2>
         {isMac && (
           <p className="rounded-xl border-2 border-sun/40 bg-sun/10 px-3 py-2 text-xs text-sun">
-            這台 agent 執行在 macOS 上,<b>無法實際執行 Palworld 伺服器</b>
-            (SteamCMD/PalServer 在 macOS 不支援)。請把 agent 裝在 Windows 或 Linux 主機上;
-            這裡僅供開發或管理遠端主機。
+            {t("這台 agent 執行在 macOS 上,")}<b>{t("無法實際執行 Palworld 伺服器")}</b>
+            {t("(SteamCMD/PalServer 在 macOS 不支援)。請把 agent 裝在 Windows 或 Linux 主機上;這裡僅供開發或管理遠端主機。")}
           </p>
         )}
         <label className={labelCls}>
-          名稱
+          {t("名稱")}
           <input
             className={inputCls}
             value={name}
@@ -252,32 +256,36 @@ function CreateDialog({
           />
         </label>
         <label className={labelCls}>
-          運行方式
+          {t("運行方式")}
           <select
             className={inputCls}
             value={backend}
             onChange={(e) => setBackend(e.target.value as "native" | "docker")}
           >
-            <option value="native">原生(直接在這台主機上運行,推薦)</option>
-            <option value="docker">Docker 容器(beta)</option>
+            <option value="native">{t("原生(直接在這台主機上運行,推薦)")}</option>
+            <option value="docker">{t("Docker 容器(beta)")}</option>
           </select>
         </label>
         {backend === "native" && (
           <label className={labelCls}>
-            伺服器路徑(選填)
+            {t("伺服器路徑(選填)")}
             <input
               className={inputCls}
               value={serverDir}
               onChange={(e) => setServerDir(e.target.value)}
-              placeholder={platform === "win32" ? "例:D:\\palworld\\my-server" : "例:/opt/palworld/my-server"}
+              placeholder={
+                platform === "win32"
+                  ? t("例:{path}", { path: "D:\\palworld\\my-server" })
+                  : t("例:{path}", { path: "/opt/palworld/my-server" })
+              }
             />
             <span className="text-xs font-normal opacity-70">
-              留空 = 安裝到 agent 資料夾。填既有 PalServer 安裝目錄會直接採用;填空資料夾或新路徑則會下載安裝到那裡。
+              {t("留空 = 安裝到 agent 資料夾。填既有 PalServer 安裝目錄會直接採用;填空資料夾或新路徑則會下載安裝到那裡。")}
             </span>
           </label>
         )}
         <label className={labelCls}>
-          遊戲埠(UDP)
+          {t("遊戲埠(UDP)")}
           <input
             className={inputCls}
             type="number"
@@ -286,7 +294,7 @@ function CreateDialog({
           />
         </label>
         <label className={labelCls}>
-          最大玩家數
+          {t("最大玩家數")}
           <input
             className={inputCls}
             type="number"
@@ -297,7 +305,7 @@ function CreateDialog({
           />
         </label>
         <label className={labelCls}>
-          伺服器密碼(選填)
+          {t("伺服器密碼(選填)")}
           <input
             className={inputCls}
             value={serverPassword}
@@ -308,19 +316,21 @@ function CreateDialog({
           <p className="inline-flex items-start gap-2 rounded-xl border-2 border-pal/30 bg-pal/5 px-3 py-2 text-xs text-ink-muted">
             <FiDownload className="mt-0.5 size-4 shrink-0 text-pal" />
             <span>
-              首次安裝會下載 Palworld 伺服器檔案,<b className="text-ink">容量很大(數十 GB)</b>,
-              需要一段時間,請耐心等候 —— 建立後可在<b className="text-ink">日誌</b>分頁看安裝進度。
-              (填既有安裝目錄則會直接採用、跳過下載。)
+              {t("首次安裝會下載 Palworld 伺服器檔案,")}
+              <b className="text-ink">{t("容量很大(數十 GB)")}</b>
+              {t(",需要一段時間,請耐心等候 —— 建立後可在")}
+              <b className="text-ink">{t("日誌")}</b>
+              {t("分頁看安裝進度。(填既有安裝目錄則會直接採用、跳過下載。)")}
             </span>
           </p>
         )}
-        {error && <p className={errorCls}>{error}</p>}
+        {error && <p className={errorCls}>{t(error)}</p>}
         <div className="mt-1 flex gap-2">
           <button className={btn} disabled={busy}>
-            {busy ? "建立中…" : "建立"}
+            {busy ? t("建立中…") : t("建立")}
           </button>
           <button type="button" className={btnGhost} onClick={onClose}>
-            取消
+            {t("取消")}
           </button>
         </div>
       </form>

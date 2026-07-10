@@ -4,12 +4,14 @@ import type { ConnectionInfo } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { copyText } from "./clipboard";
 import { usePromoConfig } from "./promoConfig";
+import { t, useI18n } from "./i18n";
 import { card, btn as btnPrimary, btnGhost } from "./ui";
 
 /** "How do my friends join?" — the question every host actually asks, laid
  * out for non-technical users: same-network, VPN (Radmin / Tailscale), and
  * the advanced public route, each with a copy-ready address. */
 export function ConnectionCard({ client, instanceId }: { client: AgentClient; instanceId: string }) {
+  useI18n();
   const [info, setInfo] = useState<ConnectionInfo | null>(null);
   const { ipService, vpn } = usePromoConfig();
 
@@ -25,31 +27,31 @@ export function ConnectionCard({ client, instanceId }: { client: AgentClient; in
   return (
     <div className={`${card} flex flex-col gap-4`}>
       <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
-        <FiGlobe className="size-4 text-pal" /> 邀請朋友加入
+        <FiGlobe className="size-4 text-pal" /> {t("邀請朋友加入")}
       </h3>
 
       {/* 1) VPN(推薦給遠端朋友) */}
       <Section
         icon={<FiShield className="size-4 text-pal" />}
-        title="遠端的朋友 — 用 VPN 連線(推薦)"
-        hint="不用動路由器、也不怕外網攻擊。你和朋友裝同一套免費 VPN、加入同一個網路,就像在同一個 WiFi 裡。"
+        title={t("遠端的朋友 — 用 VPN 連線(推薦)")}
+        hint={t("不用動路由器、也不怕外網攻擊。你和朋友裝同一套免費 VPN、加入同一個網路,就像在同一個 WiFi 裡。")}
       >
         {info.tailscale && (
           <div className="mb-2">
-            <p className="mb-1 text-xs font-bold text-ink-muted">你的 Tailscale 位址:</p>
+            <p className="mb-1 text-xs font-bold text-ink-muted">{t("你的 Tailscale 位址:")}</p>
             <AddressChip address={`${info.tailscale}:${port}`} />
           </div>
         )}
         <div className="grid gap-2 sm:grid-cols-2">
           <VpnOption
             name="Radmin VPN"
-            desc="免註冊、建個房間邀朋友加入,最適合遊戲聯機。"
+            desc={t("免註冊、建個房間邀朋友加入,最適合遊戲聯機。")}
             site={vpn.radmin.site}
             tutorial={vpn.radmin.tutorial}
           />
           <VpnOption
             name="Tailscale"
-            desc="用 Google/GitHub 帳號登入,安全穩定,適合長期使用。"
+            desc={t("用 Google/GitHub 帳號登入,安全穩定,適合長期使用。")}
             site={vpn.tailscale.site}
             tutorial={vpn.tailscale.tutorial}
           />
@@ -60,17 +62,16 @@ export function ConnectionCard({ client, instanceId }: { client: AgentClient; in
       <div className="rounded-xl border-2 border-pal/40 bg-pal/5 p-3">
         <p className="inline-flex items-center gap-2 text-[13px] font-extrabold">
           <FiGlobe className="size-4 text-pal" />
-          想讓朋友不裝 VPN 直接連?交給我們設定
+          {t("想讓朋友不裝 VPN 直接連?交給我們設定")}
         </p>
         <p className="mt-1 text-xs text-ink-muted">
-          公開 IP 直連需要處理路由器連接埠轉發、防火牆、浮動 IP / CGNAT 等問題,對新手很麻煩。
-          我們提供「IP 直連設定服務」,協助你把公開連線一次設定到位。
+          {t("公開 IP 直連需要處理路由器連接埠轉發、防火牆、浮動 IP / CGNAT 等問題,對新手很麻煩。我們提供「IP 直連設定服務」,協助你把公開連線一次設定到位。")}
           {info.publicIp && (
             <>
               <br />
-              目前偵測到你的公開位址:
+              {t("目前偵測到你的公開位址:")}
               <span className="ml-1 font-mono font-bold">{info.publicIp}:{port}</span>
-              {info.behindNat && "(在路由器後面,需要設定連接埠轉發才能直連)"}
+              {info.behindNat && t("(在路由器後面,需要設定連接埠轉發才能直連)")}
             </>
           )}
         </p>
@@ -81,7 +82,7 @@ export function ConnectionCard({ client, instanceId }: { client: AgentClient; in
             target="_blank"
             rel="noreferrer"
           >
-            <FiExternalLink className="size-4" /> {ipService.name}
+            <FiExternalLink className="size-4" /> {t(ipService.name)}
           </a>
           <a
             className={`${btnGhost} inline-flex items-center gap-1.5`}
@@ -89,13 +90,13 @@ export function ConnectionCard({ client, instanceId }: { client: AgentClient; in
             target="_blank"
             rel="noreferrer"
           >
-            <FiMessageCircle className="size-4" /> Discord 詢問
+            <FiMessageCircle className="size-4" /> {t("Discord 詢問")}
           </a>
         </div>
       </div>
 
       <p className="text-xs text-ink-muted">
-        提示:朋友連線用的是「遊戲埠 UDP {port}」。若朋友連不進來,先確認伺服器正在運作中、且防火牆有放行。
+        {t("提示:朋友連線用的是「遊戲埠 UDP {port}」。若朋友連不進來,先確認伺服器正在運作中、且防火牆有放行。", { port })}
       </p>
     </div>
   );
@@ -136,7 +137,7 @@ function AddressChip({ address }: { address: string }) {
     <button
       onClick={copy}
       className="inline-flex items-center gap-2 rounded-lg border-2 border-line bg-card-soft px-3 py-1.5 font-mono text-sm font-bold transition hover:border-pal"
-      title="點擊複製"
+      title={t("點擊複製")}
     >
       {address}
       {copied ? <FiCheck className="size-4 text-grass" /> : <FiCopy className="size-4 text-ink-muted" />}
@@ -166,7 +167,7 @@ function VpnOption({
           target="_blank"
           rel="noreferrer"
         >
-          <FiExternalLink className="size-3.5" /> 官方網站
+          <FiExternalLink className="size-3.5" /> {t("官方網站")}
         </a>
         <a
           className={`${btnGhost} inline-flex items-center gap-1.5 px-3 py-1 text-xs`}
@@ -174,7 +175,7 @@ function VpnOption({
           target="_blank"
           rel="noreferrer"
         >
-          <FiExternalLink className="size-3.5" /> 教學影片
+          <FiExternalLink className="size-3.5" /> {t("教學影片")}
         </a>
       </div>
     </div>

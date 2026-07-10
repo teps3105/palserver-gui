@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PrivacyModal } from "./PrivacyModal";
+import { t, useI18n } from "./i18n";
 
 /**
  * 網站左下角的署名與版本號。低調固定在角落,不干擾操作
@@ -9,6 +10,7 @@ import { PrivacyModal } from "./PrivacyModal";
  * 而不是猜一個斷點。
  */
 export function SiteFooter() {
+  useI18n();
   const [showPrivacy, setShowPrivacy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const clear = useClearOfContent(ref);
@@ -29,7 +31,7 @@ export function SiteFooter() {
           target="_blank"
           rel="noreferrer"
         >
-          由 Dalufish 用愛製作
+          {t("由 Dalufish 用愛製作")}
         </a>
         <div className="mt-0.5 flex items-center gap-2">
           <span className="font-mono opacity-80">{__APP_VERSION__}</span>
@@ -37,7 +39,7 @@ export function SiteFooter() {
             className="pointer-events-auto underline-offset-2 transition hover:text-pal hover:underline"
             onClick={() => setShowPrivacy(true)}
           >
-            隱私權政策
+            {t("隱私權政策")}
           </button>
         </div>
       </div>

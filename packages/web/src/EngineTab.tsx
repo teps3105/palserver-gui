@@ -14,6 +14,7 @@ import type { AgentClient } from "./api";
 import { FileEditor } from "./FileManager";
 import { ConfigCorruptModal } from "./ConfigCorruptModal";
 import { usePromoConfig } from "./promoConfig";
+import { t, useI18n } from "./i18n";
 import { btn, btnGhost, card, errorCls, inputCls } from "./ui";
 
 const KEYS = Object.keys(ENGINE_OPTIONS) as EngineOptionKey[];
@@ -32,6 +33,7 @@ export function EngineTab({
   instanceId: string;
   running: boolean;
 }) {
+  useI18n();
   const [status, setStatus] = useState<EngineSettingsStatus | null>(null);
   const [draft, setDraft] = useState<EngineSettings>({});
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export function EngineTab({
     return KEYS.filter((k) => draft[k] !== effective(status.values, k));
   }, [draft, status]);
 
-  if (!status) return <p className="text-ink-muted">{error ?? "載入中…"}</p>;
+  if (!status) return <p className="text-ink-muted">{error ?? t("載入中…")}</p>;
 
   if (!status.supported) {
     return (
@@ -87,7 +89,7 @@ export function EngineTab({
     setError(null);
     try {
       await client.updateEngineSettings(instanceId, values);
-      flash("已儲存,重啟伺服器後生效");
+      flash(t("已儲存,重啟伺服器後生效"));
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -98,13 +100,13 @@ export function EngineTab({
 
   const applyPreset = (key: keyof typeof ENGINE_PRESETS) => {
     const preset = ENGINE_PRESETS[key];
-    if (!confirm(`套用「${preset.label}」?\n\n${preset.description}\n\n會覆蓋下方欄位,儲存後才寫入檔案。`)) return;
+    if (!confirm(t("套用「{label}」?\n\n{description}\n\n會覆蓋下方欄位,儲存後才寫入檔案。", { label: t(preset.label), description: t(preset.description) }))) return;
     setDraft({ ...draft, ...preset.values });
   };
 
   const grouped = new Map<string, EngineOptionKey[]>();
   for (const key of KEYS) {
-    const label = ENGINE_CATEGORY_LABELS[ENGINE_OPTIONS[key].category];
+    const label = t(ENGINE_CATEGORY_LABELS[ENGINE_OPTIONS[key].category]);
     grouped.set(label, [...(grouped.get(label) ?? []), key]);
   }
 
@@ -117,16 +119,16 @@ export function EngineTab({
 
       <div className={`${card} flex flex-col gap-3`}>
         <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
-          <FiZap className="size-4 text-pal" /> 效能預設組合
+          <FiZap className="size-4 text-pal" /> {t("效能預設組合")}
         </h3>
         <p className="text-[13px] text-ink-muted">
-          這些設定寫入伺服器的 <code className="rounded bg-card-soft px-1.5 py-0.5 text-xs">Engine.ini</code>
-          。沒有萬用解 —— 提高 Tick 率吃 CPU,人數與據點越多越吃力。改完請觀察「玩家」分頁的伺服器 FPS。
+          {t("這些設定寫入伺服器的")} <code className="rounded bg-card-soft px-1.5 py-0.5 text-xs">Engine.ini</code>
+          {t("。沒有萬用解 —— 提高 Tick 率吃 CPU,人數與據點越多越吃力。改完請觀察「玩家」分頁的伺服器 FPS。")}
         </p>
         <div className="flex flex-wrap gap-2">
           {(Object.keys(ENGINE_PRESETS) as (keyof typeof ENGINE_PRESETS)[]).map((key) => (
-            <button key={key} className={btnGhost} onClick={() => applyPreset(key)} title={ENGINE_PRESETS[key].description}>
-              {ENGINE_PRESETS[key].label}
+            <button key={key} className={btnGhost} onClick={() => applyPreset(key)} title={t(ENGINE_PRESETS[key].description)}>
+              {t(ENGINE_PRESETS[key].label)}
             </button>
           ))}
           {status.path && (
@@ -134,9 +136,9 @@ export function EngineTab({
               className={`${btnGhost} inline-flex items-center gap-1.5`}
               onClick={() => setEditingRaw(true)}
               disabled={!status.exists}
-              title={status.exists ? "直接編輯 Engine.ini" : "檔案尚未產生"}
+              title={status.exists ? t("直接編輯 Engine.ini") : t("檔案尚未產生")}
             >
-              <FiFileText className="size-4" /> 編輯原始檔
+              <FiFileText className="size-4" /> {t("編輯原始檔")}
             </button>
           )}
         </div>
@@ -146,11 +148,11 @@ export function EngineTab({
       {/* 推廣:不想自己顧效能/維運,交給我們的代管服務 */}
       <div className="flex flex-col gap-3 rounded-(--radius-cute) border-2 border-pal/30 bg-pal/5 p-4">
         <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
-          <FiServer className="size-4 text-pal" /> 調校很煩?交給我們維護
+          <FiServer className="size-4 text-pal" /> {t("調校很煩?交給我們維護")}
         </h3>
         <p className="text-[13px] text-ink-muted">
-          不想每次改版都自己救火、半夜還要爬起來救伺服器?
-          <b className="text-ink">{maintenanceService.name}</b>幫你長期代管維護 —— {maintenanceService.tagline}
+          {t("不想每次改版都自己救火、半夜還要爬起來救伺服器?")}
+          <b className="text-ink">{t(maintenanceService.name)}</b>{t("幫你長期代管維護 ——")} {t(maintenanceService.tagline)}
         </p>
         <div className="flex flex-wrap gap-2">
           <a
@@ -159,13 +161,13 @@ export function EngineTab({
             target="_blank"
             rel="noreferrer"
           >
-            <FiExternalLink className="size-4" /> 了解維護方案
+            <FiExternalLink className="size-4" /> {t("了解維護方案")}
           </a>
           <a
             className={`${btnGhost} inline-flex items-center gap-1.5`}
             href={`mailto:${maintenanceService.email}`}
           >
-            <FiMail className="size-4" /> 免費諮詢
+            <FiMail className="size-4" /> {t("免費諮詢")}
           </a>
         </div>
       </div>
@@ -190,14 +192,14 @@ export function EngineTab({
       {dirtyKeys.length > 0 && (
         <div className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-(--radius-cute) border-2 border-sun/50 bg-card p-3 shadow-(--shadow-cute)">
           <span className="text-[13px] font-bold text-ink-muted">
-            小心~您有 {dirtyKeys.length} 項變更尚未儲存!(重啟伺服器後生效)
+            {t("小心~您有 {n} 項變更尚未儲存!(重啟伺服器後生效)", { n: dirtyKeys.length })}
           </span>
           <div className="flex gap-2">
             <button className={btnGhost} onClick={() => void refresh()} disabled={saving}>
-              重置
+              {t("重置")}
             </button>
             <button className={btn} onClick={() => save()} disabled={saving}>
-              {saving ? "儲存中…" : "確定修改"}
+              {saving ? t("儲存中…") : t("確定修改")}
             </button>
           </div>
         </div>
@@ -243,22 +245,23 @@ function OptionRow({
 }) {
   // `as const satisfies` narrows each entry to its literal shape, so read it
   // back through the common interface to reach optional fields.
+  useI18n();
   const meta: EngineOptionMeta = ENGINE_OPTIONS[optionKey];
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-3">
       <div className="min-w-64 flex-1">
         <p className="text-sm font-bold">
-          {meta.label}
+          {t(meta.label)}
           {fileValue === undefined && (
-            <span className="ml-2 text-xs font-normal text-ink-muted">(未設定,使用引擎預設)</span>
+            <span className="ml-2 text-xs font-normal text-ink-muted">{t("(未設定,使用引擎預設)")}</span>
           )}
         </p>
         <p className="font-mono text-xs text-ink-muted">{optionKey}</p>
-        {meta.hint && <p className="mt-1 max-w-xl text-xs text-ink-muted">{meta.hint}</p>}
+        {meta.hint && <p className="mt-1 max-w-xl text-xs text-ink-muted">{t(meta.hint)}</p>}
         {meta.warn && (
           <p className="mt-1 inline-flex max-w-xl items-start gap-1.5 text-xs text-sun">
             <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-            {meta.warn}
+            {t(meta.warn)}
           </p>
         )}
       </div>
@@ -268,7 +271,7 @@ function OptionRow({
             type="button"
             role="switch"
             aria-checked={Boolean(value)}
-            aria-label={meta.label}
+            aria-label={t(meta.label)}
             onClick={() => onChange(!value)}
             className={`relative h-7 w-12 rounded-full transition ${value ? "bg-grass" : "bg-line"}`}
           >
