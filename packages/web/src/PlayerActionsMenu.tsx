@@ -3,17 +3,23 @@ import { FiX, FiChevronDown, FiTerminal, FiZap, FiStar } from "react-icons/fi";
 import type { AgentClient } from "./api";
 import { ConsoleTab } from "./ConsoleTab";
 import { CustomPalModal } from "./CustomPalModal";
+import { SHOW_SPONSOR_FEATURES } from "./flags";
 import { t, useI18n } from "./i18n";
 import { Overlay, card, btn, btnGhost } from "./ui";
 
 /** 「操作」選單:每一項對應一條指令(預選 + 預填玩家),或自訂帕魯/帕魯蛋彈窗。
- *  cmd = ConsoleTab 要預選的指令名;customPalMode = 開 CustomPalModal(pal / egg)。 */
+ *  cmd = ConsoleTab 要預選的指令名;customPalMode = 開 CustomPalModal(pal / egg)。
+ *  贊助者項目(customPalMode)在未公布前由 SHOW_SPONSOR_FEATURES 濾掉。 */
 const PLAYER_ACTIONS: { label: string; cmd?: string; customPalMode?: "pal" | "egg" }[] = [
   { label: "給予道具", cmd: "give" },
   { label: "給予帕魯", cmd: "givepal" },
   { label: "給予帕魯蛋", cmd: "giveegg" },
-  { label: "給予自訂帕魯(贊助者)", customPalMode: "pal" },
-  { label: "給予自訂帕魯蛋(贊助者)", customPalMode: "egg" },
+  ...(SHOW_SPONSOR_FEATURES
+    ? ([
+        { label: "給予自訂帕魯(贊助者)", customPalMode: "pal" },
+        { label: "給予自訂帕魯蛋(贊助者)", customPalMode: "egg" },
+      ] as const)
+    : []),
   { label: "給予經驗值", cmd: "give_exp" },
   { label: "給予科技點數", cmd: "givetechpoints" },
   { label: "給予古代科技點數", cmd: "givebosstechpoints" },

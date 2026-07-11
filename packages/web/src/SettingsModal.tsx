@@ -6,6 +6,7 @@ import { copyText } from "./clipboard";
 import { PrivacyModal } from "./PrivacyModal";
 import { UpdateCard } from "./UpdateCard";
 import { useI18n } from "./i18n";
+import { SHOW_SPONSOR_FEATURES } from "./flags";
 import { Overlay, card, btn, btnGhost } from "./ui";
 
 /**
@@ -183,8 +184,8 @@ export function SettingsModal({
         {/* GUI 自我更新(對接 GitHub Releases) */}
         <UpdateCard client={client} />
 
-        {/* 贊助者識別碼(先行版) */}
-        {lic && (
+        {/* 贊助者識別碼(先行版)—— 未公布前用 SHOW_SPONSOR_FEATURES 隱藏 */}
+        {SHOW_SPONSOR_FEATURES && lic && (
           <div className="border-t border-line pt-3">
             <h3 className="inline-flex items-center gap-1.5 text-sm font-extrabold">
               <FiStar className="size-4 text-pal" /> {t("贊助者識別碼")}

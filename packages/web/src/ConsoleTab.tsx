@@ -14,6 +14,7 @@ import { maskSteamIdsInText } from "./SteamId";
 import { EntityPicker } from "./EntityPicker";
 import { PlayerPicker } from "./PlayerPicker";
 import { CustomPalModal } from "./CustomPalModal";
+import { SHOW_SPONSOR_FEATURES } from "./flags";
 import { useGameData, itemIconUrl, palIconUrl, type GameData } from "./gameData";
 import { t, useI18n } from "./i18n";
 import { btn, btnGhost, card, errorCls, inputCls, labelCls } from "./ui";
@@ -268,8 +269,8 @@ export function ConsoleTab({
             />
           </div>
           {/* 贊助者先行版:自訂帕魯(帕魯 / 帕魯蛋兩條)—— 樣式與下方指令一致,藍色標示贊助。
-              一律顯示,點了跳彈窗;未解鎖時彈窗內表單不可用。 */}
-          {catalog.paldefender && (
+              未公布前用 SHOW_SPONSOR_FEATURES 整組隱藏;點了跳彈窗,未解鎖時表單不可用。 */}
+          {SHOW_SPONSOR_FEATURES && catalog.paldefender && (
             <>
               <button
                 type="button"
