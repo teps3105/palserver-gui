@@ -59,7 +59,16 @@ const EMPTY_MODERATION: ModerationLists = {
   bans: [],
 };
 
-export function PlayersTab({ client, instanceId }: { client: AgentClient; instanceId: string }) {
+export function PlayersTab({
+  client,
+  instanceId,
+  onGoToPalDefender,
+}: {
+  client: AgentClient;
+  instanceId: string;
+  /** Jump to the PalDefender tab (for setting up the REST API from a modal). */
+  onGoToPalDefender?: () => void;
+}) {
   useI18n(); // 語言切換時重繪(含 fmtUptime 等模組層字串)
   const gameData = useGameData();
   const [live, setLive] = useState<LiveStatus | null>(null);
@@ -171,6 +180,7 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
             identifier={detailFor.id}
             displayLabel={detailFor.label}
             onClose={() => setDetailFor(null)}
+            onGoToPalDefender={onGoToPalDefender}
           />
         )}
       </div>
@@ -336,6 +346,7 @@ export function PlayersTab({ client, instanceId }: { client: AgentClient; instan
           identifier={detailFor.id}
           displayLabel={detailFor.label}
           onClose={() => setDetailFor(null)}
+          onGoToPalDefender={onGoToPalDefender}
         />
       )}
     </div>
@@ -351,8 +362,9 @@ const fmtPlaytime = (seconds: number) => {
 
 const fmtWhen = (iso: string) => new Date(iso).toLocaleString();
 
-/** 統一玩家名冊:agent 有開 PalDefender REST 時走它的名冊(含存檔內所有離線玩家),
- * 否則用 agent 自己記錄的。有 agent 歷史(首見時間)的才顯示等級 / 遊玩時長等統計。 */
+/** 離線玩家名冊:在線玩家已經有獨立的「在線玩家」卡片,這裡只列離線的,不重複。
+ * 名單來源:agent 有開 PalDefender REST 時走它的名冊(含存檔內所有離線玩家),否則用
+ * agent 自己記錄的。有 agent 歷史(首見時間)的才顯示等級 / 遊玩時長等統計。 */
 function KnownPlayersCard({
   known,
   gameData,
@@ -370,15 +382,15 @@ function KnownPlayersCard({
   return (
     <div className={`${card} p-0`}>
       <h3 className="border-b-2 border-line px-5 py-3 text-sm font-extrabold text-ink-muted">
-        {t("玩家名冊")}({known.length})
+        {t("離線玩家")}({offline.length})
       </h3>
-      {known.length === 0 ? (
+      {offline.length === 0 ? (
         <p className="px-5 py-8 text-center text-[13px] text-ink-muted">
-          {t("尚未記錄到任何玩家。agent 每 15 秒會記錄一次在線狀態。")}
+          {t("目前沒有離線玩家。agent 每 15 秒會記錄一次在線狀態。")}
         </p>
       ) : (
         <div className="flex flex-col divide-y divide-line">
-          {known.map((p) => {
+          {offline.map((p) => {
             const hasHistory = !!p.firstSeen; // agent 記錄過(PalDefender-only 玩家沒有)
             return (
               <div key={p.userId} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3">
@@ -390,13 +402,6 @@ function KnownPlayersCard({
                     <button className="transition hover:text-pal" onClick={() => onOpen(p.userId, p.name)}>
                       {p.name || "—"}
                     </button>
-                    {p.online ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border-[1.5px] border-grass/40 bg-grass/15 px-2 py-0.5 text-xs font-bold text-grass">
-                        <span className="size-1.5 rounded-full bg-current" /> {t("在線")}
-                      </span>
-                    ) : (
-                      <span className="text-xs font-bold text-ink-muted">{t("離線")}</span>
-                    )}
                     {p.guildName && <span className="text-xs font-normal text-ink-muted">· {p.guildName}</span>}
                   </p>
                   {hasHistory && (

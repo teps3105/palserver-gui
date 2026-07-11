@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
-import { FiX, FiCpu, FiPackage, FiTrendingUp, FiZap } from "react-icons/fi";
+import { useEffect, useState } from "react";
+import { FiX, FiCpu, FiPackage, FiTrendingUp, FiZap, FiShield } from "react-icons/fi";
 import { GiShield } from "react-icons/gi";
 import type { PlayerDetail, PdRestStatus } from "@palserver/shared";
 import type { AgentClient } from "./api";
-import { RestStatusCard } from "./RestStatusCard";
 import { useGameData, displayName, palIconUrl, itemIconUrl, type GameData } from "./gameData";
 import { maskSteamId } from "./SteamId";
 import { t, useI18n } from "./i18n";
-import { Overlay, card, btnGhost, errorCls } from "./ui";
+import { Overlay, card, btn, btnGhost, errorCls } from "./ui";
 
 /** Full detail for one player — pals and inventory — via PalDefender's REST
  * API. Shows a clear prompt when that API isn't available. Player actions live
@@ -18,28 +17,28 @@ export function PlayerDetailModal({
   identifier,
   displayLabel,
   onClose,
+  onGoToPalDefender,
 }: {
   client: AgentClient;
   instanceId: string;
   identifier: string;
   displayLabel: string;
   onClose: () => void;
+  /** Jump to the PalDefender tab so the user can enable REST + set a token. */
+  onGoToPalDefender?: () => void;
 }) {
   useI18n();
   const gameData = useGameData();
   const [detail, setDetail] = useState<PlayerDetail | null>(null);
   const [rest, setRest] = useState<PdRestStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
-  const load = useCallback(() => {
-    setError(null);
-    setDetail(null);
+  useEffect(() => {
     client
       .playerDetail(instanceId, identifier)
       .then((d) => {
         setDetail(d);
-        // 查不到就順手抓 REST 狀態,判斷是不是「沒啟用 / 沒 token」這種能當場修好的原因。
+        // 查不到就順手抓 REST 狀態,判斷原因是「沒啟用 / 沒 token」還是伺服器沒開。
         if (!d.available) client.palDefenderRest(instanceId).then(setRest).catch(() => {});
       })
       .catch((err) => {
@@ -48,10 +47,8 @@ export function PlayerDetailModal({
       });
   }, [client, instanceId, identifier]);
 
-  useEffect(() => load(), [load]);
-
-  // PalDefender 有裝、但 REST 還沒「啟用 + 有 token」→ 使用者可以直接在這個彈窗設定好。
-  const canConfigure = !!rest?.installed && !(rest.enabled && rest.hasToken);
+  // PalDefender 有裝、但 REST 還沒「啟用 + 有 token」→ 引導使用者去 PalDefender 分頁設定。
+  const needsRestSetup = !!rest?.installed && !(rest.enabled && rest.hasToken);
 
   return (
     <Overlay onClose={onClose}>
@@ -75,50 +72,22 @@ export function PlayerDetailModal({
             <p className="font-bold">{t("無法讀取玩家細節")}</p>
             <p className="mt-1 text-[13px]">{detail.reason}</p>
 
-            {canConfigure ? (
-              <div className="mt-4 flex flex-col gap-3 text-left">
-                <p className="text-[13px] text-ink-muted">
-                  {t("看起來是 PalDefender 的 REST API 還沒設定好,你可以直接在這裡開啟:")}
+            {needsRestSetup ? (
+              <div className="mt-4 flex flex-col items-center gap-3">
+                <p className="text-[13px]">
+                  {t("玩家細節需要 PalDefender 的 REST API。請到 PalDefender 分頁啟用 REST API 並建立存取權杖。")}
                 </p>
-                {notice && (
-                  <p className="rounded-xl bg-grass/10 px-3 py-2 text-[13px] font-bold text-grass">
-                    {notice}
-                  </p>
-                )}
-                <RestStatusCard
-                  rest={rest}
-                  onToggle={async (enabled) => {
-                    setError(null);
-                    try {
-                      setRest(await client.setPalDefenderRestEnabled(instanceId, enabled));
-                      setNotice(
-                        enabled
-                          ? t("已啟用 REST API — 重啟伺服器後生效")
-                          : t("已停用 REST API — 重啟後生效"),
-                      );
-                      setTimeout(() => setNotice(null), 4000);
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : String(err));
-                    }
-                  }}
-                  onProvisionToken={async () => {
-                    setError(null);
-                    try {
-                      setRest(
-                        await client.provisionPalDefenderToken(instanceId, rest?.hasToken ?? false),
-                      );
-                      setNotice(t("存取權杖已就緒 — 若查詢顯示尚未生效,重啟伺服器一次"));
-                      setTimeout(() => setNotice(null), 4000);
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : String(err));
-                    }
-                  }}
-                />
-                <div>
-                  <button className={btnGhost} onClick={load}>
-                    {t("重新查詢")}
+                {onGoToPalDefender && (
+                  <button
+                    className={`${btn} inline-flex items-center gap-1.5`}
+                    onClick={() => {
+                      onClose();
+                      onGoToPalDefender();
+                    }}
+                  >
+                    <FiShield className="size-4" /> {t("前往 PalDefender 設定")}
                   </button>
-                </div>
+                )}
               </div>
             ) : rest && !rest.installed ? (
               <p className="mt-2 text-xs">

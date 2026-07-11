@@ -225,7 +225,13 @@ export function InstanceDetailPage({
       {tab === "performance" && (
         <PerformanceTab client={client} instanceId={detail.id} running={detail.status === "running"} />
       )}
-      {tab === "players" && <PlayersTab client={client} instanceId={detail.id} />}
+      {tab === "players" && (
+        <PlayersTab
+          client={client}
+          instanceId={detail.id}
+          onGoToPalDefender={palDefender ? () => setTab("paldefender") : undefined}
+        />
+      )}
       {tab === "map" && <MapTab client={client} instanceId={detail.id} />}
       {tab === "settings" && (
         <SettingsEditor

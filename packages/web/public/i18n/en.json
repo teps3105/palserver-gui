@@ -837,5 +837,9 @@
  "。此動作無法復原。": ". This cannot be undone.",
  "(若伺服器檔案位於你自行指定的外部目錄,該目錄會保留。)": "(If the server files live in an external directory you chose yourself, that directory is kept.)",
  "看起來是 PalDefender 的 REST API 還沒設定好,你可以直接在這裡開啟:": "Looks like PalDefender's REST API isn't set up yet — you can enable it right here:",
- "重新查詢": "Retry"
+ "重新查詢": "Retry",
+ "離線玩家": "Offline players",
+ "目前沒有離線玩家。agent 每 15 秒會記錄一次在線狀態。": "No offline players right now. The agent records presence every 15 seconds.",
+ "玩家細節需要 PalDefender 的 REST API。請到 PalDefender 分頁啟用 REST API 並建立存取權杖。": "Player detail needs PalDefender's REST API. Open the PalDefender tab to enable the REST API and create an access token.",
+ "前往 PalDefender 設定": "Go to PalDefender settings"
 }
