@@ -1,14 +1,12 @@
-export default function Why() {
+import type { Dictionary } from '@/i18n/dictionaries';
+
+export default function Why({ d }: { d: Dictionary['why'] }) {
   return (
     <section>
-      <div className="wrap col">
-        <p className="eyebrow">為什麼需要它</p>
-        <h2>開專用伺服器, 不該是一場惡夢。</h2>
-        <p className="sec-lead">
-          改不完的設定檔、背不完的指令、朋友卡在「連不進來」、遊戲一改版就炸存檔、
-          半夜伺服器崩潰沒人救……這些不是「架好就沒事」的小事。palserver GUI
-          把每一項都收進乾淨的畫面裡, 新手覺得簡單, 老手覺得夠力。
-        </p>
+      <div className="wrap col reveal">
+        <p className="eyebrow">{d.eyebrow}</p>
+        <h2>{d.h2}</h2>
+        <p className="sec-lead">{d.lead}</p>
       </div>
     </section>
   );

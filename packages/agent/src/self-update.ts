@@ -358,7 +358,7 @@ async function run({ canApply, onRestart, log }: UpdateOps): Promise<void> {
     phase = "extracting";
     const unpacked = path.join(work, "unpacked");
     fs.mkdirSync(unpacked);
-    await execFileP("tar", ["-xzf", pkg, "-C", unpacked]);
+    await execFileP("tar", ["-xzf", pkg, "-C", unpacked], { windowsHide: true });
 
     const exeName = path.basename(layout.exePath);
     const newExe = path.join(unpacked, exeName);

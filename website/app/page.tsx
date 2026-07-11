@@ -1,55 +1,22 @@
-import Nav from '@/components/Nav';
-import Hero from '@/components/Hero';
-import Stats from '@/components/Stats';
-import Why from '@/components/Why';
-import HowItWorks from '@/components/HowItWorks';
-import Features from '@/components/Features';
-import Audience from '@/components/Audience';
-import Wishes, { WISHES } from '@/components/Wishes';
-import GetStarted from '@/components/GetStarted';
-import NiceDetails from '@/components/NiceDetails';
-import Team from '@/components/Team';
-import ClosingCta from '@/components/ClosingCta';
-import Footer from '@/components/Footer';
-import RevealObserver from '@/components/RevealObserver';
+import type { Metadata } from 'next';
+import RootRedirect from './RootRedirect';
 
-const faqJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
-  mainEntity: WISHES.map((w) => ({
-    '@type': 'Question',
-    name: w.q,
-    acceptedAnswer: { '@type': 'Answer', text: `${w.head}${w.body}` },
-  })),
+// 「/」只是語言導向頁,不需要被索引;正式內容在 /zh、/en、/ja。
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+  alternates: { canonical: '/zh/' },
 };
 
 export default function Page() {
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
-      />
-      <div className="bg" aria-hidden="true">
-        <i className="a" />
-        <i className="b" />
-      </div>
-      <Nav />
-      <Hero />
-      <main>
-        <Stats />
-        <Why />
-        <HowItWorks />
-        <Features />
-        <Audience />
-        <Wishes />
-        <GetStarted />
-        <NiceDetails />
-        <Team />
-        <ClosingCta />
-      </main>
-      <Footer />
-      <RevealObserver />
+      <noscript>
+        <meta httpEquiv="refresh" content="0; url=/zh/" />
+      </noscript>
+      <RootRedirect />
+      <p style={{ fontFamily: 'system-ui, sans-serif', padding: 24 }}>
+        前往 palserver GUI… / Redirecting… <a href="/zh/">/zh/</a>
+      </p>
     </>
   );
 }

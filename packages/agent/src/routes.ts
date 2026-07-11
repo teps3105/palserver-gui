@@ -6,8 +6,10 @@ import {
   type EngineSettings,
   type PalDefenderConfig,
   CreateInstanceSchema,
+  CustomPalSchema,
   UpdateSettingsSchema,
   WorldSettingsSchema,
+  detectVpn,
   type AgentInfo,
   type InstanceDetail,
   type InstanceSummary,
@@ -29,7 +31,7 @@ import {
 import type { InstanceStore, InstanceRecord } from "./store.js";
 import type { DriverContext, ServerDriver } from "./driver.js";
 import * as dockerOps from "./docker.js";
-import { SERVER_LAUNCHER, classifyServerDir, isInstalling, nativeDriver, updateServer } from "./native.js";
+import { SERVER_LAUNCHER, classifyServerDir, isInstalling, lastInstallError, nativeDriver, serverRoot, updateServer } from "./native.js";
 import { cachedVersionSummary, getVersionStatus } from "./version.js";
 import { getConnectionInfo } from "./connectivity.js";
 import { getModsStatus, installComponent, installedEnhancements, removeComponent, setLuaModEnabled } from "./mods.js";
@@ -42,6 +44,8 @@ import { getConfigHealth, regenerateConfig } from "./config-health.js";
 import { getPalDefenderConfig, writePalDefenderConfig } from "./paldefender-config.js";
 import { getPlayerDetail, getPdRestStatus, setPdRestEnabled, provisionPdToken } from "./paldefender-rest.js";
 import { setTelemetryEnabled, telemetryStatus, track } from "./telemetry.js";
+import { licenseStatus, setLicenseKey, clearLicenseKey, featureEnabled } from "./license.js";
+import { giveCustomPal } from "./pals.js";
 import { applyUpdate, getUpdateStatus, setUpdatePrefs, type UpdateOps } from "./self-update.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -85,6 +89,7 @@ export function registerRoutes(
       gameVersion,
       updateAvailable,
       enhancements,
+      installError: rec.backend === "native" ? lastInstallError(rec.id) : null,
     };
   };
 
@@ -160,6 +165,14 @@ export function registerRoutes(
     return setTelemetryEnabled(enabled);
   });
 
+  // 贊助者識別碼(先行版授權):填碼 -> 立即向 worker 啟用/驗證;一碼綁一台。
+  app.get("/api/license", async () => licenseStatus());
+  app.put("/api/license", async (req) => {
+    const { code } = z.object({ code: z.string().trim().min(1).max(64) }).parse(req.body);
+    return setLicenseKey(code);
+  });
+  app.delete("/api/license", async () => clearLicenseKey());
+
   // 配對:遠端裝置用好念的配對碼換發長 token。此端點本身免 token(靠配對碼保護)。
   app.post("/api/pair", async (req, reply) => {
     const code = String((req.body as { code?: string } | null)?.code ?? "");
@@ -179,18 +192,17 @@ export function registerRoutes(
   // 已授權者可查目前配對碼,用來產生「邀請朋友遠端連線」的設定連結。
   app.get("/api/pair/code", async () => ({ pairingCode: auth.pairingCode }));
 
-  // 這台 agent 的可連 IPv4 位址(標出可能是 Tailscale 的),讓設定頁組出
-  // 給其他裝置用的登入連結。scheme/port 前端用自己連進來的網址即可推得。
+  // 這台 agent 的可連 IPv4 位址(標出可能是 VPN 的:Tailscale / Radmin / Hamachi),
+  // 讓設定頁組出給其他裝置用的登入連結。scheme/port 前端用自己連進來的網址即可推得。
   app.get("/api/addresses", async () => {
-    const out: { ip: string; tailscale: boolean }[] = [];
+    const out: { ip: string; vpn: string | null }[] = [];
     for (const addrs of Object.values(os.networkInterfaces())) {
       for (const a of addrs ?? []) {
         if (a.family !== "IPv4" || a.internal) continue;
-        const [x, y] = a.address.split(".").map(Number);
-        out.push({ ip: a.address, tailscale: x === 100 && y >= 64 && y <= 127 });
+        out.push({ ip: a.address, vpn: detectVpn(a.address) });
       }
     }
-    out.sort((a, b) => Number(b.tailscale) - Number(a.tailscale));
+    out.sort((a, b) => Number(!!b.vpn) - Number(!!a.vpn));
     return { addresses: out };
   });
 
@@ -260,6 +272,7 @@ export function registerRoutes(
       status,
       runtimeId,
       serverDir: rec.serverDir ?? null,
+      effectiveServerDir: rec.backend === "native" ? serverRoot(rec, ctxOf(rec)) : null,
       settings: rec.settings,
     };
   });
@@ -276,6 +289,47 @@ export function registerRoutes(
       dockerOps.writeConfig(store.instanceDir(rec.id), updated.settings);
     }
     return { applied: "on-next-restart", settings: updated.settings };
+  });
+
+  /** 查看/修改伺服器路徑(僅 native)。改路徑不搬檔案:指到既有安裝就直接
+   * 採用;指到空資料夾/新路徑則下次啟動時安裝到那裡;留空回到 agent 資料夾。
+   * 伺服器執行或安裝中不允許改,避免把行程與檔案狀態改到分家。 */
+  app.put("/api/instances/:id/server-dir", async (req, reply) => {
+    const rec = getOr404((req.params as { id: string }).id);
+    if (rec.backend !== "native") {
+      return reply.code(400).send({ error: "serverDir is only supported by the native backend" });
+    }
+    const { status } = await driverOf(rec).status(rec, ctxOf(rec));
+    if (status === "running" || status === "restarting" || status === "installing" || isInstalling(rec.id)) {
+      return reply.code(409).send({ error: "stop the server before changing its directory" });
+    }
+    const input = z.object({ serverDir: z.string().max(500) }).parse(req.body);
+    const trimmed = input.serverDir.trim();
+    if (!trimmed) {
+      // 清空 = 回到 agent 管理的資料夾
+      const updated = store.update(rec.id, { serverDir: undefined, serverDirManaged: undefined });
+      return { serverDir: updated.serverDir ?? null };
+    }
+    if (!path.isAbsolute(trimmed)) {
+      return reply.code(400).send({ error: `server dir must be an absolute path: ${trimmed}` });
+    }
+    const serverDir = path.resolve(trimmed);
+    if (store.list().some((r) => r.id !== rec.id && r.serverDir && path.resolve(r.serverDir) === serverDir)) {
+      return reply.code(409).send({ error: `server dir already used by another instance: ${serverDir}` });
+    }
+    const kind = classifyServerDir(serverDir);
+    if (kind === "not-a-server") {
+      return reply.code(409).send({
+        error:
+          `"${SERVER_LAUNCHER}" not found in ${serverDir} and the directory is not empty — ` +
+          `point at an existing PalServer install, or at an empty/new folder to install into`,
+      });
+    }
+    const updated = store.update(rec.id, {
+      serverDir,
+      serverDirManaged: kind === "install" ? true : undefined,
+    });
+    return { serverDir: updated.serverDir ?? null };
   });
 
   app.post("/api/instances/:id/start", async (req) => {
@@ -312,6 +366,59 @@ export function registerRoutes(
     // World saves under the instance/server dir are kept on disk deliberately;
     // deleting them should be an explicit, separate action.
     reply.code(204);
+  });
+
+  /** 匯出成 tar.gz 下載:存檔 + ini 設定 + PalDefender 設定,不含可重下的遊戲執行檔。
+   *  瀏覽器直接開這個網址下載(token 走 query,見 auth)。目前僅 native。 */
+  app.get("/api/instances/:id/export", async (req, reply) => {
+    const rec = getOr404((req.params as { id: string }).id);
+    if (rec.backend !== "native") {
+      return reply.code(400).send({ error: "export is only supported by the native backend" });
+    }
+    const stream = saves.exportArchiveStream(rec, ctxOf(rec));
+    if (!stream) {
+      return reply.code(409).send({ error: "nothing to export yet — start the server once to generate saves/config" });
+    }
+    const safe = rec.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    reply.header("content-type", "application/gzip");
+    reply.header("content-disposition", `attachment; filename="${safe}-export.tar.gz"`);
+    return stream;
+  });
+
+  /** 複製伺服器:用相同設定開一個新實例(換新名稱與新遊戲埠),並複製世界存檔與設定,
+   *  但不複製數十 GB 的遊戲執行檔(新實例自行安裝)。目前僅 native;需先停止來源。 */
+  app.post("/api/instances/:id/duplicate", async (req, reply) => {
+    const rec = getOr404((req.params as { id: string }).id);
+    if (rec.backend !== "native") {
+      return reply.code(400).send({ error: "duplicate is only supported by the native backend" });
+    }
+    const { status } = await driverOf(rec).status(rec, ctxOf(rec));
+    if (status === "running" || status === "restarting" || status === "installing" || isInstalling(rec.id)) {
+      return reply.code(409).send({ error: "stop the server before duplicating it" });
+    }
+    const body = z.object({ name: z.string().max(80).optional() }).parse(req.body ?? {});
+    // 名稱唯一:預設 <name>-copy,撞名就往後補號。
+    const base = body.name?.trim() || `${rec.name}-copy`;
+    let name = base;
+    for (let n = 2; store.findByName(name); n++) name = `${base}-${n}`;
+    // 遊戲埠:從來源埠 +1 往上找一個沒被占用的。
+    const usedPorts = new Set(store.list().map((r) => r.gamePort));
+    let gamePort = rec.gamePort + 1;
+    while (usedPorts.has(gamePort)) gamePort++;
+
+    const settings = WorldSettingsSchema.parse({ ...rec.settings, ServerName: name, PublicPort: gamePort });
+    // 新實例一律 agent 管理(不共用來源的外部安裝目錄)。
+    const created = store.create({ name, backend: "native", flavor: rec.flavor, gamePort, settings });
+    try {
+      saves.copyPortableData(serverRoot(rec, ctxOf(rec)), serverRoot(created, ctxOf(created)));
+    } catch (err) {
+      // 複製檔案失敗就把剛建立的實例收回,別留下半殘的實例。
+      store.remove(created.id);
+      throw err;
+    }
+    track("instance_created");
+    reply.code(201);
+    return toSummary(created);
   });
 
   app.get("/api/instances/:id/stats", async (req, reply) => {
@@ -499,6 +606,26 @@ export function registerRoutes(
     const { command } = z.object({ command: z.string().min(1).max(500) }).parse(req.body);
     const output = await rconExec(rec, command);
     return { command, output };
+  });
+
+  // 自訂帕魯(贊助者先行版 custom-pal):PalDefender 範本 + RCON givepal_j。
+  app.post("/api/instances/:id/pals/give", async (req, reply) => {
+    if (!featureEnabled("custom-pal")) {
+      return reply
+        .code(403)
+        .send({ error: "此功能為贊助者先行版,請在設定頁輸入贊助者識別碼解鎖。" });
+    }
+    const rec = getOr404((req.params as { id: string }).id);
+    if (rec.backend !== "native") {
+      return reply.code(409).send({ error: "自訂帕魯目前僅支援原生模式的實例" });
+    }
+    if (!getModsStatus(rec, ctxOf(rec)).paldefender.installed) {
+      return reply.code(409).send({ error: "需要先安裝 PalDefender 才能發帕魯" });
+    }
+    requireRcon(rec);
+    const input = CustomPalSchema.parse(req.body);
+    const output = await giveCustomPal(rec, ctxOf(rec), input);
+    return { output };
   });
 
   // ── PalDefender Config.json ──

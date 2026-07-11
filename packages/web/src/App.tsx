@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GiSheep, GiEggClutch } from "react-icons/gi";
-import { FiDownload, FiHeart, FiHelpCircle, FiPlus, FiSettings } from "react-icons/fi";
+import { FiDownload, FiHeart, FiHelpCircle, FiPlus, FiSettings, FiAlertTriangle } from "react-icons/fi";
 import type { InstanceSummary } from "@palserver/shared";
 import { AgentClient, loadConnection, saveConnection, type Connection } from "./api";
 import { usePromoConfig } from "./promoConfig";
@@ -78,12 +78,14 @@ function Shell({ conn, onDisconnect }: { conn: Connection; onDisconnect: () => v
           <button
             className={`${btnGhost} inline-flex items-center gap-1.5`}
             onClick={() => setShowCredits(true)}
+            data-testid="open-credits"
           >
             <FiHeart className="size-4" /> {t("感謝名單")}
           </button>
           <button
             className={`${btnGhost} inline-flex items-center gap-1.5`}
             onClick={() => setShowSettings(true)}
+            data-testid="open-settings"
           >
             <FiSettings className="size-4" /> {t("設定")}
           </button>
@@ -138,7 +140,11 @@ function Dashboard({ client, onOpen }: { client: AgentClient; onOpen: (id: strin
       {error && <p className={errorCls}>{error}</p>}
       <div className="flex items-center justify-between">
         <h2 className="my-3.5 text-[17px] font-extrabold">{t("伺服器")}</h2>
-        <button className={`${btn} inline-flex items-center gap-1.5`} onClick={() => setShowCreate(true)}>
+        <button
+          className={`${btn} inline-flex items-center gap-1.5`}
+          onClick={() => setShowCreate(true)}
+          data-testid="create-server"
+        >
           <FiPlus className="size-4" /> {t("建立伺服器")}
         </button>
       </div>
@@ -171,6 +177,11 @@ function Dashboard({ client, onOpen }: { client: AgentClient; onOpen: (id: strin
               {inst.updateAvailable && (
                 <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-sun/40 bg-sun/15 px-2.5 py-1 text-xs font-bold text-sun">
                   <FiDownload className="size-3.5" /> {t("有新版本可更新")}
+                </p>
+              )}
+              {inst.installError && (
+                <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-berry/40 bg-berry/10 px-2.5 py-1 text-xs font-bold text-berry">
+                  <FiAlertTriangle className="size-3.5" /> {t("安裝失敗")}
                 </p>
               )}
             </button>

@@ -1,5 +1,5 @@
 import os from "node:os";
-import type { ConnectionInfo } from "@palserver/shared";
+import { detectVpn, type ConnectionInfo } from "@palserver/shared";
 import { DATA_DIR } from "./env.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -14,27 +14,32 @@ import path from "node:path";
 const PUBLIC_IP_CACHE = path.join(DATA_DIR, "public-ip.json");
 const PUBLIC_IP_TTL_MS = 30 * 60_000;
 
-const isTailscale = (ip: string) => {
-  const m = ip.match(/^100\.(\d+)\./);
-  return m !== null && Number(m[1]) >= 64 && Number(m[1]) <= 127;
-};
 const isPrivate = (ip: string) =>
   /^10\./.test(ip) ||
   /^192\.168\./.test(ip) ||
   /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ||
   /^169\.254\./.test(ip);
 
-function localAddresses(): { lan: string[]; tailscale: string | null } {
+function localAddresses(): { lan: string[]; vpns: { name: string; address: string }[] } {
   const lan: string[] = [];
-  let tailscale: string | null = null;
+  const vpns: { name: string; address: string }[] = [];
+  const seen = new Set<string>();
   for (const addrs of Object.values(os.networkInterfaces())) {
     for (const a of addrs ?? []) {
       if (a.family !== "IPv4" || a.internal) continue;
-      if (isTailscale(a.address)) tailscale ??= a.address;
-      else if (/^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(a.address)) lan.push(a.address);
+      const vpn = detectVpn(a.address);
+      if (vpn) {
+        // 同一個 VPN 只留第一個位址,避免列出重複網卡。
+        if (!seen.has(vpn)) {
+          seen.add(vpn);
+          vpns.push({ name: vpn, address: a.address });
+        }
+      } else if (/^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(a.address)) {
+        lan.push(a.address);
+      }
     }
   }
-  return { lan, tailscale };
+  return { lan, vpns };
 }
 
 async function publicIp(): Promise<string | null> {
@@ -57,10 +62,10 @@ async function publicIp(): Promise<string | null> {
 }
 
 export async function getConnectionInfo(gamePort: number): Promise<ConnectionInfo> {
-  const { lan, tailscale } = localAddresses();
+  const { lan, vpns } = localAddresses();
   const pub = await publicIp();
   // If we have a public IP and none of our interfaces hold it, the host sits
   // behind a router (NAT) — direct connections need port forwarding.
   const behindNat = pub !== null && !lan.includes(pub) && !isPrivate(pub) ? true : pub !== null;
-  return { gamePort, lan, tailscale, publicIp: pub, behindNat };
+  return { gamePort, lan, vpns, publicIp: pub, behindNat };
 }

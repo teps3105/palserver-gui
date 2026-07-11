@@ -1,31 +1,32 @@
+import type { Dictionary } from '@/i18n/dictionaries';
+
+/** 名字與頭像縮寫不翻譯;職稱由字典帶入(對應順序)。 */
 const MEMBERS = [
-  { av: 'D', name: 'Dalufish', role: '核心開發人員' },
-  { av: 'M', name: 'Ming Chen', role: '核心開發人員' },
-  { av: '1', name: '147', role: '核心團隊維護者' },
-  { av: '墨', name: '墨殘', role: '核心團隊維護者' },
-  { av: 'L', name: 'LilaS', role: '核心團隊維護者・資安' },
-  { av: '咖', name: '咖啡', role: '核心團隊維護者' },
+  { av: 'D', name: 'Dalufish' },
+  { av: 'M', name: 'Ming Chen' },
+  { av: '1', name: '147' },
+  { av: '墨', name: '墨殘' },
+  { av: 'L', name: 'LilaS' },
+  { av: '咖', name: '咖啡' },
 ];
 
-export default function Team() {
+export default function Team({ d }: { d: Dictionary['team'] }) {
   return (
     <section id="team">
       <div className="wrap">
-        <div className="col">
-          <p className="eyebrow">誰做的</p>
-          <h2>一群喜歡帕魯的人, 用愛維護。</h2>
-          <p className="sec-lead">
-            palserver GUI 完全免費開源, 由核心團隊持續維護。喜歡的話, 一杯咖啡就是最大的鼓勵。
-          </p>
+        <div className="col reveal">
+          <p className="eyebrow">{d.eyebrow}</p>
+          <h2>{d.h2}</h2>
+          <p className="sec-lead">{d.lead}</p>
         </div>
         <div className="teamg reveal">
-          {MEMBERS.map((m) => (
+          {MEMBERS.map((m, i) => (
             <div className="mem" key={m.name}>
               <div className="av" aria-hidden="true">
                 {m.av}
               </div>
               <b>{m.name}</b>
-              <span>{m.role}</span>
+              <span>{d.roles[i]}</span>
             </div>
           ))}
         </div>

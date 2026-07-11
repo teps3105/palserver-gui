@@ -36,12 +36,14 @@ export function ConnectionCard({ client, instanceId }: { client: AgentClient; in
         title={t("遠端的朋友 — 用 VPN 連線(推薦)")}
         hint={t("不用動路由器、也不怕外網攻擊。你和朋友裝同一套免費 VPN、加入同一個網路,就像在同一個 WiFi 裡。")}
       >
-        {info.tailscale && (
-          <div className="mb-2">
-            <p className="mb-1 text-xs font-bold text-ink-muted">{t("你的 Tailscale 位址:")}</p>
-            <AddressChip address={`${info.tailscale}:${port}`} />
+        {info.vpns.map((v) => (
+          <div key={v.name} className="mb-2">
+            <p className="mb-1 text-xs font-bold text-ink-muted">
+              {t("你的 {name} 位址:", { name: v.name })}
+            </p>
+            <AddressChip address={`${v.address}:${port}`} />
           </div>
-        )}
+        ))}
         <div className="grid gap-2 sm:grid-cols-2">
           <VpnOption
             name="Radmin VPN"

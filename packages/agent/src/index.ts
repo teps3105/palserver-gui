@@ -9,7 +9,8 @@ import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import fastifyStatic from "@fastify/static";
 import { ZodError } from "zod";
-import { DATA_DIR, HOST, PORT, AGENT_VERSION, REQUIRE_TOKEN, WEB_ORIGINS, TLS_ENABLED, OPEN_BROWSER } from "./env.js";
+import { detectVpn } from "@palserver/shared";
+import { DATA_DIR, HOST, PORT, AGENT_VERSION, REQUIRE_TOKEN, WEB_ORIGINS, TLS_ENABLED, OPEN_BROWSER, IS_PORTABLE_EXE } from "./env.js";
 import {
   loadOrCreateToken,
   loadOrCreatePairingCode,
@@ -28,10 +29,39 @@ import { dockerDriver } from "./docker.js";
 import { registerRoutes } from "./routes.js";
 import { announceBoot, trackPlayers } from "./telemetry.js";
 import { cleanupOldBinaries, startUpdateChecker, type UpdateOps } from "./self-update.js";
+import { refreshLicense } from "./license.js";
+import { startTray } from "./tray.js";
 
 // 啟動流程包在 async main() 內,讓 entry 沒有頂層 await —— 這樣才能打包成
 // CommonJS 供 Node SEA 免安裝執行檔使用(頂層 await 只能輸出 ESM)。
 async function main() {
+// Windows 免安裝執行檔:用系統匣圖示取代一直開著的主控台視窗。做法是「用隱藏視窗把自己重啟一份」,
+// 原本這個帶主控台的實例就結束 —— cmd 視窗隨之關閉,背景那份(PALSERVER_TRAY_CHILD=1)負責跑
+// agent 並顯示系統匣。設 PALSERVER_CONSOLE=1 可保留主控台除錯。
+// 只在玩家雙擊的免安裝執行檔上做;開發模式(pnpm dev / tsx watch)不隱藏,否則會把互動終端
+// 直接關掉,拿不到 token 也沒有 watch 重載 —— 那正是「start-agent 壞了」的原因。
+if (
+  process.platform === "win32" &&
+  IS_PORTABLE_EXE &&
+  !process.env.PALSERVER_TRAY_CHILD &&
+  !process.env.PALSERVER_CONSOLE &&
+  resolveWebDist() !== null
+) {
+  try {
+    const child = spawn(process.execPath, process.argv.slice(1), {
+      detached: true,
+      windowsHide: true,
+      stdio: "ignore",
+      env: { ...process.env, PALSERVER_TRAY_CHILD: "1" },
+    });
+    child.unref();
+    process.stdout.write("\n  palserver GUI 已在背景啟動,系統匣(右下角)有圖示。這個視窗可以關閉。\n\n");
+    process.exit(0);
+  } catch {
+    /* 重啟失敗就照常在這個主控台繼續跑 */
+  }
+}
+
 const tls = TLS_ENABLED ? await loadOrCreateTlsCert() : null;
 const scheme = tls ? "https" : "http";
 const app = Fastify({
@@ -143,12 +173,33 @@ await app.listen({ host: HOST, port: PORT });
 
 startUpdateChecker(updateOps);
 
+// 贊助者識別碼:啟動時驗證一次,之後定期重驗(內部有 12h 節流;訂閱到期/取消會在此收斂)。
+void refreshLicense(true).catch(() => {});
+setInterval(() => void refreshLicense().catch(() => {}), 6 * 60 * 60 * 1000).unref();
+
 app.log.info(`palserver-agent v${AGENT_VERSION} · data dir: ${DATA_DIR}`);
 
 // 只有「合一版」(內含前端)自動開網頁才有意義;純 agent 版打開只會看到 API。
 const willOpen = webDist !== null && OPEN_BROWSER;
 printStartupBanner(scheme, PORT, pairingCode, webDist !== null, willOpen);
 if (willOpen) openBrowser(`${scheme}://localhost:${PORT}`);
+
+// 背景那份(主控台已隱藏)顯示系統匣圖示,作為「引擎運作中」的提示與控制入口。
+if (process.env.PALSERVER_TRAY_CHILD) {
+  const tray = startTray({ url: `${scheme}://localhost:${PORT}`, code: pairingCode });
+  if (tray) {
+    const stopTray = () => {
+      try {
+        tray.kill();
+      } catch {
+        /* 已結束 */
+      }
+    };
+    process.on("exit", stopTray);
+    process.on("SIGINT", () => process.exit(0));
+    process.on("SIGTERM", () => process.exit(0));
+  }
+}
 }
 
 // EADDRINUSE 幾乎都是「玩家又點了一次」:別噴一大坨堆疊,給一句友善說明並打開既有的介面。
@@ -205,18 +256,17 @@ function resolveWebDist(): string | null {
   return null;
 }
 
-/** 收集本機各網卡的 IPv4,標出可能是 Tailscale(100.64.0.0/10)的位址。 */
-function localAddresses(): { ip: string; tailscale: boolean }[] {
-  const out: { ip: string; tailscale: boolean }[] = [];
+/** 收集本機各網卡的 IPv4,標出可能是 VPN(Tailscale / Radmin / Hamachi)的位址。 */
+function localAddresses(): { ip: string; vpn: string | null }[] {
+  const out: { ip: string; vpn: string | null }[] = [];
   for (const addrs of Object.values(os.networkInterfaces())) {
     for (const a of addrs ?? []) {
       if (a.family !== "IPv4" || a.internal) continue;
-      const [x, y] = a.address.split(".").map(Number);
-      out.push({ ip: a.address, tailscale: x === 100 && y >= 64 && y <= 127 });
+      out.push({ ip: a.address, vpn: detectVpn(a.address) });
     }
   }
-  // Tailscale/VPN 位址排前面(最適合遠端連線)。
-  return out.sort((a, b) => Number(b.tailscale) - Number(a.tailscale));
+  // VPN 位址排前面(最適合遠端連線)。
+  return out.sort((a, b) => Number(!!b.vpn) - Number(!!a.vpn));
 }
 
 /**
@@ -230,7 +280,7 @@ function printStartupBanner(
   hasWeb: boolean,
   willOpen: boolean,
 ): void {
-  const remote = localAddresses()[0]; // 優先 Tailscale/VPN,否則第一個區網位址
+  const remote = localAddresses()[0]; // 優先 VPN(Tailscale/Radmin…),否則第一個區網位址
   const L = (s = "") => process.stdout.write(s + "\n");
   L();
   L("  palserver GUI 已啟動。請保持這個視窗開著(關掉就會停止伺服器管理)。");
@@ -241,7 +291,7 @@ function printStartupBanner(
     L(`  API 位址(此版本未內含網頁介面): ${proto}://localhost:${port}`);
   }
   if (remote) {
-    L(`  邀朋友 / 其他裝置: ${proto}://${remote.ip}:${port}/?setup=${code}`);
+    L(`  邀朋友 / 其他裝置: ${proto}://${remote.ip}:${port}/?setup=${code}${remote.vpn ? `   (${remote.vpn})` : ""}`);
   }
   L(`  配對碼: ${code}   (在別的裝置連線時要用)`);
   if (proto === "https") L("  自簽憑證會跳安全警告,選「繼續前往」即可。");

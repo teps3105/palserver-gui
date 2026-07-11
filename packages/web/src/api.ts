@@ -7,6 +7,7 @@ import type {
   ConfigHealth,
   ConnectionInfo,
   CreateInstanceInput,
+  CustomPalInput,
   DirEntry,
   EngineSettings,
   EngineSettingsStatus,
@@ -15,6 +16,7 @@ import type {
   InstanceStats,
   InstanceSummary,
   KnownPlayer,
+  LicenseStatus,
   LiveStatus,
   LogSource,
   LogSourceId,
@@ -132,7 +134,7 @@ export class AgentClient {
   }
 
   /** 這台 agent 的可連 IPv4 位址,用來組給其他裝置的登入連結。 */
-  agentAddresses(): Promise<{ addresses: { ip: string; tailscale: boolean }[] }> {
+  agentAddresses(): Promise<{ addresses: { ip: string; vpn: string | null }[] }> {
     return this.request("/api/addresses");
   }
 
@@ -157,6 +159,19 @@ export class AgentClient {
 
   setTelemetry(enabled: boolean): Promise<TelemetryStatus> {
     return this.request("/api/telemetry", { method: "PUT", body: JSON.stringify({ enabled }) });
+  }
+
+  /** 贊助者識別碼(先行版授權)狀態。 */
+  license(): Promise<LicenseStatus> {
+    return this.request("/api/license");
+  }
+
+  setLicense(code: string): Promise<LicenseStatus> {
+    return this.request("/api/license", { method: "PUT", body: JSON.stringify({ code }) });
+  }
+
+  clearLicense(): Promise<LicenseStatus> {
+    return this.request("/api/license", { method: "DELETE" });
   }
 
   listInstances(): Promise<InstanceSummary[]> {
@@ -189,6 +204,29 @@ export class AgentClient {
     });
   }
 
+  /** 修改伺服器路徑(僅 native)。空字串 = 回到 agent 管理的資料夾。 */
+  updateServerDir(id: string, serverDir: string): Promise<{ serverDir: string | null }> {
+    return this.request(`/api/instances/${id}/server-dir`, {
+      method: "PUT",
+      body: JSON.stringify({ serverDir }),
+    });
+  }
+
+  /** 匯出下載網址(存檔+設定的 tar.gz;僅 native)。瀏覽器直接開它下載,token 走 query。 */
+  exportUrl(id: string): string {
+    const url = new URL(`${this.conn.url}/api/instances/${id}/export`);
+    url.searchParams.set("token", this.conn.token);
+    return url.toString();
+  }
+
+  /** 複製伺服器(僅 native):用相同設定+世界存檔開一個新實例,回傳新實例摘要。 */
+  duplicateInstance(id: string, name?: string): Promise<InstanceSummary> {
+    return this.request(`/api/instances/${id}/duplicate`, {
+      method: "POST",
+      body: JSON.stringify(name ? { name } : {}),
+    });
+  }
+
   stats(id: string): Promise<InstanceStats> {
     return this.request(`/api/instances/${id}/stats`);
   }
@@ -216,6 +254,14 @@ export class AgentClient {
     return this.request(`/api/instances/${id}/mods/lua-toggle`, {
       method: "POST",
       body: JSON.stringify({ name, enabled }),
+    });
+  }
+
+  /** 自訂帕魯(贊助者先行版):PalDefender 範本 + givepal_j。 */
+  giveCustomPal(id: string, input: CustomPalInput): Promise<{ output: string }> {
+    return this.request(`/api/instances/${id}/pals/give`, {
+      method: "POST",
+      body: JSON.stringify(input),
     });
   }
 

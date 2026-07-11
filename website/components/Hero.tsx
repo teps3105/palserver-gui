@@ -1,48 +1,42 @@
 import Shot from './Shot';
+import type { Dictionary } from '@/i18n/dictionaries';
+import type { Locale } from '@/i18n/config';
 
-export default function Hero() {
+export default function Hero({ d, lang }: { d: Dictionary['hero']; lang: Locale }) {
   return (
     <header id="top">
       <div className="wrap">
-        <p className="eyebrow">開源 · 免費 · 帕魯專用伺服器管理</p>
+        <p className="eyebrow">{d.eyebrow}</p>
         <h1>
-          <span className="pal">一鍵</span>開一台帕魯伺服器。
+          <span className="pal">{d.h1Emph}</span>
+          {d.h1Rest}
           <br />
-          零指令、零設定檔。
+          {d.h1Line2}
         </h1>
-        <p className="sub">
-          palserver GUI 把開服、改設定、備份、邀朋友、救崩潰, 全部變成畫面上的按鈕。
-          裝在放伺服器的電腦上, 手機、平板、電腦打開網頁就能管理——人在外面, 也能一鍵重開伺服器。
-        </p>
+        <p className="sub">{d.sub}</p>
         <div className="cta">
           <a className="btn btn-p" href="https://github.com/io-software-ai/palserver-gui/releases">
-            免費下載
+            {d.ctaDownload}
           </a>
           <a className="btn btn-g" href="#features">
-            看看能做什麼
+            {d.ctaLearn}
           </a>
         </div>
         <div className="chips">
-          <span className="chip">
-            <b>免安裝</b> 下載就能用
-          </span>
-          <span className="chip">
-            本機管理 <b>免密碼</b>
-          </span>
-          <span className="chip">
-            手機平板 <b>都能管</b>
-          </span>
-          <span className="chip">中／英／日 · 深淺色</span>
+          {d.chips.map((c, i) => (
+            <span className="chip" key={i}>
+              {c.plain ?? (
+                <>
+                  {c.lead}
+                  {c.strong && <b>{c.strong}</b>}
+                  {c.tail}
+                </>
+              )}
+            </span>
+          ))}
         </div>
         <div className="hero-shot">
-          <Shot
-            src="/assets/overview.jpg"
-            alt="palserver GUI 伺服器總覽畫面:狀態、玩家、效能一目了然"
-            label="palserver GUI"
-            width={1320}
-            height={848}
-            priority
-          />
+          <Shot src={`/assets/${lang}/overview.jpg`} alt={d.shotAlt} label={d.shotLabel} width={1320} height={848} priority />
         </div>
       </div>
     </header>
