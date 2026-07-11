@@ -856,5 +856,7 @@
  "校正:先點玩家的圓點,再點他真實所在的地形,把下面的 u / v 給我": "Calibration: click the player's dot first, then click where they really are on the terrain, and send me the u / v below",
  "{n} 個公會據點": "{n} guild bases",
  "公會據點": "Guild base",
- "{n} 名成員": "{n} members"
+ "{n} 名成員": "{n} members",
+ "開啟地圖": "Open map",
+ "伺服器未在運作,地圖無法顯示玩家。": "Server isn't running — the map can't show players."
 }

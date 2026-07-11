@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FiRefreshCw } from "react-icons/fi";
+import { FiRefreshCw, FiMap, FiX } from "react-icons/fi";
 import * as L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { savToMap, type LiveStatus, type RestPlayer, type PdGuild } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { useGameData, palIconUrl, type GameData } from "./gameData";
 import { t, useI18n } from "./i18n";
-import { btnGhost, card, errorCls } from "./ui";
+import { Overlay, btn, btnGhost, card, errorCls } from "./ui";
 
 /**
  * Live player map on the official Palworld world map (palworld.wiki.gg's
@@ -56,6 +56,7 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
   const [live, setLive] = useState<LiveStatus | null>(null);
   const [guilds, setGuilds] = useState<PdGuild[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -77,37 +78,55 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
     return () => clearInterval(timer);
   }, [refresh]);
 
-  if (!live) return <p className="text-ink-muted">{error ?? t("載入中…")}</p>;
-  if (!live.available) {
-    return (
-      <div className="rounded-(--radius-cute) border-2 border-dashed border-line px-6 py-12 text-center text-ink-muted">
-        <p className="font-bold">{t("無法連線到伺服器的 REST API")}</p>
-        <p className="mt-1 text-[13px]">{live.reason}</p>
-      </div>
-    );
-  }
+  const baseCount = guilds.reduce((s, g) => s + g.bases.length, 0);
+  const summary = live?.available
+    ? t("在線玩家 {n} 人", { n: live.players.length }) + (baseCount > 0 ? ` · ${t("{n} 個公會據點", { n: baseCount })}` : "")
+    : (live?.reason ?? t("伺服器未在運作,地圖無法顯示玩家。"));
 
   return (
     <div className="flex flex-col gap-3">
       {error && <p className={errorCls}>{error}</p>}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[13px] font-bold text-ink-muted">
-          {t("在線玩家 {n} 人", { n: live.players.length })}
-          {guilds.length > 0 && ` · ${t("{n} 個公會據點", { n: guilds.reduce((s, g) => s + g.bases.length, 0) })}`}
-        </p>
-        <button className={btnGhost} onClick={refresh} aria-label={t("重新整理")}>
-          <FiRefreshCw className="size-4" />
+      {/* 分頁只放入口;地圖在方形彈窗裡開(大小=地圖本身)。 */}
+      <div className={`${card} flex flex-wrap items-center justify-between gap-3`}>
+        <div className="min-w-0">
+          <p className="inline-flex items-center gap-2 text-sm font-extrabold">
+            <FiMap className="size-4 text-pal" /> {t("線上地圖")}
+          </p>
+          <p className="mt-0.5 text-[13px] text-ink-muted">{summary}</p>
+        </div>
+        <button
+          className={`${btn} inline-flex items-center gap-1.5`}
+          onClick={() => setOpen(true)}
+          disabled={!live?.available}
+        >
+          <FiMap className="size-4" /> {t("開啟地圖")}
         </button>
       </div>
 
-      <div className={`${card} overflow-hidden p-2`}>
-        <PlayerMap players={live.players} guilds={guilds} gameData={gameData} />
-      </div>
-
-      <p className="text-[13px] text-ink-muted">
-        {t("玩家位置即時顯示在官方世界地圖上,座標來自伺服器 REST API。滑鼠滾輪縮放、拖曳平移,點玩家看詳情。")}
-      </p>
+      {open && live?.available && (
+        <Overlay onClose={() => setOpen(false)}>
+          <div
+            className="flex h-[min(88vh,92vw)] w-[min(88vh,92vw)] max-w-full flex-col gap-2 rounded-(--radius-cute) border-2 border-line bg-card p-3 shadow-(--shadow-cute)"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="truncate text-[13px] font-bold text-ink-muted">{summary}</p>
+              <div className="flex gap-2">
+                <button className={btnGhost} onClick={refresh} aria-label={t("重新整理")}>
+                  <FiRefreshCw className="size-4" />
+                </button>
+                <button className={`${btnGhost} inline-flex items-center gap-1.5`} onClick={() => setOpen(false)}>
+                  <FiX className="size-4" /> {t("關閉")}
+                </button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden rounded-xl">
+              <PlayerMap players={live.players} guilds={guilds} gameData={gameData} />
+            </div>
+          </div>
+        </Overlay>
+      )}
     </div>
   );
 }
@@ -234,5 +253,5 @@ function PlayerMap({
     }
   }, [players, guilds, gameData]);
 
-  return <div ref={containerRef} className="aspect-square w-full rounded-xl bg-card-soft" />;
+  return <div ref={containerRef} className="h-full w-full rounded-xl bg-card-soft" />;
 }
