@@ -88,7 +88,11 @@ export interface InstanceDetail extends InstanceSummary {
   settings: WorldSettings;
   /** docker: container id · native: process id (null when not running). */
   runtimeId: string | null;
+  /** user-configured server dir; null when the agent picks the folder. */
   serverDir: string | null;
+  /** the actual absolute path the server files live in — resolved even when
+   * agent-managed (native only; null for docker). */
+  effectiveServerDir: string | null;
 }
 
 export interface InstanceStats {

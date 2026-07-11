@@ -30,7 +30,7 @@ import {
 import type { InstanceStore, InstanceRecord } from "./store.js";
 import type { DriverContext, ServerDriver } from "./driver.js";
 import * as dockerOps from "./docker.js";
-import { SERVER_LAUNCHER, classifyServerDir, isInstalling, nativeDriver, updateServer } from "./native.js";
+import { SERVER_LAUNCHER, classifyServerDir, isInstalling, nativeDriver, serverRoot, updateServer } from "./native.js";
 import { cachedVersionSummary, getVersionStatus } from "./version.js";
 import { getConnectionInfo } from "./connectivity.js";
 import { getModsStatus, installComponent, installedEnhancements, removeComponent, setLuaModEnabled } from "./mods.js";
@@ -260,6 +260,7 @@ export function registerRoutes(
       status,
       runtimeId,
       serverDir: rec.serverDir ?? null,
+      effectiveServerDir: rec.backend === "native" ? serverRoot(rec, ctxOf(rec)) : null,
       settings: rec.settings,
     };
   });
@@ -276,6 +277,47 @@ export function registerRoutes(
       dockerOps.writeConfig(store.instanceDir(rec.id), updated.settings);
     }
     return { applied: "on-next-restart", settings: updated.settings };
+  });
+
+  /** 查看/修改伺服器路徑(僅 native)。改路徑不搬檔案:指到既有安裝就直接
+   * 採用;指到空資料夾/新路徑則下次啟動時安裝到那裡;留空回到 agent 資料夾。
+   * 伺服器執行或安裝中不允許改,避免把行程與檔案狀態改到分家。 */
+  app.put("/api/instances/:id/server-dir", async (req, reply) => {
+    const rec = getOr404((req.params as { id: string }).id);
+    if (rec.backend !== "native") {
+      return reply.code(400).send({ error: "serverDir is only supported by the native backend" });
+    }
+    const { status } = await driverOf(rec).status(rec, ctxOf(rec));
+    if (status === "running" || status === "restarting" || status === "installing" || isInstalling(rec.id)) {
+      return reply.code(409).send({ error: "stop the server before changing its directory" });
+    }
+    const input = z.object({ serverDir: z.string().max(500) }).parse(req.body);
+    const trimmed = input.serverDir.trim();
+    if (!trimmed) {
+      // 清空 = 回到 agent 管理的資料夾
+      const updated = store.update(rec.id, { serverDir: undefined, serverDirManaged: undefined });
+      return { serverDir: updated.serverDir ?? null };
+    }
+    if (!path.isAbsolute(trimmed)) {
+      return reply.code(400).send({ error: `server dir must be an absolute path: ${trimmed}` });
+    }
+    const serverDir = path.resolve(trimmed);
+    if (store.list().some((r) => r.id !== rec.id && r.serverDir && path.resolve(r.serverDir) === serverDir)) {
+      return reply.code(409).send({ error: `server dir already used by another instance: ${serverDir}` });
+    }
+    const kind = classifyServerDir(serverDir);
+    if (kind === "not-a-server") {
+      return reply.code(409).send({
+        error:
+          `"${SERVER_LAUNCHER}" not found in ${serverDir} and the directory is not empty — ` +
+          `point at an existing PalServer install, or at an empty/new folder to install into`,
+      });
+    }
+    const updated = store.update(rec.id, {
+      serverDir,
+      serverDirManaged: kind === "install" ? true : undefined,
+    });
+    return { serverDir: updated.serverDir ?? null };
   });
 
   app.post("/api/instances/:id/start", async (req) => {

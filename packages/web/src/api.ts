@@ -189,6 +189,14 @@ export class AgentClient {
     });
   }
 
+  /** 修改伺服器路徑(僅 native)。空字串 = 回到 agent 管理的資料夾。 */
+  updateServerDir(id: string, serverDir: string): Promise<{ serverDir: string | null }> {
+    return this.request(`/api/instances/${id}/server-dir`, {
+      method: "PUT",
+      body: JSON.stringify({ serverDir }),
+    });
+  }
+
   stats(id: string): Promise<InstanceStats> {
     return this.request(`/api/instances/${id}/stats`);
   }

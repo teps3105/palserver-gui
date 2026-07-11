@@ -18,6 +18,7 @@ import { RestartCard } from "./RestartCard";
 import { VersionCard } from "./VersionCard";
 import { ConnectionCard } from "./ConnectionCard";
 import { MigrationCard } from "./MigrationCard";
+import { ServerDirCard } from "./ServerDirCard";
 import { PerformanceTab } from "./PerformanceTab";
 import { EngineTab } from "./EngineTab";
 import { maskSteamIdsInText } from "./SteamId";
@@ -258,7 +259,7 @@ function OverviewTab({
     ["REST API", detail.settings.RESTAPIEnabled ? t("啟用({port})", { port: Number(detail.settings.RESTAPIPort) }) : t("停用")],
     ["RCON", detail.settings.RCONEnabled ? t("啟用({port})", { port: Number(detail.settings.RCONPort) }) : t("停用")],
     [detail.backend === "native" ? t("行程 PID") : t("容器 ID"), detail.runtimeId ? detail.runtimeId.slice(0, 12) : "—"],
-    [t("伺服器目錄"), detail.serverDir ?? t("agent 管理")],
+    [t("伺服器目錄"), detail.effectiveServerDir ?? detail.serverDir ?? t("agent 管理")],
     [t("建立時間"), new Date(detail.createdAt).toLocaleString()],
   ];
 
@@ -275,6 +276,16 @@ function OverviewTab({
           ))}
         </dl>
       </div>
+      {detail.backend === "native" && (
+        <ServerDirCard
+          client={client}
+          instanceId={detail.id}
+          serverDir={detail.serverDir}
+          effectiveServerDir={detail.effectiveServerDir}
+          busy={detail.status !== "exited" && detail.status !== "created" && detail.status !== "missing"}
+          onChanged={onRefresh}
+        />
+      )}
       <MigrationCard />
       <VersionCard
         client={client}
