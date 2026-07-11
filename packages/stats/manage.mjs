@@ -94,7 +94,8 @@ async function reset(code) {
   console.log(body.reset ? `✓ 已解除綁定:${code}(該贊助者可換機重新啟用)` : `⚠ 找不到這張碼:${code}`);
 }
 
-const [cmd, ...args] = process.argv.slice(2);
+// 忽略 pnpm/npm 有時會原樣傳進來的 "--" 分隔符。
+const [cmd, ...args] = process.argv.slice(2).filter((a) => a !== "--");
 const run = {
   "test-webhook": () => testWebhook(args[0], args[1]),
   issue: () => issue(args[0], args[1]),
