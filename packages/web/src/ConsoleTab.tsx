@@ -226,14 +226,19 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
     await run(command);
   };
 
-  if (!catalog) return <p className="text-ink-muted">{error ?? t("載入中…")}</p>;
+  if (!catalog)
+    return (
+      <div className="grid min-h-0 flex-1 place-items-center text-ink-muted">{error ?? t("載入中…")}</div>
+    );
 
   if (!catalog.available) {
     return (
-      <div className="rounded-(--radius-cute) border-2 border-dashed border-line px-6 py-12 text-center text-ink-muted">
-        <FiTerminal className="mx-auto mb-2 size-11" />
-        <p className="font-bold">{t("RCON 無法使用")}</p>
-        <p className="mt-1 text-[13px]">{catalog.reason}</p>
+      <div className="grid min-h-0 flex-1 place-items-center px-6 text-center text-ink-muted">
+        <div>
+          <FiTerminal className="mx-auto mb-2 size-11" />
+          <p className="font-bold">{t("RCON 無法使用")}</p>
+          <p className="mt-1 text-[13px]">{catalog.reason}</p>
+        </div>
       </div>
     );
   }
@@ -249,25 +254,26 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {error && <p className={errorCls}>{error}</p>}
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      {error && <p className={`shrink-0 ${errorCls}`}>{error}</p>}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[13px] font-bold text-ink-muted">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        <span className="font-bold text-ink-muted">
           {t("{n} 個可用指令", { n: catalog.commands.length })}
-        </p>
+        </span>
         {catalog.paldefender ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-grass/40 bg-grass/15 px-3 py-1 text-xs font-bold text-grass">
-            <GiShield className="size-3.5" /> {t("PalDefender 指令已啟用")}
+          <span className="inline-flex items-center gap-1 rounded-full border-[1.5px] border-grass/40 bg-grass/15 px-2 py-0.5 font-bold text-grass">
+            <GiShield className="size-3" /> {t("PalDefender 指令已啟用")}
           </span>
         ) : (
-          <span className="text-xs text-ink-muted">{t("安裝 PalDefender 可解鎖更多指令")}</span>
+          <span className="text-ink-muted">{t("安裝 PalDefender 可解鎖更多指令")}</span>
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <div className={`${card} flex max-h-[520px] flex-col gap-2 overflow-y-auto`}>
-          <div className="relative">
+      <div className="grid min-h-0 flex-1 gap-3 sm:grid-cols-[220px_minmax(0,1fr)]">
+        {/* 指令選單:搜尋 + 分類清單,自己捲動 */}
+        <div className="flex min-h-0 flex-col gap-2 rounded-cute border-2 border-line p-2 max-sm:max-h-52">
+          <div className="relative shrink-0">
             <FiSearch className="absolute top-2.5 left-3 size-4 text-ink-muted" />
             <input
               className={`${inputCls} w-full pl-9`}
@@ -276,72 +282,79 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
               placeholder={t("搜尋指令…")}
             />
           </div>
-          {[...grouped.entries()].map(([category, cmds]) => (
-            <div key={category}>
-              <p className="mt-2 mb-1 text-xs font-extrabold text-ink-muted">{category}</p>
-              <div className="flex flex-col">
-                {cmds.map((cmd) => (
-                  <button
-                    key={`${cmd.source}-${cmd.name}`}
-                    className={`rounded-lg px-2 py-1.5 text-left text-[13px] transition hover:bg-card-soft ${
-                      selected?.name === cmd.name ? "bg-card-soft font-extrabold text-pal" : ""
-                    }`}
-                    onClick={() => {
-                      setSelected(cmd);
-                      setValues({});
-                      setError(null);
-                    }}
-                  >
-                    <span className="font-mono">{cmd.name}</span>
-                    {cmd.dangerous && <span className="ml-1.5 text-berry">{t("危險")}</span>}
-                    <span className="block text-xs text-ink-muted">{t(cmd.label)}</span>
-                  </button>
-                ))}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {[...grouped.entries()].map(([category, cmds]) => (
+              <div key={category}>
+                <p className="mt-2 mb-1 px-1 text-xs font-extrabold text-ink-muted">{category}</p>
+                <div className="flex flex-col">
+                  {cmds.map((cmd) => (
+                    <button
+                      key={`${cmd.source}-${cmd.name}`}
+                      className={`rounded-lg px-2 py-1.5 text-left text-[13px] transition hover:bg-card-soft ${
+                        selected?.name === cmd.name ? "bg-card-soft font-extrabold text-pal" : ""
+                      }`}
+                      onClick={() => {
+                        setSelected(cmd);
+                        setValues({});
+                        setError(null);
+                      }}
+                    >
+                      <span className="font-mono">{cmd.name}</span>
+                      {cmd.dangerous && <span className="ml-1.5 text-berry">{t("危險")}</span>}
+                      <span className="block text-xs text-ink-muted">{t(cmd.label)}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-          {visible.length === 0 && <p className="text-[13px] text-ink-muted">{t("找不到符合的指令。")}</p>}
+            ))}
+            {visible.length === 0 && (
+              <p className="px-1 text-[13px] text-ink-muted">{t("找不到符合的指令。")}</p>
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-col gap-4">
-          {selected ? (
-            <form className={`${card} flex flex-col gap-3`} onSubmit={submitForm}>
-              <div>
-                <h3 className="font-mono text-base font-extrabold">
-                  {selected.name}
-                  <span className="ml-2 rounded-full bg-card-soft px-2 py-0.5 font-sans text-xs text-ink-muted">
-                    {selected.source === "builtin" ? t("內建") : "PalDefender"}
-                  </span>
-                </h3>
-                <p className="mt-1 text-[13px] text-ink-muted">{t(selected.label)}</p>
+        {/* 工作區:選定指令表單 + 原始指令 + 輸出(輸出撐滿) */}
+        <div className="flex min-h-0 flex-col gap-3">
+          {selected && (
+            <form
+              className="flex shrink-0 flex-col gap-3 rounded-cute border-2 border-line p-3"
+              onSubmit={submitForm}
+            >
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <h3 className="font-mono text-sm font-extrabold">{selected.name}</h3>
+                <span className="rounded-full bg-card-soft px-2 py-0.5 text-xs text-ink-muted">
+                  {selected.source === "builtin" ? t("內建") : "PalDefender"}
+                </span>
+                <p className="w-full text-[13px] text-ink-muted">{t(selected.label)}</p>
               </div>
-              {selected.args.map((arg) => (
-                <ArgField
-                  key={arg.name}
-                  arg={arg}
-                  roster={roster}
-                  gameData={gameData}
-                  value={values[arg.name] ?? ""}
-                  onChange={(value) => setValues((v) => ({ ...v, [arg.name]: value }))}
-                />
-              ))}
-              <div className="flex items-center gap-3">
+              {selected.args.length > 0 && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {selected.args.map((arg) => (
+                    <ArgField
+                      key={arg.name}
+                      arg={arg}
+                      roster={roster}
+                      gameData={gameData}
+                      value={values[arg.name] ?? ""}
+                      onChange={(value) => setValues((v) => ({ ...v, [arg.name]: value }))}
+                    />
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
                 <button className={`${btn} inline-flex items-center gap-1.5`} disabled={busy}>
                   <FiPlay className="size-4" /> {busy ? t("執行中…") : t("執行")}
                 </button>
-                <code className="truncate rounded-lg bg-card-soft px-2 py-1 text-xs text-ink-muted">
+                <code className="min-w-0 flex-1 truncate rounded-lg bg-card-soft px-2 py-1 text-xs text-ink-muted">
                   {maskSteamIdsInText(buildCommand(selected, values))}
                 </code>
               </div>
             </form>
-          ) : (
-            <div className={`${card} text-[13px] text-ink-muted`}>
-              {t("從左側選一個指令,或直接在下方輸入原始指令。")}
-            </div>
           )}
 
+          {/* 原始指令列 */}
           <form
-            className={`${card} flex flex-wrap items-center gap-2`}
+            className="flex shrink-0 items-center gap-2 rounded-cute border-2 border-line px-3 py-2"
             onSubmit={(e) => {
               e.preventDefault();
               if (!raw.trim()) return;
@@ -349,28 +362,33 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
               setRaw("");
             }}
           >
-            <FiTerminal className="size-4 text-ink-muted" />
+            <FiTerminal className="size-4 shrink-0 text-ink-muted" />
             <input
-              className={`${inputCls} min-w-52 flex-1 font-mono`}
+              className="min-w-0 flex-1 bg-transparent font-mono text-sm outline-none"
               value={raw}
               onChange={(e) => setRaw(e.target.value)}
-              placeholder={t("輸入原始 RCON 指令,例如 ShowPlayers")}
+              placeholder={selected ? t("或直接輸入原始指令…") : t("輸入原始 RCON 指令,例如 ShowPlayers")}
             />
-            <button className={btn} disabled={busy || !raw.trim()}>
+            <button className={`${btn} btn-sm shrink-0`} disabled={busy || !raw.trim()}>
               {t("送出")}
             </button>
           </form>
 
-          <div className={`${card} flex flex-col gap-2 p-3`}>
-            <div className="flex items-center justify-between px-2">
-              <h3 className="text-sm font-extrabold text-ink-muted">{t("輸出")}</h3>
+          {/* 輸出:撐滿剩餘高度,單一捲軸 */}
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5">
+            <div className="flex shrink-0 items-center justify-between">
+              <h3 className="text-xs font-extrabold text-ink-muted">{t("輸出")}</h3>
               {log.length > 0 && (
-                <button className={btnGhost} onClick={() => setLog([])} aria-label={t("清除輸出")}>
+                <button
+                  className="text-ink-muted transition hover:text-berry"
+                  onClick={() => setLog([])}
+                  aria-label={t("清除輸出")}
+                >
                   <FiTrash2 className="size-4" />
                 </button>
               )}
             </div>
-            <pre className="h-72 overflow-auto rounded-xl bg-[#1c1927] p-3 font-mono text-xs whitespace-pre-wrap break-all text-[#cfd6df]">
+            <pre className="min-h-32 flex-1 overflow-auto rounded-xl bg-[#1c1927] p-3 font-mono text-xs whitespace-pre-wrap break-all text-[#cfd6df]">
               {log.length === 0
                 ? t("(尚未執行任何指令)")
                 : log.map((entry, i) => (

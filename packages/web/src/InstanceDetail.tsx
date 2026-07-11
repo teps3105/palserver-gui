@@ -168,10 +168,10 @@ export function InstanceDetailPage({
       {showConsole && (
         <Overlay onClose={() => setShowConsole(false)}>
           <div
-            className={`${card} flex max-h-[85vh] w-240 max-w-full flex-col gap-3 overflow-auto`}
+            className={`${card} flex h-[82vh] w-240 max-w-full flex-col gap-3 overflow-hidden`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex shrink-0 items-center justify-between">
               <h2 className="inline-flex items-center gap-2 text-lg font-extrabold">
                 <FiTerminal className="size-5 text-pal" /> {t("指令台")}
               </h2>
