@@ -775,5 +775,19 @@
  "你指定的伺服器安裝目錄。": "The server installation directory you specified.",
  "修改伺服器路徑": "Change server path",
  "伺服器路徑(絕對路徑)": "Server path (absolute path)",
- "改路徑不會搬移檔案。填既有的 PalServer 安裝目錄會直接採用;填空資料夾或新路徑則會在下次啟動時安裝到那裡;留空則回到 agent 管理的資料夾。": "Changing the path does not move files. Point at an existing PalServer install to adopt it as-is; point at an empty or new folder to install there on next start; leave blank to return to the agent-managed folder."
+ "改路徑不會搬移檔案。填既有的 PalServer 安裝目錄會直接採用;填空資料夾或新路徑則會在下次啟動時安裝到那裡;留空則回到 agent 管理的資料夾。": "Changing the path does not move files. Point at an existing PalServer install to adopt it as-is; point at an empty or new folder to install there on next start; leave blank to return to the agent-managed folder.",
+ "目前路徑": "Current path",
+ "修改為(絕對路徑;留空 = 交給 agent 管理)": "Change to (absolute path; blank = agent-managed)",
+ "已儲存伺服器路徑。": "Server path saved.",
+ "儲存路徑": "Save path",
+ "請先停止伺服器再修改路徑。": "Stop the server before changing the path.",
+ "刪除伺服器": "Delete server",
+ "移除這個伺服器實例。此動作無法復原。": "Remove this server instance. This cannot be undone.",
+ "世界存檔會保留在磁碟上": "World saves are kept on disk",
+ ",不會一併刪除。": "; they are not deleted.",
+ "刪除此伺服器…": "Delete this server…",
+ "為確認,請輸入伺服器名稱與管理員密碼。": "To confirm, enter the server name and admin password.",
+ "此伺服器未設定管理員密碼,密碼欄留空即可。": "This server has no admin password set — leave the password field blank.",
+ "永久刪除": "Delete permanently",
+ "刪除中…": "Deleting…"
 }

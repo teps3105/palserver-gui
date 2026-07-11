@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FiArrowLeft, FiPlay, FiSquare, FiRefreshCw, FiTrash2 } from "react-icons/fi";
+import { FiArrowLeft, FiPlay, FiSquare, FiRefreshCw } from "react-icons/fi";
 import type {
   InstanceDetail as Detail,
   LogSource,
@@ -18,13 +18,14 @@ import { RestartCard } from "./RestartCard";
 import { VersionCard } from "./VersionCard";
 import { ConnectionCard } from "./ConnectionCard";
 import { MigrationCard } from "./MigrationCard";
-import { ServerDirCard } from "./ServerDirCard";
+import { InstanceSettingsTab } from "./InstanceSettingsTab";
+import { CopyPath } from "./CopyPath";
 import { PerformanceTab } from "./PerformanceTab";
 import { EngineTab } from "./EngineTab";
 import { maskSteamIdsInText } from "./SteamId";
 import { STATUS_LABELS } from "./labels";
 import { t, t as translate, useI18n } from "./i18n";
-import { StatusBadge, btn, btnDanger, btnGhost, card, errorCls } from "./ui";
+import { StatusBadge, btn, btnGhost, card, errorCls } from "./ui";
 
 type Tab =
   | "overview"
@@ -38,6 +39,7 @@ type Tab =
   | "paldefender"
   | "saves"
   | "restart"
+  | "instance"
   | "logs";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "總覽" },
@@ -51,6 +53,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "paldefender", label: "PalDefender" },
   { id: "saves", label: "存檔備份" },
   { id: "restart", label: "自動重啟" },
+  { id: "instance", label: "設定" },
   { id: "logs", label: "日誌" },
 ];
 
@@ -104,17 +107,6 @@ export function InstanceDetailPage({
     }
   };
 
-  const remove = async () => {
-    if (!detail) return;
-    if (!confirm(t("確定要刪除「{name}」嗎?世界存檔會保留在磁碟上。", { name: detail.name }))) return;
-    try {
-      await client.deleteInstance(instanceId);
-      onDeleted();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
   const saveSettings = async (patch: Partial<WorldSettings>) => {
     setSaving(true);
     try {
@@ -162,9 +154,6 @@ export function InstanceDetailPage({
           )}
           <button className={`${btnGhost} inline-flex items-center gap-1.5`} onClick={() => act("restart")}>
             <FiRefreshCw className="size-4" /> {t("重啟")}
-          </button>
-          <button className={`${btnDanger} inline-flex items-center gap-1.5`} onClick={remove}>
-            <FiTrash2 className="size-4" /> {t("刪除")}
           </button>
         </div>
       </div>
@@ -219,6 +208,9 @@ export function InstanceDetailPage({
         <SavesTab client={client} instanceId={detail.id} running={detail.status === "running"} />
       )}
       {tab === "restart" && <RestartCard client={client} instanceId={detail.id} />}
+      {tab === "instance" && (
+        <InstanceSettingsTab client={client} detail={detail} onChanged={refresh} onDeleted={onDeleted} />
+      )}
       {tab === "logs" && <LogsTab client={client} instanceId={detail.id} />}
     </div>
   );
@@ -248,7 +240,8 @@ function OverviewTab({
       .catch(() => setEnhancements(null));
   }, [client, detail.id]);
 
-  const rows: [string, string][] = [
+  const serverPath = detail.effectiveServerDir ?? detail.serverDir;
+  const rows: [string, React.ReactNode][] = [
     [t("狀態"), t(STATUS_LABELS[detail.status])],
     [t("運行方式"), detail.backend === "native" ? t("原生") : t("Docker 容器")],
     [
@@ -259,7 +252,8 @@ function OverviewTab({
     ["REST API", detail.settings.RESTAPIEnabled ? t("啟用({port})", { port: Number(detail.settings.RESTAPIPort) }) : t("停用")],
     ["RCON", detail.settings.RCONEnabled ? t("啟用({port})", { port: Number(detail.settings.RCONPort) }) : t("停用")],
     [detail.backend === "native" ? t("行程 PID") : t("容器 ID"), detail.runtimeId ? detail.runtimeId.slice(0, 12) : "—"],
-    [t("伺服器目錄"), detail.effectiveServerDir ?? detail.serverDir ?? t("agent 管理")],
+    // 路徑可能很長:中間省略、可點擊複製完整路徑,別讓它把整張卡片撐爆。
+    [t("伺服器目錄"), serverPath ? <CopyPath value={serverPath} className="font-mono text-[13px]" /> : t("agent 管理")],
     [t("建立時間"), new Date(detail.createdAt).toLocaleString()],
   ];
 
@@ -268,24 +262,16 @@ function OverviewTab({
       <div className={card}>
         <h3 className="mb-3 text-sm font-extrabold text-ink-muted">{t("伺服器資訊")}</h3>
         <dl className="flex flex-col gap-2">
-          {rows.map(([k, v]) => (
-            <div key={k} className="flex justify-between gap-4 text-sm">
+          {rows.map(([k, v], i) => (
+            <div key={i} className="flex items-center justify-between gap-4 text-sm">
               <dt className="shrink-0 text-ink-muted">{k}</dt>
-              <dd className="text-right font-bold break-all">{v}</dd>
+              <dd className="min-w-0 text-right font-bold">
+                {typeof v === "string" ? <span className="break-all">{v}</span> : v}
+              </dd>
             </div>
           ))}
         </dl>
       </div>
-      {detail.backend === "native" && (
-        <ServerDirCard
-          client={client}
-          instanceId={detail.id}
-          serverDir={detail.serverDir}
-          effectiveServerDir={detail.effectiveServerDir}
-          busy={detail.status !== "exited" && detail.status !== "created" && detail.status !== "missing"}
-          onChanged={onRefresh}
-        />
-      )}
       <MigrationCard />
       <VersionCard
         client={client}
