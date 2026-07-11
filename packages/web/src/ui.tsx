@@ -43,7 +43,7 @@ export function StatusBadge({ status }: { status: InstanceStatus }) {
 export function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center bg-[rgb(35_32_48/0.55)] p-6 backdrop-blur-[3px]"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgb(35_32_48/0.55)] p-6 backdrop-blur-[3px]"
       onClick={onClose}
     >
       {children}
