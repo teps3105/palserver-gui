@@ -102,7 +102,19 @@ function ArgField({
   );
 }
 
-export function ConsoleTab({ client, instanceId }: { client: AgentClient; instanceId: string }) {
+export function ConsoleTab({
+  client,
+  instanceId,
+  initialCommandName,
+  initialValues,
+}: {
+  client: AgentClient;
+  instanceId: string;
+  /** 開啟時預選的指令名稱(例如從玩家詳情「玩家操作」跳來,預選 give / givepal)。 */
+  initialCommandName?: string;
+  /** 對應的預填參數(例如 { userid: "steam_..." })。 */
+  initialValues?: Record<string, string>;
+}) {
   useI18n();
   const [catalog, setCatalog] = useState<RconCommandsResponse | null>(null);
   const [selected, setSelected] = useState<CommandSpec | null>(null);
@@ -130,6 +142,18 @@ export function ConsoleTab({ client, instanceId }: { client: AgentClient; instan
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 若帶了預選指令(從玩家詳情跳來),指令目錄載入後套用一次:選好指令、預填參數。
+  const presetApplied = useRef(false);
+  useEffect(() => {
+    if (presetApplied.current || !catalog?.available || !initialCommandName) return;
+    const cmd = catalog.commands.find((c) => c.name === initialCommandName);
+    if (cmd) {
+      presetApplied.current = true;
+      setSelected(cmd);
+      if (initialValues) setValues(initialValues);
+    }
+  }, [catalog, initialCommandName, initialValues]);
 
   // The agent's roster (online + previously seen) feeds the UserId pickers.
   useEffect(() => {

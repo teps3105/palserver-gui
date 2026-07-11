@@ -58,12 +58,15 @@ export function CustomPalModal({
   client,
   instanceId,
   mode,
+  initialUserId,
   onClose,
 }: {
   client: AgentClient;
   instanceId: string;
   /** pal = givepal_j(給玩家);egg = giveegg_j(給帕魯蛋)。由開啟的那條指令決定。 */
   mode: "pal" | "egg";
+  /** 預填目標玩家(從玩家詳情「玩家操作」跳來時帶入)。 */
+  initialUserId?: string;
   onClose: () => void;
 }) {
   useI18n();
@@ -71,7 +74,7 @@ export function CustomPalModal({
   const [entitled, setEntitled] = useState<boolean | null>(null);
   const [players, setPlayers] = useState<KnownPlayer[]>([]);
 
-  const [userId, setUserId] = useState("");
+  const [userId, setUserId] = useState(initialUserId ?? "");
   const [eggId, setEggId] = useState("");
   const [palId, setPalId] = useState("");
   const [nickname, setNickname] = useState("");
