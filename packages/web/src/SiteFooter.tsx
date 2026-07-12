@@ -3,7 +3,6 @@ import { FiArrowUpCircle } from "react-icons/fi";
 import type { AgentUpdateStatus } from "@palserver/shared";
 import { AgentClient, type Connection } from "./api";
 import { PrivacyModal } from "./PrivacyModal";
-import { usePromoConfig } from "./promoConfig";
 import { t, useI18n } from "./i18n";
 
 /** 點左下角「有新版本」小提醒時發出;由 App 的 Shell 接住並打開設定視窗。 */
@@ -18,7 +17,6 @@ export const OPEN_SETTINGS_EVENT = "palserver:open-settings";
  */
 export function SiteFooter({ conn }: { conn: Connection | null }) {
   useI18n();
-  const { faq } = usePromoConfig();
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [update, setUpdate] = useState<AgentUpdateStatus | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -76,14 +74,6 @@ export function SiteFooter({ conn }: { conn: Connection | null }) {
               )}
             </button>
           )}
-          <a
-            className="pointer-events-auto underline-offset-2 transition hover:text-pal hover:underline"
-            href={faq}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {t("常見問題")}
-          </a>
           <button
             className="pointer-events-auto underline-offset-2 transition hover:text-pal hover:underline"
             onClick={() => setShowPrivacy(true)}
