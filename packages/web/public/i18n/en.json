@@ -245,6 +245,10 @@
  "瀏覽全部": "Browse all",
  "直接編輯、上傳或刪除伺服器目錄裡的檔案(例如 PalDefender 的 Config.json)。": "Edit, upload or delete files in the server directory directly (e.g. PalDefender's Config.json).",
  "已儲存並嘗試熱重載(若 RCON 未啟用則於重啟後生效)": "Saved; hot-reload attempted (without RCON it takes effect after restart)",
+ "登入公告 (MOTD)": "Message of the Day (MOTD)",
+ "玩家加入伺服器時顯示的訊息,每行一則;留空則不顯示。變更需重啟或 reloadcfg 生效。": "Shown to players when they join the server, one line per message; leave empty to disable. Takes effect after a restart or reloadcfg.",
+ "歡迎來到伺服器!": "Welcome to the server!",
+ "未儲存": "Unsaved",
  "PalDefender 反外掛設定": "PalDefender anti-cheat settings",
  "直接編輯 Config.json": "Edit Config.json directly",
  "編輯 Config.json": "Edit Config.json",
@@ -886,5 +890,8 @@
  "回主介面": "Back to app",
  "野外頭目": "Field Boss",
  "顯示的分頁": "Visible tabs",
- "勾選要在伺服器頁面顯示的分頁。取消勾選會把該分頁隱藏起來。": "Check the tabs to show on the server page. Unchecking one hides it."
+ "勾選要在伺服器頁面顯示的分頁。取消勾選會把該分頁隱藏起來。": "Check the tabs to show on the server page. Unchecking one hides it.",
+ "隱藏此卡片(可在設定恢復)": "Hide this card (restore it in Settings)",
+ "總覽卡片": "Overview cards",
+ "勾選要在總覽頁顯示的卡片。這些卡片也可以直接在總覽頁點右上角的 × 隱藏。": "Check the cards to show on the Overview page. You can also hide a card with the × in its top-right corner."
 }

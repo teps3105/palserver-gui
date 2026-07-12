@@ -26,7 +26,7 @@ import { PerformanceTab } from "./PerformanceTab";
 import { EngineTab } from "./EngineTab";
 import { maskSteamIdsInText } from "./SteamId";
 import { STATUS_LABELS } from "./labels";
-import { TABS, LOCKED_TABS, useHiddenTabs, type Tab } from "./tabPrefs";
+import { TABS, LOCKED_TABS, useHiddenTabs, useHiddenCards, type Tab } from "./tabPrefs";
 import { t, t as translate, useI18n } from "./i18n";
 import { Overlay, StatusBadge, btn, btnGhost, card, errorCls } from "./ui";
 
@@ -332,6 +332,7 @@ function OverviewTab({
 }) {
   useI18n();
   const [enhancements, setEnhancements] = useState<string[] | null>(null);
+  const [hiddenCards, setHiddenCards] = useHiddenCards();
 
   useEffect(() => {
     client
@@ -377,14 +378,22 @@ function OverviewTab({
           ))}
         </dl>
       </div>
-      <MigrationCard />
+      {!hiddenCards.includes("migration") && (
+        <MigrationCard onDismiss={() => setHiddenCards([...hiddenCards, "migration"])} />
+      )}
       <VersionCard
         client={client}
         instanceId={detail.id}
         running={detail.status === "running"}
         onUpdateStarted={onRefresh}
       />
-      <ConnectionCard client={client} instanceId={detail.id} />
+      {!hiddenCards.includes("invite") && (
+        <ConnectionCard
+          client={client}
+          instanceId={detail.id}
+          onDismiss={() => setHiddenCards([...hiddenCards, "invite"])}
+        />
+      )}
     </div>
   );
 }

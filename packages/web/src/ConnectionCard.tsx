@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { FiCopy, FiCheck, FiGlobe, FiExternalLink, FiShield, FiMessageCircle } from "react-icons/fi";
+import { FiCopy, FiCheck, FiGlobe, FiExternalLink, FiShield, FiMessageCircle, FiX } from "react-icons/fi";
 import type { ConnectionInfo } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { copyText } from "./clipboard";
@@ -10,7 +10,15 @@ import { card, btn as btnPrimary, btnGhost } from "./ui";
 /** "How do my friends join?" — the question every host actually asks, laid
  * out for non-technical users: same-network, VPN (Radmin / Tailscale), and
  * the advanced public route, each with a copy-ready address. */
-export function ConnectionCard({ client, instanceId }: { client: AgentClient; instanceId: string }) {
+export function ConnectionCard({
+  client,
+  instanceId,
+  onDismiss,
+}: {
+  client: AgentClient;
+  instanceId: string;
+  onDismiss?: () => void;
+}) {
   useI18n();
   const [info, setInfo] = useState<ConnectionInfo | null>(null);
   const { ipService, vpn } = usePromoConfig();
@@ -26,9 +34,21 @@ export function ConnectionCard({ client, instanceId }: { client: AgentClient; in
 
   return (
     <div className={`${card} flex flex-col gap-4`}>
-      <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
-        <FiGlobe className="size-4 text-pal" /> {t("邀請朋友加入")}
-      </h3>
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
+          <FiGlobe className="size-4 text-pal" /> {t("邀請朋友加入")}
+        </h3>
+        {onDismiss && (
+          <button
+            className="-mr-1 -mt-1 rounded-lg p-1 text-ink-muted transition hover:bg-card-soft hover:text-ink"
+            onClick={onDismiss}
+            title={t("隱藏此卡片(可在設定恢復)")}
+            aria-label={t("隱藏此卡片(可在設定恢復)")}
+          >
+            <FiX className="size-4" />
+          </button>
+        )}
+      </div>
 
       {/* 1) VPN(推薦給遠端朋友) */}
       <Section

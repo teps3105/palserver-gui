@@ -68,3 +68,42 @@ export function useHiddenTabs(): [Tab[], (ids: Tab[]) => void] {
   }, []);
   return [hidden, (ids) => setHiddenTabs(ids)];
 }
+
+/** 總覽頁上可隱藏的卡片(可在設定裡恢復)。 */
+export type OverviewCard = "migration" | "invite";
+export const OVERVIEW_CARDS: { id: OverviewCard; label: string }[] = [
+  { id: "migration", label: "存檔遷移" },
+  { id: "invite", label: "邀請朋友加入" },
+];
+
+const CARD_KEY = "palserver.hiddenCards";
+const CARD_EVENT = "palserver:cardprefs";
+
+export function getHiddenCards(): OverviewCard[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(CARD_KEY) ?? "[]");
+    return Array.isArray(v) ? (v as OverviewCard[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function setHiddenCards(ids: OverviewCard[]): void {
+  localStorage.setItem(CARD_KEY, JSON.stringify(ids));
+  window.dispatchEvent(new Event(CARD_EVENT));
+}
+
+/** 訂閱隱藏卡片偏好。回傳目前值與更新函式。 */
+export function useHiddenCards(): [OverviewCard[], (ids: OverviewCard[]) => void] {
+  const [hidden, setHidden] = useState<OverviewCard[]>(getHiddenCards);
+  useEffect(() => {
+    const onChange = () => setHidden(getHiddenCards());
+    window.addEventListener(CARD_EVENT, onChange);
+    window.addEventListener("storage", onChange);
+    return () => {
+      window.removeEventListener(CARD_EVENT, onChange);
+      window.removeEventListener("storage", onChange);
+    };
+  }, []);
+  return [hidden, (ids) => setHiddenCards(ids)];
+}

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { FiAlertTriangle, FiColumns, FiCopy, FiDownloadCloud, FiHardDrive, FiSave, FiTrash2 } from "react-icons/fi";
+import { FiAlertTriangle, FiColumns, FiCopy, FiDownloadCloud, FiHardDrive, FiLayout, FiSave, FiTrash2 } from "react-icons/fi";
 import type { InstanceDetail } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { CopyPath } from "./CopyPath";
-import { TABS, LOCKED_TABS, useHiddenTabs, type Tab } from "./tabPrefs";
+import { TABS, LOCKED_TABS, OVERVIEW_CARDS, useHiddenTabs, useHiddenCards, type Tab } from "./tabPrefs";
 import { t, useI18n } from "./i18n";
 import { btn, btnDanger, btnGhost, card, errorCls, inputCls, labelCls } from "./ui";
 
@@ -43,6 +43,8 @@ export function InstanceSettingsTab({
       )}
 
       <TabVisibilityCard />
+
+      <OverviewCardsCard />
 
       <DangerZone
         client={client}
@@ -92,6 +94,38 @@ function TabVisibilityCard() {
             </label>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/** 恢復被隱藏的總覽卡片(存檔遷移 / 邀請朋友加入)。 */
+function OverviewCardsCard() {
+  useI18n();
+  const [hidden, setHidden] = useHiddenCards();
+  const toggle = (id: (typeof OVERVIEW_CARDS)[number]["id"]) =>
+    setHidden(hidden.includes(id) ? hidden.filter((x) => x !== id) : [...hidden, id]);
+
+  return (
+    <div className={`${card} flex flex-col gap-3`}>
+      <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
+        <FiLayout className="size-4 text-pal" /> {t("總覽卡片")}
+      </h3>
+      <p className="text-[13px] text-ink-muted">
+        {t("勾選要在總覽頁顯示的卡片。這些卡片也可以直接在總覽頁點右上角的 × 隱藏。")}
+      </p>
+      <div className="flex flex-col gap-2">
+        {OVERVIEW_CARDS.map((c) => (
+          <label key={c.id} className="inline-flex cursor-pointer items-center gap-2 text-[13px] font-bold">
+            <input
+              type="checkbox"
+              className="size-4 accent-pal"
+              checked={!hidden.includes(c.id)}
+              onChange={() => toggle(c.id)}
+            />
+            {t(c.label)}
+          </label>
+        ))}
       </div>
     </div>
   );

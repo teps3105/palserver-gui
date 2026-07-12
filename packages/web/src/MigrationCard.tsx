@@ -8,14 +8,26 @@ import { card, btn as btnPrimary, btnGhost } from "./ui";
  * 總覽頁的「存檔遷移」卡片:精簡三行重點 + 一顆按鈕開啟完整教學彈窗。
  * 彈窗沿用跟公告一樣的 Markdown 介面。詳細內容精簡自 docs/MIGRATION.md。
  */
-export function MigrationCard() {
+export function MigrationCard({ onDismiss }: { onDismiss?: () => void }) {
   useI18n();
   const [open, setOpen] = useState(false);
   return (
     <div className={`${card} flex flex-col gap-3`}>
-      <h3 className="inline-flex items-center gap-2 text-sm font-extrabold text-ink-muted">
-        <FiUploadCloud className="size-4 text-pal" /> {t("存檔遷移")}
-      </h3>
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="inline-flex items-center gap-2 text-sm font-extrabold text-ink-muted">
+          <FiUploadCloud className="size-4 text-pal" /> {t("存檔遷移")}
+        </h3>
+        {onDismiss && (
+          <button
+            className="-mr-1 -mt-1 rounded-lg p-1 text-ink-muted transition hover:bg-card-soft hover:text-ink"
+            onClick={onDismiss}
+            title={t("隱藏此卡片(可在設定恢復)")}
+            aria-label={t("隱藏此卡片(可在設定恢復)")}
+          >
+            <FiX className="size-4" />
+          </button>
+        )}
+      </div>
       <p className="text-[13px] leading-relaxed text-ink-muted">
         {t("已經有一個 Palworld 世界想搬進來?不管是別台專用伺服器、v1 舊版,還是本機四人邀請碼存檔,都能接管。")}
         <b className="text-ink">{t("最關鍵的一步")}</b>
