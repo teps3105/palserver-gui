@@ -386,6 +386,13 @@ export class AgentClient {
     });
   }
 
+  setPalDefenderRestPort(id: string, port: number): Promise<PdRestStatus> {
+    return this.request(`/api/instances/${id}/paldefender-rest/port`, {
+      method: "PUT",
+      body: JSON.stringify({ port }),
+    });
+  }
+
   provisionPalDefenderToken(id: string, regenerate = false): Promise<PdRestStatus> {
     return this.request(`/api/instances/${id}/paldefender-rest/token`, {
       method: "POST",

@@ -338,6 +338,8 @@ export interface PdRestStatus {
   enabled: boolean;
   /** the agent has a usable bearer token */
   hasToken: boolean;
+  /** REST API 監聽的埠(RESTConfig.json 的 Port,預設 17993) */
+  port: number;
   reason?: string;
 }
 

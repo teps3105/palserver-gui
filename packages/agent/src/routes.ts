@@ -65,7 +65,7 @@ import {
   restoreConfigSnapshot,
 } from "./config-backup.js";
 import { getPalDefenderConfig, writePalDefenderConfig } from "./paldefender-config.js";
-import { getPlayerDetail, getPdPlayers, getPdGuilds, getPdGuild, getPdRestStatus, setPdRestEnabled, provisionPdToken } from "./paldefender-rest.js";
+import { getPlayerDetail, getPdPlayers, getPdGuilds, getPdGuild, getPdRestStatus, setPdRestEnabled, setPdRestPort, provisionPdToken } from "./paldefender-rest.js";
 import { setTelemetryEnabled, telemetryStatus, track } from "./telemetry.js";
 import { licenseStatus, setLicenseKey, clearLicenseKey, featureEnabled } from "./license.js";
 import { giveCustomPal } from "./pals.js";
@@ -708,6 +708,13 @@ export function registerRoutes(
     const rec = getOr404((req.params as { id: string }).id);
     const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body);
     setPdRestEnabled(rec, ctxOf(rec), enabled);
+    return { ...getPdRestStatus(rec, ctxOf(rec)), applied: "on-next-restart" };
+  });
+
+  app.put("/api/instances/:id/paldefender-rest/port", async (req) => {
+    const rec = getOr404((req.params as { id: string }).id);
+    const { port } = z.object({ port: z.number().int().min(1024).max(65535) }).parse(req.body);
+    setPdRestPort(rec, ctxOf(rec), port);
     return { ...getPdRestStatus(rec, ctxOf(rec)), applied: "on-next-restart" };
   });
 

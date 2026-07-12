@@ -71,29 +71,47 @@ async function ensureToken(rec: InstanceRecord, dir: string): Promise<string> {
 
 export function getPdRestStatus(rec: InstanceRecord, ctx: DriverContext): PdRestStatus {
   if (rec.backend !== "native") {
-    return { installed: false, configExists: false, enabled: false, hasToken: false, reason: "玩家細節僅支援原生模式的實例" };
+    return { installed: false, configExists: false, enabled: false, hasToken: false, port: 17993, reason: "玩家細節僅支援原生模式的實例" };
   }
   const dir = pdDir(rec, ctx);
   if (!dir) {
-    return { installed: false, configExists: false, enabled: false, hasToken: false, reason: "尚未安裝 PalDefender" };
+    return { installed: false, configExists: false, enabled: false, hasToken: false, port: 17993, reason: "尚未安裝 PalDefender" };
   }
   const configFile = path.join(dir, "RESTAPI", "RESTConfig.json");
   const configExists = fs.existsSync(configFile);
+  const { enabled, port } = restConfig(dir);
   if (!configExists) {
     return {
-      installed: true, configExists: false, enabled: false, hasToken: false,
+      installed: true, configExists: false, enabled: false, hasToken: false, port,
       reason: "PalDefender 尚未生成 REST 設定 — 啟動一次伺服器即會產生",
     };
   }
-  const { enabled } = restConfig(dir);
   if (!enabled) {
     return {
-      installed: true, configExists: true, enabled: false, hasToken: false,
+      installed: true, configExists: true, enabled: false, hasToken: false, port,
       reason: "PalDefender REST API 未啟用 — 啟用後即可查看玩家的帕魯與背包",
     };
   }
   const hasToken = fs.existsSync(path.join(dir, "RESTAPI", "Tokens", TOKEN_FILE));
-  return { installed: true, configExists: true, enabled: true, hasToken };
+  return { installed: true, configExists: true, enabled: true, hasToken, port };
+}
+
+/** Set Port in RESTConfig.json (preserving the rest of the file). */
+export function setPdRestPort(rec: InstanceRecord, ctx: DriverContext, port: number): void {
+  const dir = pdDir(rec, ctx);
+  if (!dir) throw Object.assign(new Error("尚未安裝 PalDefender"), { statusCode: 409 });
+  const file = path.join(dir, "RESTAPI", "RESTConfig.json");
+  if (!fs.existsSync(file)) {
+    throw Object.assign(new Error("找不到 RESTConfig.json — 請先啟動一次伺服器"), { statusCode: 409 });
+  }
+  let cfg: Record<string, unknown>;
+  try {
+    cfg = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    throw Object.assign(new Error("RESTConfig.json 格式損壞"), { statusCode: 409 });
+  }
+  cfg.Port = port;
+  fs.writeFileSync(file, JSON.stringify(cfg, null, 4));
 }
 
 /** Set Enabled in RESTConfig.json (preserving the rest of the file). */

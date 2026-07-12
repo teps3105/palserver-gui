@@ -141,6 +141,17 @@ export function PalDefenderTab({
             setError(err instanceof Error ? err.message : String(err));
           }
         }}
+        onSetPort={async (port) => {
+          setError(null);
+          try {
+            await client.setPalDefenderRestPort(instanceId, port);
+            setNotice(t("已更新 REST API 端口為 {port} — 重啟伺服器後生效", { port }));
+            setTimeout(() => setNotice(null), 4000);
+            await refresh();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+          }
+        }}
       />
 
       {[...grouped.entries()].map(([category, keys]) => (
