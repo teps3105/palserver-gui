@@ -8,6 +8,7 @@ import {
   type RestPlayer,
   type PdGuild,
   type PdGuildDetail,
+  type PdPlayerSummary,
 } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { useGameData, palIconUrl, type GameData } from "./gameData";
@@ -73,6 +74,7 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
   const gameData = useGameData();
   const [live, setLive] = useState<LiveStatus | null>(null);
   const [guilds, setGuilds] = useState<PdGuild[]>([]);
+  const [pdPlayers, setPdPlayers] = useState<PdPlayerSummary[]>([]);
   const [guildsUnlocked, setGuildsUnlocked] = useState(false);
   const [guildDetailId, setGuildDetailId] = useState<string | null>(null);
   const [playerDetail, setPlayerDetail] = useState<{ id: string; label: string } | null>(null);
@@ -98,6 +100,11 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
         setGuildsUnlocked(g.detailed);
       })
       .catch(() => setGuilds([]));
+    // PalDefender 名冊:用來把在線玩家對應到公會(userId 對得上遊戲 REST)。
+    client
+      .palDefenderPlayers(instanceId)
+      .then((r) => setPdPlayers(r.available ? r.players : []))
+      .catch(() => setPdPlayers([]));
   }, [client, instanceId]);
 
   useEffect(() => {
@@ -183,6 +190,7 @@ export function MapTab({ client, instanceId }: { client: AgentClient; instanceId
               <PlayerMap
                 players={live.players}
                 guilds={guilds}
+                pdPlayers={pdPlayers}
                 showPlayers={showPlayers}
                 showBases={showBases}
                 gameData={gameData}
@@ -328,6 +336,7 @@ function Info({ label, value }: { label: string; value: string }) {
 function PlayerMap({
   players,
   guilds,
+  pdPlayers,
   showPlayers,
   showBases,
   gameData,
@@ -336,6 +345,8 @@ function PlayerMap({
 }: {
   players: RestPlayer[];
   guilds: PdGuild[];
+  /** PalDefender /players roster — used to match live players to their guild. */
+  pdPlayers: PdPlayerSummary[];
   showPlayers: boolean;
   showBases: boolean;
   gameData: GameData | null;
@@ -399,11 +410,24 @@ function PlayerMap({
     group.clearLayers();
     const SIZE = 40;
 
-    // Map every guild member (PlayerUID) to its guild, so a player's avatar can
-    // be ringed and labelled with their guild colour/name.
+    // Match each live player to their guild. The game REST player ids
+    // (playerId/userId) don't line up with PalDefender's guild-member PlayerUIDs,
+    // so match via PalDefender /players instead — it carries both the userId that
+    // matches the game REST player AND the guild name. Fall back to the member
+    // UID list only if we have no /players record.
+    const guildByName = new Map(guilds.map((g) => [g.name, g] as const));
+    const guildNameById = new Map<string, string>();
+    for (const pp of pdPlayers) {
+      if (!pp.guildName) continue;
+      if (pp.userId) guildNameById.set(pp.userId, pp.guildName);
+      if (pp.playerUid) guildNameById.set(pp.playerUid, pp.guildName);
+    }
     const guildByMember = new Map<string, PdGuild>();
     for (const g of guilds) for (const uid of g.members) guildByMember.set(uid, g);
-    const guildOf = (p: RestPlayer) => guildByMember.get(p.playerId) ?? guildByMember.get(p.userId);
+    const guildOf = (p: RestPlayer): PdGuild | undefined => {
+      const gn = guildNameById.get(p.userId) ?? guildNameById.get(p.playerId);
+      return (gn ? guildByName.get(gn) : undefined) ?? guildByMember.get(p.playerId) ?? guildByMember.get(p.userId);
+    };
 
     // All bases in map coords, for the raid-proximity check. (Independent of the
     // base-marker toggle — a player near an enemy base is flagged regardless.)
@@ -454,8 +478,10 @@ function PlayerMap({
         const { x, y } = savToMap(p.location_x, p.location_y);
         const iconUrl = avatarIconUrl(p.userId, gameData);
         const guild = guildOf(p);
+        // Only flag a raid when we actually know the player's guild — otherwise
+        // an unmatched player would be "near" every base, including their own.
+        const raidingGuild = guild ? enemyBaseNear(x, y, guild.id) : null;
         const ring = guild ? guildColor(guild.id) : "#ffffff";
-        const raidingGuild = enemyBaseNear(x, y, guild?.id);
         const png = pingColor(p.ping);
         // A round Pal-avatar pin (same random Pal as the player list), built as a
         // div-icon so it can hold an <img>. Border = guild colour; a corner dot
@@ -485,7 +511,7 @@ function PlayerMap({
         marker.on("click", () => onPlayerClickRef.current?.(p.userId, p.name));
         group.addLayer(marker);
       }
-  }, [players, guilds, showPlayers, showBases, gameData]);
+  }, [players, guilds, pdPlayers, showPlayers, showBases, gameData]);
 
   return <div ref={containerRef} className="h-full w-full rounded-xl bg-card-soft" />;
 }
