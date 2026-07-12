@@ -1,7 +1,7 @@
 import { FiCoffee, FiExternalLink, FiFileText, FiHeart, FiX, FiYoutube } from "react-icons/fi";
 import { usePromoConfig } from "./promoConfig";
 import { useI18n } from "./i18n";
-import { Overlay, btn, card } from "./ui";
+import { Overlay, btnSponsor, card } from "./ui";
 
 /**
  * 感謝名單彈窗:開發人員/核心團隊 + 捐贈名單。名單內容走 promo-config.json
@@ -82,7 +82,7 @@ export function CreditsModal({ onClose }: { onClose: () => void }) {
             {t("感謝每一位支持 palserver GUI 的贊助者,完整名單請見:")}
           </p>
           <a
-            className={`${btn} inline-flex items-center gap-1.5`}
+            className={`${btnSponsor} inline-flex items-center gap-1.5`}
             href={promo.credits.donate}
             target="_blank"
             rel="noreferrer"

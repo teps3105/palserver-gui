@@ -12,6 +12,11 @@ export const btnGhost =
   "transition hover:-translate-y-px hover:border-pal active:translate-y-0 active:scale-95 " +
   "disabled:pointer-events-none disabled:opacity-50";
 export const btnDanger = btnGhost + " text-berry hover:border-berry";
+/** 粉色主按鈕:贊助 / 捐款用(Buy Me a Coffee、贊助我們)。 */
+export const btnSponsor =
+  "rounded-full bg-sponsor px-5 py-2 text-sm font-extrabold text-white transition " +
+  "hover:-translate-y-px hover:brightness-95 active:translate-y-0 active:scale-95 " +
+  "disabled:pointer-events-none disabled:opacity-50";
 export const card = "rounded-(--radius-cute) border-2 border-line bg-card p-5 shadow-(--shadow-cute)";
 export const inputCls =
   "rounded-xl border-2 border-line bg-card-soft px-3 py-2 text-sm text-ink outline-none " +
