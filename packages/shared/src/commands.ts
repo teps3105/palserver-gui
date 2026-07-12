@@ -32,6 +32,8 @@ export interface CommandArg {
   /** 用玩家選單渲染此參數(可挑線上/曾見過的玩家,也可自由輸入 UserId / 座標)。
    *  讓一個指令能有多個玩家參數(name 各異),例如 tp 的來源玩家 + 目標玩家。 */
   player?: boolean;
+  /** 座標參數:提供「在地圖上描點」按鈕(填入世界座標 x y),也可自由輸入。 */
+  coord?: boolean;
 }
 
 export interface CommandSpec {
@@ -259,7 +261,7 @@ export const COMMANDS: CommandSpec[] = [
     label: "生成野生帕魯",
     args: [
       { name: "palid", label: "帕魯 ID", required: true },
-      { name: "coords", label: "座標與等級(選填)", required: false, placeholder: "x y z level" },
+      { name: "coords", label: "座標與等級(選填)", required: false, coord: true, placeholder: "x y z level" },
     ],
   },
   {
@@ -318,7 +320,7 @@ export const COMMANDS: CommandSpec[] = [
     source: "paldefender",
     category: "bases",
     label: "查詢最近的據點擁有者",
-    args: [{ name: "coords", label: "座標(選填)", required: false, placeholder: "x y z" }],
+    args: [{ name: "coords", label: "座標(選填)", required: false, coord: true, placeholder: "x y z" }],
   },
   {
     name: "killnearestbase",
@@ -326,7 +328,7 @@ export const COMMANDS: CommandSpec[] = [
     category: "bases",
     label: "摧毀最近的據點",
     dangerous: true,
-    args: [{ name: "coords", label: "座標(選填)", required: false, placeholder: "x y z" }],
+    args: [{ name: "coords", label: "座標(選填)", required: false, coord: true, placeholder: "x y z" }],
   },
   {
     name: "setguildleader",
