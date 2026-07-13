@@ -140,9 +140,6 @@ function Shell({ conn, onDisconnect }: { conn: Connection; onDisconnect: () => v
           >
             <FiSettings className="size-4" /> <span className="hidden sm:inline">{t("設定")}</span>
           </button>
-          <button className={btnGhost} onClick={onDisconnect}>
-            {t("中斷連線")}
-          </button>
         </div>
       </header>
       {showSettings && (
