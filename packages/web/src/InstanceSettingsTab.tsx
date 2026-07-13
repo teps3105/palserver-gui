@@ -10,6 +10,7 @@ import {
   LOCKED_TABS,
   OVERVIEW_CARDS,
   DISMISSIBLE_WARNINGS,
+  DISMISSIBLE_PROMOS,
   useHiddenTabs,
   useHiddenCards,
   type Tab,
@@ -179,6 +180,7 @@ function OverviewCardsCard() {
       </p>
       {section("總覽卡片", OVERVIEW_CARDS)}
       {section("提醒訊息", DISMISSIBLE_WARNINGS)}
+      {section("推廣", DISMISSIBLE_PROMOS)}
     </div>
   );
 }

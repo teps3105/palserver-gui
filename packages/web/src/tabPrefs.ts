@@ -87,9 +87,14 @@ export const DISMISSIBLE_WARNINGS: { id: string; label: string }[] = [
   { id: "warn-palstats-risk", label: "帕魯數值:mod 風險提示" },
 ];
 
+/** 推廣型卡片(代管維護等) —— 可按叉叉收起。 */
+export const DISMISSIBLE_PROMOS: { id: string; label: string }[] = [
+  { id: "promo-maintenance", label: "引擎微調:交給我們維護" },
+];
+
 /** 所有可隱藏項目的 id→label(設定頁用來列出目前已隱藏的項目)。 */
 export const DISMISSIBLE_LABELS: Record<string, string> = Object.fromEntries(
-  [...OVERVIEW_CARDS, ...DISMISSIBLE_WARNINGS].map((c) => [c.id, c.label]),
+  [...OVERVIEW_CARDS, ...DISMISSIBLE_WARNINGS, ...DISMISSIBLE_PROMOS].map((c) => [c.id, c.label]),
 );
 
 const CARD_KEY = "palserver.hiddenCards";
