@@ -620,15 +620,12 @@ export const nativeDriver: ServerDriver = {
   },
 
   logSources(rec, ctx) {
-    return [
-      { id: "agent" as const, label: "agent", available: fs.existsSync(logFile(ctx)) },
-      { id: "game" as const, label: "遊戲", available: fs.existsSync(gameLogFile(ctx)) },
-      {
-        id: "paldefender" as const,
-        label: "PalDefender",
-        available: palDefenderLogDir(rec, ctx) !== null,
-      },
-    ];
+    // 裝了 PalDefender 就只給它的日誌(有玩家加入/離開/聊天/死亡等事件,最有料);
+    // 沒裝才退回原生遊戲 console 日誌。agent 自己的 server.log 不再對外當日誌來源。
+    if (palDefenderLogDir(rec, ctx) !== null) {
+      return [{ id: "paldefender" as const, label: "PalDefender", available: true }];
+    }
+    return [{ id: "game" as const, label: "遊戲(原生)", available: fs.existsSync(gameLogFile(ctx)) }];
   },
 
   async streamLogs(rec, ctx, onLine, _onEnd, source = "agent") {

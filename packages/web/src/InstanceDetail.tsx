@@ -468,7 +468,7 @@ function LogToggle({ on, onChange, icon, label }: { on: boolean; onChange: (v: b
 function LogsTab({ client, instanceId }: { client: AgentClient; instanceId: string }) {
   useI18n();
   const [sources, setSources] = useState<LogSource[]>([]);
-  const [source, setSource] = useState<LogSourceId>("agent");
+  const [source, setSource] = useState<LogSourceId | "">("");
   const [lines, setLines] = useState<string[]>([]);
   const [entitled, setEntitled] = useState<boolean | null>(null);
   const prefs = useLogPrefs();
@@ -479,13 +479,23 @@ function LogsTab({ client, instanceId }: { client: AgentClient; instanceId: stri
   }, [client]);
 
   useEffect(() => {
-    client.logSources(instanceId).then(setSources).catch(() => setSources([]));
+    client
+      .logSources(instanceId)
+      .then((s) => {
+        setSources(s);
+        // 預設選第一個可用來源(PalDefender 優先,否則原生遊戲);不再寫死已移除的 agent。
+        setSource((cur) => (cur && s.some((x) => x.id === cur) ? cur : s[0]?.id ?? ""));
+      })
+      .catch(() => setSources([]));
   }, [client, instanceId]);
 
   useEffect(() => {
+    if (!source) return;
     setLines([]);
     const socket = client.logsSocket(instanceId, source);
-    socket.onmessage = (ev) => setLines((prev) => [...prev.slice(-999), String(ev.data)]);
+    // Windows 的日誌是 CRLF,切行後每行尾端會留一個 \r;不去掉的話,formatLine 裡收在
+    // 行尾的 regex($ 錨點)會匹配失敗(JS 的 $ 不在 \r 前匹配)。進來就正規化掉。
+    socket.onmessage = (ev) => setLines((prev) => [...prev.slice(-999), String(ev.data).replace(/\r+$/, "")]);
     socket.onclose = (ev) => {
       if (ev.code !== 1000 && ev.code !== 1005) {
         setLines((prev) => [...prev, t("— 日誌串流已中斷({reason})—", { reason: String(ev.reason || ev.code) })]);
@@ -522,6 +532,13 @@ function LogsTab({ client, instanceId }: { client: AgentClient; instanceId: stri
             </button>
           ))}
         </div>
+      )}
+
+      {source && (
+        <p className="inline-flex w-fit items-center gap-1.5 rounded-full bg-card-soft px-3 py-1 text-[12px] font-bold text-ink-muted">
+          <FiFileText className="size-3.5" />
+          {t("日誌來源:{src}", { src: t(sources.find((s) => s.id === source)?.label ?? source) })}
+        </p>
       )}
 
       {on && (

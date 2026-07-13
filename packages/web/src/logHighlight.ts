@@ -48,7 +48,8 @@ export function categoryColor(id: string | null): string {
  * (由呼叫端顯示原文)。時間取到分。
  */
 const TIME_RE = /^\[(\d\d:\d\d):\d\d\]/;
-export function formatLine(line: string): string | null {
+export function formatLine(raw: string): string | null {
+  const line = raw.replace(/[\s﻿]+$/, ""); // 去尾端空白/CR,讓 $ 錨點正常匹配
   const tm = line.match(TIME_RE);
   const pre = tm ? `${tm[1]}  ` : "";
   let m: RegExpMatchArray | null;

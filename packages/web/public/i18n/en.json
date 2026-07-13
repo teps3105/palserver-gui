@@ -906,6 +906,8 @@
  "提醒訊息": "Notices",
  "重點標記": "Highlight",
  "格式化": "Format",
+ "日誌來源:{src}": "Log source: {src}",
+ "遊戲(原生)": "Game (native)",
  "日誌重點標記與格式化為贊助者專屬功能,到「設定 → 贊助者識別碼」輸入識別碼即可解鎖。": "Log highlighting and formatting are sponsor-only. Enter your sponsor code under Settings → Sponsor code to unlock.",
  "{name}〔{ch}〕{msg}": "{name} [{ch}] {msg}",
  "{name} 加入伺服器": "{name} joined",
