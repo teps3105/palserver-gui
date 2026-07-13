@@ -15,10 +15,16 @@ export type WorldSettings = Record<keyof typeof WORLD_OPTIONS, WorldOptionValue>
 
 function zodFor(meta: OptionMeta): z.ZodTypeAny {
   switch (meta.type) {
-    case "float":
-      return z.number().min(meta.min).max(meta.max).default(meta.default);
-    case "int":
-      return z.number().int().min(meta.min).max(meta.max).default(meta.default);
+    case "float": {
+      // soft:只擋 NaN/Infinity 與非正值,上限放很寬(玩家想填極端值就讓他填,前端另做提醒);
+      // 非 soft:照建議範圍嚴格限制。
+      const b = z.number().finite();
+      return (meta.soft ? b.min(0).max(100000) : b.min(meta.min).max(meta.max)).default(meta.default);
+    }
+    case "int": {
+      const b = z.number().int().finite();
+      return (meta.soft ? b.min(0).max(1000000) : b.min(meta.min).max(meta.max)).default(meta.default);
+    }
     case "bool":
       return z.boolean().default(meta.default);
     case "enum":

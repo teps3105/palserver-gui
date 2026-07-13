@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FiFileText } from "react-icons/fi";
+import { FiFileText, FiAlertTriangle } from "react-icons/fi";
 import type { FileHealth } from "@palserver/shared";
 import {
   OPTION_CATEGORIES,
@@ -191,34 +191,49 @@ function OptionRow({
         {meta.type === "bool" && (
           <Toggle checked={Boolean(value)} onChange={(v) => onChange(v)} />
         )}
-        {(meta.type === "float" || meta.type === "int") && (
-          <>
-            <input
-              type="number"
-              className={`${inputCls} w-24 text-right`}
-              value={String(value)}
-              min={meta.min}
-              max={meta.max}
-              step={meta.type === "float" ? meta.step : 1}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                if (!Number.isNaN(n)) onChange(meta.type === "int" ? Math.trunc(n) : n);
-              }}
-            />
-            <input
-              type="range"
-              className="w-40 accent-(--color-pal) sm:w-56"
-              value={Number(value)}
-              min={meta.min}
-              max={meta.max}
-              step={meta.type === "float" ? meta.step : 1}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                onChange(meta.type === "int" ? Math.trunc(n) : n);
-              }}
-            />
-          </>
-        )}
+        {(meta.type === "float" || meta.type === "int") &&
+          (() => {
+            const soft = (meta as { soft?: boolean }).soft === true;
+            const num = Number(value);
+            const outOfRange = soft && (num < meta.min || num > meta.max);
+            return (
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    className={`${inputCls} w-24 text-right`}
+                    value={String(value)}
+                    // soft 選項:數字框放行超出建議範圍的極端值(只擋負值);滑桿仍限在建議範圍內。
+                    min={soft ? 0 : meta.min}
+                    max={soft ? undefined : meta.max}
+                    step={meta.type === "float" ? meta.step : 1}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (!Number.isNaN(n)) onChange(meta.type === "int" ? Math.trunc(n) : n);
+                    }}
+                  />
+                  <input
+                    type="range"
+                    className="w-40 accent-(--color-pal) sm:w-56"
+                    value={Math.min(Math.max(num, meta.min), meta.max)}
+                    min={meta.min}
+                    max={meta.max}
+                    step={meta.type === "float" ? meta.step : 1}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      onChange(meta.type === "int" ? Math.trunc(n) : n);
+                    }}
+                  />
+                </div>
+                {outOfRange && (
+                  <p className="inline-flex items-center gap-1 text-[11px] font-bold text-sun">
+                    <FiAlertTriangle className="size-3 shrink-0" />
+                    {t("超出建議範圍 {min}–{max},遊戲可能有非預期行為", { min: meta.min, max: meta.max })}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         {meta.type === "enum" && (
           <select
             className={`${inputCls} min-w-36`}

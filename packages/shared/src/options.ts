@@ -21,20 +21,23 @@ export type OptionCategory =
   | "drop"
   | "world";
 
+/** soft=true:min/max 只是「建議範圍」(滑桿範圍 + 超出時提醒),實際允許填更極端的值
+ *  ——玩家就是想亂玩。非 soft(如埠號、人數上限)則嚴格限制。 */
 export type OptionMeta =
-  | { type: "float"; default: number; min: number; max: number; step: number; category: OptionCategory }
-  | { type: "int"; default: number; min: number; max: number; category: OptionCategory }
+  | { type: "float"; default: number; min: number; max: number; step: number; category: OptionCategory; soft?: boolean }
+  | { type: "int"; default: number; min: number; max: number; category: OptionCategory; soft?: boolean }
   | { type: "bool"; default: boolean; category: OptionCategory }
   | { type: "enum"; default: string; choices: readonly string[]; category: OptionCategory }
   | { type: "string"; default: string; maxLength: number; secret?: boolean; category: OptionCategory };
 
+// 倍率類:min/max 是建議範圍(滑桿),但允許超出(soft)—— 遊戲引擎不驗證 .ini,想亂玩就讓他玩。
 const rate = (
   category: OptionCategory,
   d = 1,
   min = 0.1,
-  max = 5,
+  max = 20,
   step = 0.1,
-): OptionMeta => ({ type: "float", default: d, min, max, step, category });
+): OptionMeta => ({ type: "float", default: d, min, max, step, category, soft: true });
 
 export const WORLD_OPTIONS = {
   // ── server ────────────────────────────────────────────────────────────
@@ -89,8 +92,8 @@ export const WORLD_OPTIONS = {
   },
 
   // ── pal ───────────────────────────────────────────────────────────────
-  PalCaptureRate: rate("pal", 1, 0.5, 2),
-  PalSpawnNumRate: rate("pal", 1, 0.5, 3),
+  PalCaptureRate: rate("pal", 1, 0.5, 20),
+  PalSpawnNumRate: rate("pal", 1, 0.5, 20),
   PalDamageRateAttack: rate("pal"),
   PalDamageRateDefense: rate("pal"),
   PalStomachDecreaceRate: rate("pal"),
@@ -98,12 +101,12 @@ export const WORLD_OPTIONS = {
   PalAutoHPRegeneRate: rate("pal"),
   PalAutoHpRegeneRateInSleep: rate("pal"),
   PalEggDefaultHatchingTime: { type: "float", default: 72, min: 0, max: 240, step: 1, category: "pal" },
-  WorkSpeedRate: rate("pal", 1, 0.1, 10),
+  WorkSpeedRate: rate("pal", 1, 0.1, 20),
   bPalLost: { type: "bool", default: false, category: "pal" },
   bAllowGlobalPalboxExport: { type: "bool", default: true, category: "pal" },
   bAllowGlobalPalboxImport: { type: "bool", default: false, category: "pal" },
   EnablePredatorBossPal: { type: "bool", default: true, category: "pal" },
-  MonsterFarmActionSpeedRate: rate("pal", 1, 0.1, 10),
+  MonsterFarmActionSpeedRate: rate("pal", 1, 0.1, 20),
 
   // ── player ────────────────────────────────────────────────────────────
   ExpRate: rate("player", 1, 0.1, 20),
@@ -169,13 +172,13 @@ export const WORLD_OPTIONS = {
 
   // ── build ─────────────────────────────────────────────────────────────
   BuildObjectDamageRate: rate("build"),
-  BuildObjectDeteriorationDamageRate: rate("build", 1, 0, 10),
+  BuildObjectDeteriorationDamageRate: rate("build", 1, 0, 20),
   bBuildAreaLimit: { type: "bool", default: false, category: "build" },
   MaxBuildingLimitNum: { type: "int", default: 0, min: 0, max: 10000, category: "build" },
   ServerReplicatePawnCullDistance: {
     type: "int", default: 15000, min: 5000, max: 15000, category: "build",
   },
-  BuildObjectHpRate: rate("build", 1, 0.1, 10),
+  BuildObjectHpRate: rate("build", 1, 0.1, 20),
   bEnableBuildingPlayerUIdDisplay: { type: "bool", default: false, category: "build" },
   BuildingNameDisplayCacheTTLSeconds: {
     type: "int", default: 60, min: 0, max: 600, category: "build",
@@ -184,8 +187,8 @@ export const WORLD_OPTIONS = {
   // ── drop ──────────────────────────────────────────────────────────────
   DropItemMaxNum: { type: "int", default: 3000, min: 0, max: 5000, category: "drop" },
   DropItemAliveMaxHours: { type: "float", default: 1, min: 0, max: 24, step: 0.5, category: "drop" },
-  CollectionDropRate: rate("drop", 1, 0.5, 3),
-  EnemyDropItemRate: rate("drop", 1, 0.5, 3),
+  CollectionDropRate: rate("drop", 1, 0.5, 20),
+  EnemyDropItemRate: rate("drop", 1, 0.5, 20),
   ItemCorruptionMultiplier: rate("drop"),
   SupplyDropSpan: { type: "int", default: 180, min: 30, max: 1440, category: "drop" },
   DropItemMaxNum_UNKO: { type: "int", default: 100, min: 0, max: 5000, category: "drop" },
@@ -199,8 +202,8 @@ export const WORLD_OPTIONS = {
   },
   DayTimeSpeedRate: rate("world"),
   NightTimeSpeedRate: rate("world"),
-  CollectionObjectHpRate: rate("world", 1, 0.5, 3),
-  CollectionObjectRespawnSpeedRate: rate("world", 1, 0.5, 3),
+  CollectionObjectHpRate: rate("world", 1, 0.5, 20),
+  CollectionObjectRespawnSpeedRate: rate("world", 1, 0.5, 20),
   bEnableInvaderEnemy: { type: "bool", default: true, category: "world" },
   bEnableAimAssistPad: { type: "bool", default: true, category: "world" },
   bEnableAimAssistKeyboard: { type: "bool", default: false, category: "world" },

@@ -4,10 +4,10 @@ import os from "node:os";
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import extractZip from "extract-zip";
-import { buildLaunchArgs, type InstallError, type InstanceStats, type InstanceStatus } from "@palserver/shared";
+import { buildLaunchArgs, type InstallError, type InstanceStats, type InstanceStatus, type WorldSettings } from "@palserver/shared";
 import type { DriverContext, ServerDriver } from "./driver.js";
 import type { InstanceRecord } from "./store.js";
-import { renderPalWorldSettingsIni } from "./settings-ini.js";
+import { renderPalWorldSettingsIni, parsePalWorldSettingsIni } from "./settings-ini.js";
 import { mergeEnginePatch } from "./engine-ini-merge.js";
 import { rest } from "./restapi.js";
 import { DATA_DIR } from "./env.js";
@@ -296,11 +296,52 @@ function runDepotDownloader(
   });
 }
 
+const worldIniPath = (rec: InstanceRecord, ctx: DriverContext) =>
+  path.join(serverRoot(rec, ctx), "Pal", "Saved", "Config", CONFIG_PLATFORM_DIR, "PalWorldSettings.ini");
+/** 「agent 上次寫進 PalWorldSettings.ini 的內容」快照,用來偵測使用者的手動編輯。 */
+const worldAppliedPath = (ctx: DriverContext) => path.join(ctx.instanceDir, "world-applied.json");
+
 function writeIni(rec: InstanceRecord, ctx: DriverContext): void {
   const configDir = path.join(serverRoot(rec, ctx), "Pal", "Saved", "Config", CONFIG_PLATFORM_DIR);
   fs.mkdirSync(configDir, { recursive: true });
   fs.writeFileSync(path.join(configDir, "PalWorldSettings.ini"), renderPalWorldSettingsIni(rec.settings));
+  // 記下這次寫入的內容;下次開機用它比對出「哪些是使用者手動改的」(見 detectManualIniEdits)。
+  try {
+    fs.writeFileSync(worldAppliedPath(ctx), JSON.stringify(rec.settings));
+  } catch {
+    /* 存不進去頂多下次偵測不到手動編輯,不致命 */
+  }
   applyEngineIni(configDir, rec);
+}
+
+/**
+ * 開機前偵測使用者「手動改了 PalWorldSettings.ini」的部分,回傳要併回 store 的 patch。
+ * 比對「現在的檔案」與「agent 上次寫入的快照」:有差 = 使用者手動改的,尊重它(併回 store,
+ * 這樣不會被開機時的重寫蓋掉,GUI 也會同步顯示)。若沒有上次快照(採用既有安裝 / 首次啟動),
+ * 就整份匯入現有檔案,避免用預設值蓋掉伺服器本來的設定。檔案不存在則回空(交給 writeIni 建立)。
+ * store 更新在 route 層做(driver 不碰 store),所以這裡只負責算出 patch。
+ */
+export function detectManualIniEdits(rec: InstanceRecord, ctx: DriverContext): Partial<WorldSettings> {
+  let iniRaw: string;
+  try {
+    iniRaw = fs.readFileSync(worldIniPath(rec, ctx), "utf8");
+  } catch {
+    return {};
+  }
+  const fileSettings = parsePalWorldSettingsIni(iniRaw);
+  let last: Record<string, unknown> | null = null;
+  try {
+    const j = JSON.parse(fs.readFileSync(worldAppliedPath(ctx), "utf8")) as unknown;
+    if (j && typeof j === "object") last = j as Record<string, unknown>;
+  } catch {
+    /* 沒有快照 */
+  }
+  if (!last) return fileSettings; // 首次 / 採用既有安裝:整份尊重現有檔案
+  const patch: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(fileSettings)) {
+    if (last[k] !== v) patch[k] = v; // 檔案與上次寫入不同 → 使用者手動改的
+  }
+  return patch as Partial<WorldSettings>;
 }
 
 /**

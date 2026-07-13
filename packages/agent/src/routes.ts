@@ -44,7 +44,7 @@ import type { DriverContext, ServerDriver } from "./driver.js";
 import * as dockerOps from "./docker.js";
 
 import { k8sDriver } from "./k8s.js";
-import { SERVER_LAUNCHER, classifyServerDir, isInstalling, lastInstallError, moveServerFiles, nativeDriver, serverRoot, updateServer } from "./native.js";
+import { SERVER_LAUNCHER, classifyServerDir, detectManualIniEdits, isInstalling, lastInstallError, moveServerFiles, nativeDriver, serverRoot, updateServer } from "./native.js";
 import { cachedVersionSummary, getVersionStatus } from "./version.js";
 import { getConnectionInfo } from "./connectivity.js";
 import { getModsStatus, installComponent, installedEnhancements, removeComponent, setLuaModEnabled } from "./mods.js";
@@ -606,8 +606,19 @@ export function registerRoutes(
     return { moving: true };
   });
 
+  // native:啟動前把使用者對 PalWorldSettings.ini 的手動編輯併回 store,否則會被開機時的
+  // 重寫蓋掉。回傳(可能已更新的)rec。docker/k8s 由各自流程處理,原樣返回。
+  const reconcileWorldIni = (rec: InstanceRecord): InstanceRecord => {
+    if (rec.backend !== "native") return rec;
+    const patch = detectManualIniEdits(rec, ctxOf(rec));
+    if (Object.keys(patch).length === 0) return rec;
+    return store.update(rec.id, {
+      settings: WorldSettingsSchema.parse({ ...rec.settings, ...patch }),
+    });
+  };
+
   app.post("/api/instances/:id/start", async (req) => {
-    const rec = getOr404((req.params as { id: string }).id);
+    const rec = reconcileWorldIni(getOr404((req.params as { id: string }).id));
     await driverOf(rec).start(rec, ctxOf(rec));
     supervisor.noteManualState(rec.id, true);
     track("server_started");
@@ -636,10 +647,11 @@ export function registerRoutes(
   });
 
   app.post("/api/instances/:id/restart", async (req) => {
-    const rec = getOr404((req.params as { id: string }).id);
+    let rec = getOr404((req.params as { id: string }).id);
     await announceBeforeDowntime(rec, req.body);
     await driverOf(rec).stop(rec, ctxOf(rec));
     presence.markAllOffline(rec.id);
+    rec = reconcileWorldIni(rec);
     await driverOf(rec).start(rec, ctxOf(rec));
     supervisor.noteManualState(rec.id, true);
     track("server_started");
