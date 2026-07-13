@@ -232,6 +232,11 @@ export class AgentClient {
     return this.request("/api/license", { method: "DELETE" });
   }
 
+  /** 日誌翻譯(贊助者功能 log-tools)。走 agent 代理 Google Translate,tl=目標語碼。 */
+  translate(text: string, tl: string): Promise<{ text: string; error?: string }> {
+    return this.request(`/api/translate?q=${encodeURIComponent(text)}&tl=${encodeURIComponent(tl)}`);
+  }
+
   listInstances(): Promise<InstanceSummary[]> {
     return this.request("/api/instances");
   }

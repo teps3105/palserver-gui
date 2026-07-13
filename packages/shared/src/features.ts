@@ -19,6 +19,7 @@ export const EARLY_ACCESS_FEATURES: EarlyAccessFeature[] = [
   { id: "pal-stats", label: "帕魯物種數值編輯器(PalSchema:HP / 攻防 / 首領)", until: "2027-12-31" },
   { id: "bulk-items", label: "批量給予道具(物品選單 + 數量)", until: "2027-12-31" },
   { id: "teleport", label: "傳送玩家(玩家 / 地圖座標描點)", until: "2027-12-31" },
+  { id: "log-tools", label: "日誌重點標記與翻譯(事件上色 + Google 翻譯)", until: "2027-12-31" },
 ];
 
 /** 這個功能現在是否已對所有人免費(不在目錄裡的一律視為免費)。 */
