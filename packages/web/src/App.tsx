@@ -466,11 +466,10 @@ function SortableServerCard({
       </p>
       {extra !== undefined && (
         <div
-          className={`mt-2 flex flex-col gap-1.5 rounded-xl bg-card-soft px-3 py-2 ${
+          className={`mt-2 grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl bg-card-soft px-3 py-2 text-xs font-bold text-ink-muted ${
             inst.status === "running" ? "" : "opacity-50"
           }`}
         >
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs font-bold text-ink-muted">
             <span className="inline-flex items-center gap-1.5" title={translate("在線玩家")}>
               <FiUsers className="size-3.5 shrink-0 text-pal" />
               {extra?.live?.available
@@ -503,18 +502,6 @@ function SortableServerCard({
                 ? `${translate("第 {n} 天", { n: extra.live.metrics.days })} · ${extra.live.metrics.basecampnum} ${translate("據點")}`
                 : "—"}
             </span>
-          </div>
-          {/* 在線玩家名單預覽:最多 4 位,其餘 +N */}
-          {extra?.live?.available && extra.live.players.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1 border-t border-line/60 pt-1.5 text-[11px] font-bold text-ink-muted">
-              {extra.live.players.slice(0, 4).map((p) => (
-                <span key={p.playerId} className="rounded-full bg-card px-2 py-0.5">
-                  {p.name || "—"}
-                </span>
-              ))}
-              {extra.live.players.length > 4 && <span>+{extra.live.players.length - 4}</span>}
-            </div>
-          )}
         </div>
       )}
       {inst.updateAvailable && (
