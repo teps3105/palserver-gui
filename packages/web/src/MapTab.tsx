@@ -138,6 +138,8 @@ export function MapTab({
   const [showOres, setShowOres] = useState(false);
   const [ores, setOres] = useState<OreData | null>(null);
   const [guildHint, setGuildHint] = useState(false);
+  // 公會詳情點成員 → 地圖跳到該位置。n 是 nonce:同一點連點兩次也要重新觸發。
+  const [focus, setFocus] = useState<{ x: number; y: number; n: number } | null>(null);
 
   // Static landmark + boss sets (bundled), loaded once.
   useEffect(() => {
@@ -330,6 +332,7 @@ export function MapTab({
           landmarks={landmarks}
           bosses={bosses}
           ores={ores}
+          focus={focus}
           lang={lang}
           showPlayers={showPlayers}
           showOffline={showOffline}
@@ -352,6 +355,13 @@ export function MapTab({
           client={client}
           instanceId={instanceId}
           guildId={guildDetailId}
+          gameData={gameData}
+          pdPlayers={pdPlayers}
+          livePlayers={live?.available ? live.players : []}
+          onLocate={(pt) => {
+            setGuildDetailId(null);
+            setFocus({ ...pt, n: Date.now() });
+          }}
           onClose={() => setGuildDetailId(null)}
         />
       )}
@@ -409,16 +419,27 @@ export function MapTab({
   );
 }
 
-/** 公會詳情彈窗(贊助者):成員名單 + 據點,取自 PalDefender /guild/{id}。 */
+/** 公會詳情彈窗(贊助者):成員名單 + 據點,取自 PalDefender /guild/{id}。
+ * 成員顯示與地圖/玩家列表同款的帕魯頭像(seed=userId,靠 pdPlayers 名冊把
+ * playerUid 對回 userId;對不上才退用 playerUid)。在線成員可點:回報地圖
+ * 座標給父層跳轉(位置優先取遊戲 REST 即時座標,退而求其次用名冊的最後存檔位置)。 */
 function GuildDetailModal({
   client,
   instanceId,
   guildId,
+  gameData,
+  pdPlayers,
+  livePlayers,
+  onLocate,
   onClose,
 }: {
   client: AgentClient;
   instanceId: string;
   guildId: string;
+  gameData: GameData | null;
+  pdPlayers: PdPlayerSummary[];
+  livePlayers: RestPlayer[];
+  onLocate: (pt: { x: number; y: number }) => void;
   onClose: () => void;
 }) {
   useI18n();
@@ -464,18 +485,55 @@ function GuildDetailModal({
                 {t("成員")}({detail.members.length})
               </h3>
               <div className="flex flex-col divide-y divide-line">
-                {detail.members.map((m) => (
-                  <div key={m.playerUid} className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm">
-                    <span className="min-w-0 truncate font-bold">{m.name || "—"}</span>
-                    <span
-                      className={`shrink-0 text-xs font-bold ${
-                        m.status.toLowerCase() === "online" ? "text-grass" : "text-ink-muted"
-                      }`}
+                {detail.members.map((m) => {
+                  const online = m.status.toLowerCase() === "online";
+                  const pp = pdPlayers.find((p) => p.playerUid === m.playerUid);
+                  const iconUrl = avatarIconUrl(pp?.userId || m.playerUid, gameData);
+                  // 在線成員的地圖位置:遊戲 REST 即時座標優先,名冊最後存檔位置兜底。
+                  const rp = online
+                    ? livePlayers.find(
+                        (p) =>
+                          p.userId === m.playerUid ||
+                          p.playerId === m.playerUid ||
+                          (pp?.userId != null && (p.userId === pp.userId || p.playerId === pp.userId)) ||
+                          (!!m.name && p.name === m.name),
+                      )
+                    : undefined;
+                  const pos = rp
+                    ? savToMap(rp.location_x, rp.location_y)
+                    : online && pp?.worldX != null && pp?.worldY != null
+                      ? savToMap(pp.worldX, pp.worldY)
+                      : null;
+                  const row = (
+                    <>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="inline-flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-line bg-card-soft">
+                          {iconUrl ? <img src={iconUrl} alt="" className="size-full object-cover" /> : null}
+                        </span>
+                        <span className="min-w-0 truncate font-bold">{m.name || "—"}</span>
+                        {pos && <FiMapPin className="size-3.5 shrink-0 text-pal" />}
+                      </span>
+                      <span className={`shrink-0 text-xs font-bold ${online ? "text-grass" : "text-ink-muted"}`}>
+                        {online ? t("在線") : t("離線")}
+                      </span>
+                    </>
+                  );
+                  return pos ? (
+                    <button
+                      key={m.playerUid}
+                      type="button"
+                      title={t("跳到地圖位置")}
+                      className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-left text-sm transition hover:text-pal"
+                      onClick={() => onLocate(pos)}
                     >
-                      {m.status.toLowerCase() === "online" ? t("在線") : t("離線")}
-                    </span>
-                  </div>
-                ))}
+                      {row}
+                    </button>
+                  ) : (
+                    <div key={m.playerUid} className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm">
+                      {row}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -525,6 +583,7 @@ function PlayerMap({
   landmarks,
   bosses,
   ores,
+  focus,
   lang,
   showPlayers,
   showOffline,
@@ -544,6 +603,8 @@ function PlayerMap({
   landmarks: Landmark[];
   bosses: Boss[];
   ores: OreData | null;
+  /** 公會詳情點成員後要跳到的地圖座標(n 為 nonce,同點重點也會觸發)。 */
+  focus: { x: number; y: number; n: number } | null;
   lang: "zh" | "zh-CN" | "en" | "ja";
   showPlayers: boolean;
   showOffline: boolean;
@@ -614,6 +675,13 @@ function PlayerMap({
       oresRendererRef.current = null;
     };
   }, []);
+
+  // 公會詳情跳轉:飛到成員位置並拉近(已經更近就維持現有縮放)。
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !focus) return;
+    map.flyTo([focus.y, focus.x], Math.max(map.getZoom(), 1), { duration: 0.8 });
+  }, [focus]);
 
   // 礦物層:每點一個 canvas 圓點,顏色分礦種,「大型」礦脈畫大顆;hover 顯示名稱。
   useEffect(() => {
