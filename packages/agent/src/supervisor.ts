@@ -328,9 +328,28 @@ export class RestartSupervisor {
           .catch(() => {}); // REST off — restart anyway, just without warning
         await new Promise((r) => setTimeout(r, wait * 1000));
       }
+      // Save and wait for the world to flush to disk. The REST /save
+      // endpoint returns 200 immediately but the actual write is async —
+      // stopping too soon can corrupt save files. We save, then wait a
+      // few seconds before stopping to let the server finish writing.
       await rest.save(rec).catch(() => {});
+      await new Promise((r) => setTimeout(r, 5000));
 
-      await driver.stop(rec, ctx);
+      // Try graceful shutdown first (server saves then exits cleanly).
+      // Fall back to hard stop if REST is unavailable or shutdown fails.
+      const shutdownOk = await rest
+        .shutdown(rec, 10, `自動重啟: ${detail}`)
+        .then(() => true)
+        .catch(() => false);
+
+      if (!shutdownOk) {
+        await driver.stop(rec, ctx);
+      } else {
+        // Graceful shutdown succeeded — the server is (or soon will be) stopped.
+        // Wait a moment for the process to fully exit, then sync driver state.
+        await new Promise((r) => setTimeout(r, 5000));
+      }
+
       await driver.start(rec, ctx);
 
       const now = new Date().toISOString();
