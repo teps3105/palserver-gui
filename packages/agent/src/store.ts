@@ -44,6 +44,9 @@ const STORE_FILE = path.join(DATA_DIR, "instances.json");
 /** Steam 查詢埠的分配起點(Palworld 預設值);往上遞增找沒被占用的。 */
 const QUERY_PORT_BASE = 27015;
 
+/** REST API 埠的分配起點(Palworld 預設值);往上遞增找沒被占用的。 */
+const REST_PORT_BASE = 8212;
+
 /**
  * Flat-file store for instance metadata. Container state lives in Docker
  * (labels + inspect); this file is the source of truth for settings only.
@@ -89,6 +92,19 @@ export class InstanceStore {
       this.list().map((r) => r.queryPort).filter((p): p is number => !!p),
     );
     let port = QUERY_PORT_BASE;
+    while (used.has(port)) port++;
+    return port;
+  }
+
+  /** 分配一個沒被別台占用的 REST API 埠(建立實例時用);只計算已啟用 REST 的實例。 */
+  nextRestApiPort(): number {
+    const used = new Set(
+      this
+        .list()
+        .filter((r) => r.settings.RESTAPIEnabled)
+        .map((r) => r.settings.RESTAPIPort),
+    );
+    let port = REST_PORT_BASE;
     while (used.has(port)) port++;
     return port;
   }

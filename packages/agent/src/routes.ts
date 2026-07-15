@@ -46,7 +46,7 @@ import type { DriverContext, ServerDriver } from "./driver.js";
 import * as dockerOps from "./docker.js";
 
 import { k8sDriver } from "./k8s.js";
-import { SERVER_LAUNCHER, classifyServerDir, detectManualIniEdits, installProgressOf, isInstalling, lastInstallError, moveServerFiles, nativeDriver, serverRoot, updateServer } from "./native.js";
+import { SERVER_LAUNCHER, classifyServerDir, detectManualIniEdits, installProgressOf, isInstalling, lastInstallError, moveServerFiles, nativeDriver, serverRoot, updateServer, writeWorldIni } from "./native.js";
 import { cachedVersionSummary, getVersionStatus } from "./version.js";
 import { getConnectionInfo } from "./connectivity.js";
 import { getModsStatus, installComponent, installedEnhancements, removeComponent, setLuaModEnabled } from "./mods.js";
@@ -404,9 +404,18 @@ export function registerRoutes(
     if (store.findByName(input.name)) {
       return reply.code(409).send({ error: `instance "${input.name}" already exists` });
     }
-    const portTaken = input.backend !== "k8s" && store.list().some((r) => r.gamePort === input.gamePort);
-    if (portTaken) {
+    // 所有 backend 統一 port 衝突檢測：外部連線需 1:1 映射正確，每實例 port 唯一。
+    const gameTaken = store.list().some((r) => r.gamePort === input.gamePort);
+    if (gameTaken) {
       return reply.code(409).send({ error: `game port ${input.gamePort} already in use` });
+    }
+    // REST API 埠:使用者明給就尊重並擋撞埠;沒給就稍後自動分配(仿 queryPort)。
+    const explicitRestPort = input.settings?.RESTAPIEnabled !== false ? input.settings?.RESTAPIPort : undefined;
+    if (
+      typeof explicitRestPort === "number" &&
+      store.list().some((r) => r.settings.RESTAPIEnabled && r.settings.RESTAPIPort === explicitRestPort)
+    ) {
+      return reply.code(409).send({ error: `REST API port ${explicitRestPort} already in use` });
     }
     let serverDir: string | undefined;
     let serverDirManaged: boolean | undefined;
@@ -478,6 +487,10 @@ export function registerRoutes(
         // game-server 未運行或 INI 不存在 — 用 caller 帶入的 settings
       }
     }
+    // 沒明給 REST 埠時自動分配唯一值(仿 queryPort 自動分配)。
+    if (settings.RESTAPIEnabled && typeof explicitRestPort !== "number") {
+      settings.RESTAPIPort = store.nextRestApiPort();
+    }
     const rec = store.create({
       name: input.name,
       backend: input.backend,
@@ -542,6 +555,26 @@ export function registerRoutes(
     ) {
       return reply.code(409).send({ error: `遊戲埠 ${nextPort} 已被其他實例使用` });
     }
+    // REST API 埠撞埠檢查(docker 改 1:1 映射後所有 backend 都直接占用該 host 埠)
+    if (
+      nextSettings.RESTAPIEnabled &&
+      nextSettings.RESTAPIPort !== rec.settings.RESTAPIPort &&
+      store.list().some(
+        (r) => r.id !== rec.id && r.settings.RESTAPIEnabled && r.settings.RESTAPIPort === nextSettings.RESTAPIPort,
+      )
+    ) {
+      return reply.code(409).send({ error: `REST API 埠 ${nextSettings.RESTAPIPort} 已被其他實例使用` });
+    }
+    // RCON 埠撞埠檢查(僅 RCONEnabled 時)
+    if (
+      nextSettings.RCONEnabled &&
+      nextSettings.RCONPort !== rec.settings.RCONPort &&
+      store.list().some(
+        (r) => r.id !== rec.id && r.settings.RCONEnabled && r.settings.RCONPort === nextSettings.RCONPort,
+      )
+    ) {
+      return reply.code(409).send({ error: `RCON 埠 ${nextSettings.RCONPort} 已被其他實例使用` });
+    }
     await snapshotBefore(rec, "world settings update");
     // The driver re-renders the ini on every start; pre-render for docker so
     // the bind-mounted config is already in place.
@@ -550,10 +583,17 @@ export function registerRoutes(
       dockerOps.writeConfig(store.instanceDir(rec.id), updated.settings);
       return { applied: "on-next-restart", settings: updated.settings };
     }
-    // k8s: settings are applied as STS env on the next manual restart, not
-    // immediately — same as native/docker. The k8s start flow patches env then.
-    // All backends: store only, applied on next restart.
+    // k8s: settings are applied as STS env on the next manual restart.
+    // native: write ini immediately (same as docker) so the file is up-to-date
+    // even while the server is running — the driver re-renders on start anyway.
     const updated = mirrorIdentityFromSettings(store.update(rec.id, { settings: nextSettings }));
+    if (updated.backend === "native") {
+      try {
+        writeWorldIni(updated, ctxOf(updated));
+      } catch {
+        // 寫不進去不致命:下次啟動 driver 會重新 render。
+      }
+    }
     return { applied: "on-next-restart", settings: updated.settings };
   });
 
@@ -748,7 +788,12 @@ export function registerRoutes(
     let gamePort = rec.gamePort + 1;
     while (usedPorts.has(gamePort)) gamePort++;
 
-    const settings = WorldSettingsSchema.parse({ ...rec.settings, ServerName: name, PublicPort: gamePort });
+    const settings = WorldSettingsSchema.parse({
+      ...rec.settings,
+      ServerName: name,
+      PublicPort: gamePort,
+      ...(rec.settings.RESTAPIEnabled ? { RESTAPIPort: store.nextRestApiPort() } : {}),
+    });
     // 新實例沿用來源的 backend（native 走 host FS，docker 走 bind-mount）。
     const created = store.create({
       name,

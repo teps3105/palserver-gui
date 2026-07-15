@@ -99,8 +99,9 @@ export async function createContainer(
     bindings[`${rec.queryPort}/udp`] = [{ HostPort: String(rec.queryPort) }];
   }
   if (rec.settings.RESTAPIEnabled) {
-    ports["8212/tcp"] = {};
-    bindings["8212/tcp"] = [{ HostPort: "0" }];
+    const restPort = rec.settings.RESTAPIPort;
+    ports[`${restPort}/tcp`] = {};
+    bindings[`${restPort}/tcp`] = [{ HostPort: String(restPort) }];
   }
 
   const launchArgs = [
@@ -265,15 +266,6 @@ export async function listInContainer(
   dirPath: string,
 ): Promise<string> {
   return execInContainer(rec, ["ls", "-1", dirPath]).then((s) => s.trim());
-}
-
-/** Resolve the ephemeral host port Docker assigned for the REST API (8212/tcp). */
-export async function restHostPort(rec: InstanceRecord): Promise<number | null> {
-  const container = await findContainer(rec);
-  if (!container) return null;
-  const info = await container.inspect();
-  const binding = info.NetworkSettings.Ports["8212/tcp"];
-  return binding?.[0]?.HostPort ? Number(binding[0].HostPort) : null;
 }
 
 /** Pull latest image and recreate container. */

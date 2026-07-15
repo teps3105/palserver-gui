@@ -429,6 +429,11 @@ const worldIniPath = (rec: InstanceRecord, ctx: DriverContext) =>
 /** 「agent 上次寫進 PalWorldSettings.ini 的內容」快照,用來偵測使用者的手動編輯。 */
 const worldAppliedPath = (ctx: DriverContext) => path.join(ctx.instanceDir, "world-applied.json");
 
+/** 也供 route 層在世界設定 PUT 時即時落檔(native),讓檔案跟 store 同步。 */
+export function writeWorldIni(rec: InstanceRecord, ctx: DriverContext): void {
+  writeIni(rec, ctx);
+}
+
 function writeIni(rec: InstanceRecord, ctx: DriverContext): void {
   const configDir = path.join(serverRoot(rec, ctx), "Pal", "Saved", "Config", CONFIG_PLATFORM_DIR);
   fs.mkdirSync(configDir, { recursive: true });

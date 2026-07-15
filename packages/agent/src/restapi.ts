@@ -6,7 +6,6 @@ import type {
   RestServerInfo,
 } from "@palserver/shared";
 import type { InstanceRecord } from "./store.js";
-import * as dockerOps from "./docker.js";
 
 /**
  * Thin proxy over the Palworld dedicated server's own REST API
@@ -23,17 +22,12 @@ class RestError extends Error {
   }
 }
 
-/** Docker publishes the REST port on an ephemeral host port (HostPort "0");
- * native runs it on the configured port on localhost; k8s exposes it through
- * a ClusterIP Service (<service>.<namespace>) reachable from the agent. */
+/** docker/native: REST API on 127.0.0.1:<RESTAPIPort>; k8s: ClusterIP Service
+ * (<service>.<namespace>) reachable from the agent. All backends use
+ * RESTAPIPort directly — docker binds container port = host port (1:1). */
 async function baseUrl(rec: InstanceRecord): Promise<string> {
   if (rec.backend === "k8s" && rec.k8sServiceName && rec.k8sNamespace) {
     return `http://${rec.k8sServiceName}.${rec.k8sNamespace}:${rec.settings.RESTAPIPort}/v1/api`;
-  }
-  if (rec.backend === "docker") {
-    const hostPort = await dockerOps.restHostPort(rec);
-    if (hostPort) return `http://127.0.0.1:${hostPort}/v1/api`;
-    return `http://127.0.0.1:${rec.settings.RESTAPIPort}/v1/api`;
   }
   return `http://127.0.0.1:${rec.settings.RESTAPIPort}/v1/api`;
 }
