@@ -17,14 +17,16 @@ const PLAYER_ACTIONS: {
   cmd?: string;
   customPalMode?: "pal" | "egg";
   bulkItems?: boolean;
-  teleport?: boolean;
+  /** source = 把此玩家送走;target = 把別人送到此玩家位置 */
+  teleport?: "source" | "target";
 }[] = [
   { label: "給予道具", cmd: "give" },
   { label: "給予帕魯", cmd: "givepal" },
   { label: "給予帕魯蛋", cmd: "giveegg" },
   ...(SHOW_SPONSOR_FEATURES
     ? ([
-        { label: "傳送此玩家(贊助者)", teleport: true },
+        { label: "傳送此玩家(贊助者)", teleport: "source" },
+        { label: "傳送到此玩家位置(贊助者)", teleport: "target" },
         { label: "批量給予道具(贊助者)", bulkItems: true },
         { label: "給予自訂帕魯(贊助者)", customPalMode: "pal" },
         { label: "給予自訂帕魯蛋(贊助者)", customPalMode: "egg" },
@@ -55,7 +57,7 @@ export function PlayerActionsMenu({
   const [actionCmd, setActionCmd] = useState<string | null>(null);
   const [customPalMode, setCustomPalMode] = useState<"pal" | "egg" | null>(null);
   const [showGiveItems, setShowGiveItems] = useState(false);
-  const [showTeleport, setShowTeleport] = useState(false);
+  const [teleportMode, setTeleportMode] = useState<"source" | "target" | null>(null);
 
   return (
     <>
@@ -76,7 +78,7 @@ export function PlayerActionsMenu({
                   className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] font-bold transition hover:bg-card-soft"
                   onClick={() => {
                     setMenuOpen(false);
-                    if (a.teleport) setShowTeleport(true);
+                    if (a.teleport) setTeleportMode(a.teleport);
                     else if (a.bulkItems) setShowGiveItems(true);
                     else if (a.customPalMode) setCustomPalMode(a.customPalMode);
                     else if (a.cmd) setActionCmd(a.cmd);
@@ -138,12 +140,13 @@ export function PlayerActionsMenu({
           onClose={() => setShowGiveItems(false)}
         />
       )}
-      {showTeleport && (
+      {teleportMode && (
         <TeleportModal
           client={client}
           instanceId={instanceId}
-          initialSource={userId}
-          onClose={() => setShowTeleport(false)}
+          initialSource={teleportMode === "source" ? userId : undefined}
+          initialTargetPlayer={teleportMode === "target" ? userId : undefined}
+          onClose={() => setTeleportMode(null)}
         />
       )}
     </>

@@ -1264,5 +1264,11 @@
  "存檔快照裡找不到這個公會 — 到公會分頁「從存檔刷新」重掃一次。": "This guild isn't in the save snapshot — rescan via \"Refresh from Save\" on the Guilds tab.",
  "倉庫、駐守帕魯與研究進度(來自存檔快照)": "Storage, working pals & research (from the save snapshot)",
  "公會倉庫是空的。": "The guild storage is empty.",
- "據點等級": "Base level"
+ "據點等級": "Base level",
+ "詳細資訊": "Details",
+ "個體值、詞條、離線物品、加點分配、公會據點": "IVs, passives, offline items, stat points, guild bases",
+ "據點駐守帕魯、公會倉庫、研究進度": "Working pals, guild storage, research progress",
+ "詳細資訊是贊助者功能。到「設定 → 贊助者識別碼」輸入識別碼即可使用。": "Details are a sponsor feature. Enter your code under Settings → Sponsor Code to unlock.",
+ "傳送到此玩家位置(贊助者)": "Teleport to this player (Sponsor)",
+ "個體值、詞條、離線物品、加點分配": "IVs, passives, offline items, stat points"
 }

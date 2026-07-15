@@ -139,3 +139,38 @@ export function DismissibleWarning({
     </div>
   );
 }
+
+/** 「詳細資訊」開關列 —— 玩家/公會詳情彈窗共用,贊助內容收在開關後面。 */
+export function DetailsToggle({
+  show,
+  onToggle,
+  hint,
+}: {
+  show: boolean;
+  onToggle: () => void;
+  hint: string;
+}) {
+  useI18n();
+  return (
+    <button
+      className="flex w-full items-center justify-between rounded-cute border-2 border-line px-3 py-2 text-left transition hover:border-pal/50"
+      onClick={onToggle}
+    >
+      <span className="text-[13px] font-extrabold">
+        {t("詳細資訊")}
+        <span className="ml-2 text-xs font-normal text-ink-muted">{hint}</span>
+      </span>
+      <FiChevronDown className={`size-4 shrink-0 text-ink-muted transition-transform ${show ? "rotate-180" : ""}`} />
+    </button>
+  );
+}
+
+/** 贊助鎖提示(詳細資訊開關內,未解鎖時顯示)。 */
+export function SponsorHint() {
+  useI18n();
+  return (
+    <div className="rounded-cute border-2 border-sun/40 bg-sun/10 px-3 py-2 text-xs font-bold text-sun">
+      {t("詳細資訊是贊助者功能。到「設定 → 贊助者識別碼」輸入識別碼即可使用。")}
+    </div>
+  );
+}

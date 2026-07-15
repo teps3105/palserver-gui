@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { FiChevronRight, FiHome, FiLock, FiRefreshCw } from "react-icons/fi";
-import { hasFeature, type SaveGuild } from "@palserver/shared";
+import { FiChevronRight, FiHome, FiRefreshCw } from "react-icons/fi";
+import type { SaveGuild } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { GuildDetailModal, researchName } from "./GuildDetailModal";
 import { useGameData } from "./gameData";
@@ -25,7 +25,6 @@ export function GuildsTab({
 }) {
   useI18n();
   const gameData = useGameData();
-  const [entitled, setEntitled] = useState<boolean | null>(null);
   const [worldGuid, setWorldGuid] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [guilds, setGuilds] = useState<SaveGuild[] | null>(null);
@@ -34,13 +33,6 @@ export function GuildsTab({
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailFor, setDetailFor] = useState<SaveGuild | null>(null);
-
-  useEffect(() => {
-    client
-      .license()
-      .then((l) => setEntitled(hasFeature("save-slim", l)))
-      .catch(() => setEntitled(false));
-  }, [client, instanceId]);
 
   const load = useCallback(async () => {
     try {
@@ -63,8 +55,8 @@ export function GuildsTab({
   }, [client, instanceId]);
 
   useEffect(() => {
-    if (entitled) void load();
-  }, [entitled, load]);
+    void load();
+  }, [load]);
 
   const scan = async () => {
     if (!worldGuid) return;
@@ -93,16 +85,6 @@ export function GuildsTab({
       setScanning(false);
     }
   };
-
-  if (entitled === false) {
-    return (
-      <div className="inline-flex items-center gap-2 rounded-cute border-2 border-sun/40 bg-sun/10 px-3 py-2 text-xs font-bold text-sun">
-        <FiLock className="size-4 shrink-0" />
-        {t("公會總覽是贊助者功能。到「設定 → 贊助者識別碼」輸入識別碼即可使用。")}
-      </div>
-    );
-  }
-  if (entitled === null) return <p className="text-ink-muted">{t("載入中…")}</p>;
 
   const sorted = [...(guilds ?? [])].sort((a, b) => b.members.length - a.members.length);
 

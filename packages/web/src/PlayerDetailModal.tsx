@@ -15,7 +15,7 @@ import type { AgentClient } from "./api";
 import { useGameData, displayName, findCharacter, itemIconUrl, type GameData } from "./gameData";
 import { maskSteamId } from "./SteamId";
 import { t, useI18n } from "./i18n";
-import { Overlay, card, btn, btnGhost, errorCls, inputCls } from "./ui";
+import { DetailsToggle, Overlay, SponsorHint, card, btn, btnGhost, errorCls, inputCls } from "./ui";
 
 /**
  * 玩家詳情 — 兩個資料來源「合併成同一個視圖」,不分區:
@@ -60,6 +60,8 @@ export function PlayerDetailModal({
   const [canScan, setCanScan] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  // 「詳細資訊」開關:個體值/詞條/離線物品/加點等贊助內容,預設收合
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     client
@@ -123,8 +125,9 @@ export function PlayerDetailModal({
   }, [client, instanceId, restUid, displayLabel]);
 
   useEffect(() => {
-    if (entitled) void loadSnapshot();
-  }, [entitled, loadSnapshot]);
+    // 快照基礎資料(最後上線/位置分頁/公會據點座標)對所有人開放,深度內容由詳細開關把關
+    void loadSnapshot();
+  }, [loadSnapshot]);
 
   const scan = async () => {
     if (!worldGuid) return;
@@ -173,7 +176,7 @@ export function PlayerDetailModal({
         <div className="flex items-center justify-between gap-2">
           <h2 className="truncate text-lg font-extrabold">{displayLabel}</h2>
           <div className="flex items-center gap-2">
-            {entitled && canScan && (
+            {canScan && (
               <button
                 className={`${btnGhost} inline-flex items-center gap-1.5`}
                 onClick={() => void scan()}
@@ -199,14 +202,8 @@ export function PlayerDetailModal({
 
         {error && <p className={errorCls}>{error}</p>}
         {scanError && <p className={errorCls}>{t("存檔掃描失敗:{reason}", { reason: scanError })}</p>}
-        {entitled === false && (
-          <div className="inline-flex items-center gap-2 rounded-cute border-2 border-sun/40 bg-sun/10 px-3 py-2 text-xs font-bold text-sun">
-            <FiLock className="size-4 shrink-0" />
-            {t("個體值、詞條與離線玩家資料是贊助者功能。到「設定 → 贊助者識別碼」輸入識別碼即可使用。")}
-          </div>
-        )}
-        {entitled && snapNote && !scanning && <p className="text-[13px] text-ink-muted">{snapNote}</p>}
-        {entitled && canScan && !generatedAt && !scanning && !snapNote && (
+        {snapNote && !scanning && <p className="text-[13px] text-ink-muted">{snapNote}</p>}
+        {canScan && !generatedAt && !scanning && !snapNote && (
           <p className="text-[13px] text-ink-muted">
             {t("尚未掃描過存檔。點「從存檔刷新」建立快照:不依賴 PalDefender,離線玩家也查得到,並包含個體值與詞條。")}
           </p>
@@ -253,6 +250,7 @@ export function PlayerDetailModal({
             saveByInstance={saveByInstance}
             gameData={gameData}
             fallbackName={displayLabel}
+            details={{ show: showDetails, entitled, onToggle: () => setShowDetails((v) => !v) }}
             onShowOnMap={
               onShowOnMap
                 ? (x, y) => {
@@ -279,6 +277,7 @@ function MergedBody({
   saveByInstance,
   gameData,
   fallbackName,
+  details,
   onShowOnMap,
 }: {
   detail: PlayerDetail | null;
@@ -286,8 +285,11 @@ function MergedBody({
   saveByInstance: Map<string, SavePalRow>;
   gameData: GameData | null;
   fallbackName: string;
+  /** 「詳細資訊」開關:贊助內容(IV/詞條/離線物品/加點/公會面板)收在裡面 */
+  details: { show: boolean; entitled: boolean | null; onToggle: () => void };
   onShowOnMap?: (x: number, y: number) => void;
 }) {
+  const deep = details.show && details.entitled === true;
   const prog = detail?.available ? detail.progression : null;
   const restPals = detail?.available ? detail.pals : [];
 
@@ -325,11 +327,19 @@ function MergedBody({
           value={prog ? `Lv.${prog.level}` : profile?.level !== null && profile ? `Lv.${profile.level}` : "—"}
         />
         {lastOnline !== null && <Info label={t("最後上線")} value={lastOnline} />}
-        {profile?.inventory && <Info label={t("金錢")} value={profile.inventory.money.toLocaleString()} />}
+        {deep && profile?.inventory && <Info label={t("金錢")} value={profile.inventory.money.toLocaleString()} />}
       </div>
 
+      {/* 公會據點(座標/跳地圖)對所有人開放,與地圖據點圖層一致 */}
       {profile?.guild && <GuildPanel guild={profile.guild} onShowOnMap={onShowOnMap} />}
-      {profile?.statusPoints && profile.statusPoints.length > 0 && (
+
+      <DetailsToggle
+        show={details.show}
+        onToggle={details.onToggle}
+        hint={t("個體值、詞條、離線物品、加點分配")}
+      />
+      {details.show && details.entitled === false && <SponsorHint />}
+      {deep && profile?.statusPoints && profile.statusPoints.length > 0 && (
         <StatusPointsPanel points={profile.statusPoints} unused={profile.unusedStatusPoints ?? null} />
       )}
 
@@ -345,13 +355,13 @@ function MergedBody({
         </div>
       )}
 
-      {staleSnapshot && (
+      {deep && staleSnapshot && (
         <p className="rounded-xl bg-sun/10 px-3 py-2 text-[13px] font-bold text-sun">
           {t("存檔快照與即時資料對不上(快照可能是舊版本掃的)。點「從存檔刷新」重掃一次,即可顯示個體值與詞條。")}
         </p>
       )}
 
-      <PalSection pals={all} totalHint={profile?.palCount} gameData={gameData} />
+      <PalSection pals={all} totalHint={profile?.palCount} gameData={gameData} deep={deep} />
 
       {all.length === 0 && detail?.available && detail.palsUnavailable && (
         <p className="rounded-xl bg-sun/10 px-3 py-2 text-[13px] font-bold text-sun">
@@ -360,7 +370,7 @@ function MergedBody({
       )}
 
       <ItemSection
-        inventory={profile?.inventory ?? null}
+        inventory={deep ? (profile?.inventory ?? null) : null}
         restItems={detail?.available ? detail.items : null}
         restUnavailable={detail?.available ? !!detail.itemsUnavailable : false}
         gameData={gameData}
@@ -545,11 +555,14 @@ function PalSection({
   pals,
   totalHint,
   gameData,
+  deep,
 }: {
   pals: MergedPal[];
   /** 存檔明細有上限(每人 1000),真實總數可能更大 */
   totalHint?: number;
   gameData: GameData | null;
+  /** 詳細資訊開啟且已解鎖:卡片顯示 IV/詞條深度列 */
+  deep: boolean;
 }) {
   const [picked, setPicked] = useState<PalTab | null>(null);
   const [query, setQuery] = useState("");
@@ -634,7 +647,7 @@ function PalSection({
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-2">
           {shown.map((p) => (
-            <PalCard key={p.key} p={p} gameData={gameData} />
+            <PalCard key={p.key} p={p} gameData={gameData} deep={deep} />
           ))}
         </div>
       )}
@@ -654,9 +667,9 @@ const IV_META = () =>
     { key: "talentDefense" as const, label: t("防") },
   ] as const;
 
-function PalCard({ p, gameData }: { p: MergedPal; gameData: GameData | null }) {
+function PalCard({ p, gameData, deep }: { p: MergedPal; gameData: GameData | null; deep: boolean }) {
   const hit = findCharacter(gameData, p.speciesId);
-  const s = p.save;
+  const s = deep ? p.save : null;
   return (
     <div className="rounded-xl border-2 border-line p-2.5 transition-colors hover:border-pal/50">
       <div className="flex items-center gap-2.5">

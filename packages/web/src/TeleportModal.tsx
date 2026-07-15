@@ -15,11 +15,14 @@ export function TeleportModal({
   client,
   instanceId,
   initialSource,
+  initialTargetPlayer,
   onClose,
 }: {
   client: AgentClient;
   instanceId: string;
   initialSource?: string;
+  /** 預填「傳送目的地=此玩家」(例:操作選單的「傳送到此玩家位置」) */
+  initialTargetPlayer?: string;
   onClose: () => void;
 }) {
   useI18n();
@@ -27,7 +30,7 @@ export function TeleportModal({
   const [players, setPlayers] = useState<KnownPlayer[]>([]);
   const [source, setSource] = useState(initialSource ?? "");
   const [mode, setMode] = useState<"player" | "coords">("player");
-  const [targetPlayer, setTargetPlayer] = useState("");
+  const [targetPlayer, setTargetPlayer] = useState(initialTargetPlayer ?? "");
   const [coords, setCoords] = useState("");
   const [showMap, setShowMap] = useState(false);
   const [busy, setBusy] = useState(false);

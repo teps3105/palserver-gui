@@ -16,6 +16,7 @@ import type { AgentClient } from "./api";
 import { useGameData, palIconUrl, type GameData } from "./gameData";
 import { PlayerDetailModal } from "./PlayerDetailModal";
 import { GuildDetailModal as SaveGuildDetailModal } from "./GuildDetailModal";
+import { PlayerActionsMenu } from "./PlayerActionsMenu";
 import { t, useI18n } from "./i18n";
 import { Overlay, btn, btnGhost, card, errorCls } from "./ui";
 
@@ -255,6 +256,12 @@ export function MapTab({
               <FiMoon className="size-4" /> {t("離線玩家")}
             </button>
           )}
+          <button
+            className={`${btnGhost} inline-flex items-center gap-1.5 ${showBases ? "border-pal text-pal" : "opacity-60"}`}
+            onClick={() => setShowBases((v) => !v)}
+          >
+            <FiHome className="size-4" /> {t("公會據點")}
+          </button>
           {landmarks.length > 0 &&
             (guildsUnlocked ? (
               <button
@@ -312,24 +319,6 @@ export function MapTab({
                 <FiStar className="size-3.5 text-pal" />
               </button>
             ))}
-          {guildsUnlocked ? (
-            <button
-              className={`${btnGhost} inline-flex items-center gap-1.5 ${showBases ? "border-pal text-pal" : "opacity-60"}`}
-              onClick={() => setShowBases((v) => !v)}
-            >
-              <FiHome className="size-4" /> {t("公會據點")}
-              <FiStar className="size-3.5 text-pal" />
-            </button>
-          ) : (
-            <button
-              className={`${btnGhost} inline-flex items-center gap-1.5 opacity-70`}
-              title={t("公會據點是贊助者專屬功能,可在設定頁輸入贊助者識別碼解鎖。")}
-              onClick={() => setGuildHint((v) => !v)}
-            >
-              <FiHome className="size-4" /> {t("公會據點")}
-              <FiStar className="size-3.5 text-pal" />
-            </button>
-          )}
         </div>
         <div className="flex gap-2">
           {!fullscreen && (
@@ -376,7 +365,12 @@ export function MapTab({
           showBosses={showBosses}
           showOres={showOres}
           gameData={gameData}
-          onGuildClick={setGuildDetailId}
+          onGuildClick={(id) => {
+            // 免費用戶:REST 公會詳情被 agent 端 403(guild-map),直接走存檔版
+            // 公會彈窗(基礎資訊免費、詳細資訊在開關內引導贊助)
+            if (guildsUnlocked) setGuildDetailId(id);
+            else void openGuildFull(id, "");
+          }}
           onPlayerClick={(id, label) => setPlayerPeek({ id, label })}
         />
       </div>
@@ -418,6 +412,8 @@ export function MapTab({
       {playerPeek && (
         <PlayerPeekModal
           peek={playerPeek}
+          client={client}
+          instanceId={instanceId}
           live={live}
           pdPlayers={pdPlayers}
           gameData={gameData}
@@ -490,9 +486,11 @@ export function MapTab({
  * 成員顯示與地圖/玩家列表同款的帕魯頭像(seed=userId,靠 pdPlayers 名冊把
  * playerUid 對回 userId;對不上才退用 playerUid)。在線成員可點:回報地圖
  * 座標給父層跳轉(位置優先取遊戲 REST 即時座標,退而求其次用名冊的最後存檔位置)。 */
-/** 地圖上的玩家小卡:基礎資訊(在線/等級/座標)+「查看完整資料」才開重量級詳情。 */
+/** 地圖上的玩家小卡:基礎資訊(在線/等級/座標)+ 操作選單 +「查看完整資料」。 */
 function PlayerPeekModal({
   peek,
+  client,
+  instanceId,
   live,
   pdPlayers,
   gameData,
@@ -501,6 +499,8 @@ function PlayerPeekModal({
   onClose,
 }: {
   peek: { id: string; label: string };
+  client: AgentClient;
+  instanceId: string;
   live: LiveStatus | null;
   pdPlayers: PdPlayerSummary[];
   gameData: GameData | null;
@@ -542,12 +542,13 @@ function PlayerPeekModal({
             <FiX className="size-5" />
           </button>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {pos && (
             <button className={`${btnGhost} inline-flex items-center gap-1.5`} onClick={() => onLocate(pos)}>
               <FiMapPin className="size-3.5" /> {t("跳到位置")}
             </button>
           )}
+          <PlayerActionsMenu client={client} instanceId={instanceId} userId={peek.id} displayLabel={peek.label} />
           <button className={`${btn} inline-flex flex-1 items-center justify-center gap-1.5`} onClick={onOpenDetail}>
             <FiUsers className="size-3.5" /> {t("查看完整資料")}
           </button>

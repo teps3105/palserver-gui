@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { FiHome, FiMapPin, FiPackage, FiRefreshCw, FiUsers, FiX, FiZap } from "react-icons/fi";
 import { GiBookshelf } from "react-icons/gi";
-import { savToMap, type SaveGuild } from "@palserver/shared";
+import { hasFeature, savToMap, type SaveGuild } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { useGameData, displayName, findCharacter, itemIconUrl, type GameData } from "./gameData";
 import { t, useI18n } from "./i18n";
-import { Overlay, btnGhost, card, errorCls } from "./ui";
+import { DetailsToggle, Overlay, SponsorHint, btnGhost, card, errorCls } from "./ui";
 
 /**
  * 公會詳情彈窗(存檔快照驅動)— 與 PlayerDetailModal 同款 UX,含「從存檔刷新」。
@@ -39,6 +39,16 @@ export function GuildDetailModal({
   const [canScan, setCanScan] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  // 「詳細資訊」開關:駐守帕魯/公會倉庫/研究(贊助內容),預設收合
+  const [showDetails, setShowDetails] = useState(false);
+  const [entitled, setEntitled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    client
+      .license()
+      .then((l) => setEntitled(hasFeature("save-slim", l)))
+      .catch(() => setEntitled(false));
+  }, [client, instanceId]);
 
   useEffect(() => {
     client
@@ -87,6 +97,7 @@ export function GuildDetailModal({
 
   const adminNorm = (guild.adminUid ?? "").replace(/[^0-9a-f]/gi, "").toLowerCase();
   const admin = guild.members.find((m) => m.uid.replace(/[^0-9a-f]/gi, "").toLowerCase() === adminNorm);
+  const deep = showDetails && entitled === true;
 
   return (
     <Overlay onClose={onClose}>
@@ -161,7 +172,14 @@ export function GuildDetailModal({
           </div>
         </div>
 
-        {/* 據點 + 駐守帕魯 */}
+        <DetailsToggle
+          show={showDetails}
+          onToggle={() => setShowDetails((v) => !v)}
+          hint={t("據點駐守帕魯、公會倉庫、研究進度")}
+        />
+        {showDetails && entitled === false && <SponsorHint />}
+
+        {/* 據點 + 駐守帕魯(據點座標是基礎資訊;駐守明細收在詳細開關) */}
         {guild.bases.length > 0 && (
           <div>
             <h4 className="mb-2 flex items-center gap-2 text-[13px] font-extrabold text-ink-muted">
@@ -190,7 +208,7 @@ export function GuildDetailModal({
                         <FiZap className="size-3.5" /> {t("{n} 隻工作帕魯", { n: b.workers.length })}
                       </span>
                     </div>
-                    {b.workers.length > 0 && (
+                    {deep && b.workers.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {b.workers.map((w, j) => {
                           const hit = findCharacter(gameData, w.characterId);
@@ -218,7 +236,7 @@ export function GuildDetailModal({
         )}
 
         {/* 公會倉庫 */}
-        {guild.storage !== null && (
+        {deep && guild.storage !== null && (
           <div>
             <h4 className="mb-2 flex items-center gap-2 text-[13px] font-extrabold text-ink-muted">
               <FiPackage className="size-4 text-pal" /> {t("公會倉庫")}
@@ -250,7 +268,7 @@ export function GuildDetailModal({
         )}
 
         {/* 研究:存檔的 research_info 是整份目錄(含零進度),只列有進度的 */}
-        {guild.research && <ResearchSection research={guild.research} gameData={gameData} />}
+        {deep && guild.research && <ResearchSection research={guild.research} gameData={gameData} />}
       </div>
     </Overlay>
   );
