@@ -405,16 +405,13 @@ export function registerRoutes(
       return reply.code(409).send({ error: `instance "${input.name}" already exists` });
     }
     // 所有 backend 統一 port 衝突檢測：外部連線需 1:1 映射正確，每實例 port 唯一。
-    const gameTaken = store.list().some((r) => r.gamePort === input.gamePort);
-    if (gameTaken) {
+    // 跨欄位檢查:遊戲埠與各實例查詢埠同為 UDP,撞到一樣 bind 不起來。
+    if (store.usedUdpPorts().has(input.gamePort)) {
       return reply.code(409).send({ error: `game port ${input.gamePort} already in use` });
     }
-    // REST API 埠:使用者明給就尊重並擋撞埠;沒給就稍後自動分配(仿 queryPort)。
+    // REST API 埠:使用者明給就尊重並擋撞埠(跨欄位含 RCON,同為 TCP);沒給就稍後自動分配。
     const explicitRestPort = input.settings?.RESTAPIEnabled !== false ? input.settings?.RESTAPIPort : undefined;
-    if (
-      typeof explicitRestPort === "number" &&
-      store.list().some((r) => r.settings.RESTAPIEnabled && r.settings.RESTAPIPort === explicitRestPort)
-    ) {
+    if (typeof explicitRestPort === "number" && store.usedTcpPorts().has(explicitRestPort)) {
       return reply.code(409).send({ error: `REST API port ${explicitRestPort} already in use` });
     }
     let serverDir: string | undefined;
@@ -496,7 +493,7 @@ export function registerRoutes(
       backend: input.backend,
       flavor: input.flavor,
       gamePort: input.gamePort,
-      queryPort: store.nextQueryPort(),
+      queryPort: store.nextQueryPort([input.gamePort]),
       dockerImage: input.backend === "docker" ? input.dockerImage?.trim() || undefined : undefined,
       serverDir,
       serverDirManaged,
@@ -536,7 +533,7 @@ export function registerRoutes(
     if (typeof sName === "string" && sName.trim() && sName !== rec.name) updates.name = sName;
     const sPort = rec.settings.PublicPort;
     if (typeof sPort === "number" && sPort > 0 && sPort !== rec.gamePort) {
-      const taken = store.list().some((r) => r.id !== rec.id && r.gamePort === sPort);
+      const taken = store.usedUdpPorts(rec.id).has(sPort) || sPort === rec.queryPort;
       if (!taken) updates.gamePort = sPort;
     }
     return Object.keys(updates).length > 0 ? store.update(rec.id, updates) : rec;
@@ -546,34 +543,41 @@ export function registerRoutes(
     const rec = getOr404((req.params as { id: string }).id);
     const patch = UpdateSettingsSchema.parse(req.body);
     const nextSettings = WorldSettingsSchema.parse({ ...rec.settings, ...patch });
-    // 改埠先擋撞埠(寫入前檢查,不然設定存了、埠卻沒跟上)
+    // 改埠先擋撞埠(寫入前檢查,不然設定存了、埠卻沒跟上)。
+    // 跨欄位檢查:遊戲埠/查詢埠同為 UDP、REST/RCON 同為 TCP,互撞一樣 bind 不起來。
     const nextPort = nextSettings.PublicPort;
     if (
       typeof nextPort === "number" &&
       nextPort !== rec.gamePort &&
-      store.list().some((r) => r.id !== rec.id && r.gamePort === nextPort)
+      (store.usedUdpPorts(rec.id).has(nextPort) || nextPort === rec.queryPort)
     ) {
-      return reply.code(409).send({ error: `遊戲埠 ${nextPort} 已被其他實例使用` });
+      return reply.code(409).send({ error: `遊戲埠 ${nextPort} 已被其他埠(遊戲/查詢)使用` });
     }
     // REST API 埠撞埠檢查(docker 改 1:1 映射後所有 backend 都直接占用該 host 埠)
     if (
       nextSettings.RESTAPIEnabled &&
+      typeof nextSettings.RESTAPIPort === "number" &&
       nextSettings.RESTAPIPort !== rec.settings.RESTAPIPort &&
-      store.list().some(
-        (r) => r.id !== rec.id && r.settings.RESTAPIEnabled && r.settings.RESTAPIPort === nextSettings.RESTAPIPort,
-      )
+      store.usedTcpPorts(rec.id).has(nextSettings.RESTAPIPort)
     ) {
       return reply.code(409).send({ error: `REST API 埠 ${nextSettings.RESTAPIPort} 已被其他實例使用` });
     }
     // RCON 埠撞埠檢查(僅 RCONEnabled 時)
     if (
       nextSettings.RCONEnabled &&
+      typeof nextSettings.RCONPort === "number" &&
       nextSettings.RCONPort !== rec.settings.RCONPort &&
-      store.list().some(
-        (r) => r.id !== rec.id && r.settings.RCONEnabled && r.settings.RCONPort === nextSettings.RCONPort,
-      )
+      store.usedTcpPorts(rec.id).has(nextSettings.RCONPort)
     ) {
       return reply.code(409).send({ error: `RCON 埠 ${nextSettings.RCONPort} 已被其他實例使用` });
+    }
+    // 同一實例內 REST 與 RCON 也不能同埠(同為 TCP)。
+    if (
+      nextSettings.RESTAPIEnabled &&
+      nextSettings.RCONEnabled &&
+      nextSettings.RESTAPIPort === nextSettings.RCONPort
+    ) {
+      return reply.code(409).send({ error: `REST API 埠與 RCON 埠不能相同(${nextSettings.RCONPort})` });
     }
     await snapshotBefore(rec, "world settings update");
     // The driver re-renders the ini on every start; pre-render for docker so
@@ -783,16 +787,24 @@ export function registerRoutes(
     const base = body.name?.trim() || `${rec.name}-copy`;
     let name = base;
     for (let n = 2; store.findByName(name); n++) name = `${base}-${n}`;
-    // 遊戲埠:從來源埠 +1 往上找一個沒被占用的。
-    const usedPorts = new Set(store.list().map((r) => r.gamePort));
+    // 遊戲埠:從來源埠 +1 往上找一個沒被占用的(跨欄位:查詢埠同為 UDP 一併避開)。
+    const usedUdp = store.usedUdpPorts();
     let gamePort = rec.gamePort + 1;
-    while (usedPorts.has(gamePort)) gamePort++;
+    while (usedUdp.has(gamePort)) gamePort++;
+    // TCP 埠:REST 自動分配;RCON 沿用來源會撞,一樣往上找空位。
+    const restPort = rec.settings.RESTAPIEnabled ? store.nextRestApiPort() : undefined;
+    let rconPort = typeof rec.settings.RCONPort === "number" ? rec.settings.RCONPort : 25575;
+    if (rec.settings.RCONEnabled) {
+      const usedTcp = store.usedTcpPorts();
+      while (usedTcp.has(rconPort) || rconPort === restPort) rconPort++;
+    }
 
     const settings = WorldSettingsSchema.parse({
       ...rec.settings,
       ServerName: name,
       PublicPort: gamePort,
-      ...(rec.settings.RESTAPIEnabled ? { RESTAPIPort: store.nextRestApiPort() } : {}),
+      ...(restPort !== undefined ? { RESTAPIPort: restPort } : {}),
+      ...(rec.settings.RCONEnabled ? { RCONPort: rconPort } : {}),
     });
     // 新實例沿用來源的 backend（native 走 host FS，docker 走 bind-mount）。
     const created = store.create({
@@ -800,7 +812,7 @@ export function registerRoutes(
       backend: rec.backend,
       flavor: rec.flavor,
       gamePort,
-      queryPort: store.nextQueryPort(),
+      queryPort: store.nextQueryPort([gamePort]),
       settings,
     });
     try {

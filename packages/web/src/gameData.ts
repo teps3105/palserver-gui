@@ -153,14 +153,18 @@ async function refreshFromRemote(): Promise<void> {
       cache: "no-cache",
       signal: AbortSignal.timeout(15000),
     });
-    // 遠端目錄缺 zh-CN 時,保留既有(bundled/人工校對)的簡中名稱,避免被空值蓋掉
+    // 遠端目錄缺 zh-CN 時,保留既有(bundled/人工校對)的簡中名稱,避免被空值蓋掉。
+    // humans/research 抓失敗會退空陣列(fetchCatalogs 的 .catch):遠端拿到空、本地有料
+    // 就保留本地,否則 pals/items 的合法更新會把它們連坐清空。
+    const merge = (fetched: GameEntity[], cached: GameEntity[] | undefined): GameEntity[] =>
+      fetched.length > 0 ? preserveSimplified(fetched, cached ?? []) : cached ?? [];
     const fresh: Catalogs = [
-      preserveSimplified(remote[0], cache?.pals ?? []),
-      preserveSimplified(remote[1], cache?.items ?? []),
-      preserveSimplified(remote[2], cache?.passives ?? []),
-      preserveSimplified(remote[3], cache?.activeSkills ?? []),
-      preserveSimplified(remote[4], cache?.humans ?? []),
-      preserveSimplified(remote[5], cache?.research ?? []),
+      merge(remote[0], cache?.pals),
+      merge(remote[1], cache?.items),
+      merge(remote[2], cache?.passives),
+      merge(remote[3], cache?.activeSkills),
+      merge(remote[4], cache?.humans),
+      merge(remote[5], cache?.research),
     ];
     const [pals, items, passives, activeSkills, humans, research] = fresh;
     // 任一目錄跟目前載入的不同就換上 —— 舊版只比 pals/items,導致 humans/research

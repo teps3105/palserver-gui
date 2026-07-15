@@ -86,24 +86,44 @@ export class InstanceStore {
     }
   }
 
-  /** 分配一個沒被別台占用的 Steam 查詢埠(建立實例時用)。 */
-  nextQueryPort(): number {
-    const used = new Set(
-      this.list().map((r) => r.queryPort).filter((p): p is number => !!p),
-    );
+  /** 全部實例占用中的 UDP 埠(遊戲埠+查詢埠)。撞埠檢查要跨欄位:兩者同為 UDP,
+   *  gamePort 撞到別台的 queryPort 一樣 bind 不起來。 */
+  usedUdpPorts(excludeId?: string): Set<number> {
+    const used = new Set<number>();
+    for (const r of this.list()) {
+      if (r.id === excludeId) continue;
+      if (r.gamePort) used.add(r.gamePort);
+      if (r.queryPort) used.add(r.queryPort);
+    }
+    return used;
+  }
+
+  /** 全部實例占用中的 TCP 埠(REST+RCON,各自啟用時)。同為 TCP 也要交叉檢查。 */
+  usedTcpPorts(excludeId?: string): Set<number> {
+    const used = new Set<number>();
+    for (const r of this.list()) {
+      if (r.id === excludeId) continue;
+      const rest = r.settings.RESTAPIPort;
+      if (r.settings.RESTAPIEnabled && typeof rest === "number") used.add(rest);
+      const rcon = r.settings.RCONPort;
+      if (r.settings.RCONEnabled && typeof rcon === "number") used.add(rcon);
+    }
+    return used;
+  }
+
+  /** 分配一個沒被任何實例占用(含遊戲埠,同為 UDP)的 Steam 查詢埠(建立實例時用)。
+   *  avoid:同批要建立、但還沒進 store 的埠(例:新實例自己的 gamePort)。 */
+  nextQueryPort(avoid: Iterable<number> = []): number {
+    const used = this.usedUdpPorts();
+    for (const p of avoid) used.add(p);
     let port = QUERY_PORT_BASE;
     while (used.has(port)) port++;
     return port;
   }
 
-  /** 分配一個沒被別台占用的 REST API 埠(建立實例時用);只計算已啟用 REST 的實例。 */
+  /** 分配一個沒被任何實例占用(含 RCON,同為 TCP)的 REST API 埠(建立實例時用)。 */
   nextRestApiPort(): number {
-    const used = new Set(
-      this
-        .list()
-        .filter((r) => r.settings.RESTAPIEnabled)
-        .map((r) => r.settings.RESTAPIPort),
-    );
+    const used = this.usedTcpPorts();
     let port = REST_PORT_BASE;
     while (used.has(port)) port++;
     return port;
