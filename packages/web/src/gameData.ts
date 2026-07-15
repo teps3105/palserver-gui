@@ -143,15 +143,17 @@ async function refreshFromRemote(): Promise<void> {
       cache: "no-cache",
       signal: AbortSignal.timeout(15000),
     });
-    const [pals, items] = fresh;
-    if (
-      Array.isArray(pals) &&
-      Array.isArray(items) &&
-      pals.length > 0 &&
-      items.length > 0 &&
-      (JSON.stringify(pals) !== JSON.stringify(cache?.pals) ||
-        JSON.stringify(items) !== JSON.stringify(cache?.items))
-    ) {
+    const [pals, items, passives, activeSkills, humans, research] = fresh;
+    // 任一目錄跟目前載入的不同就換上 —— 舊版只比 pals/items,導致 humans/research
+    // 這類後加的目錄在舊 bundle 上永遠不會被遠端更新補上
+    const changed =
+      JSON.stringify(pals) !== JSON.stringify(cache?.pals) ||
+      JSON.stringify(items) !== JSON.stringify(cache?.items) ||
+      JSON.stringify(passives) !== JSON.stringify(cache?.passives) ||
+      JSON.stringify(activeSkills) !== JSON.stringify(cache?.activeSkills) ||
+      JSON.stringify(humans) !== JSON.stringify(cache?.humans) ||
+      JSON.stringify(research) !== JSON.stringify(cache?.research);
+    if (Array.isArray(pals) && Array.isArray(items) && pals.length > 0 && items.length > 0 && changed) {
       cache = build(fresh);
       listeners.forEach((l) => l(cache!));
     }

@@ -403,8 +403,11 @@ export function MapTab({
       )}
       {guildFull && (
         <SaveGuildDetailModal
+          client={client}
+          instanceId={instanceId}
           guild={guildFull}
           generatedAt={saveSnap?.generatedAt ?? null}
+          onRescanned={() => setSaveSnap(null)}
           onShowOnMap={(x, y) => {
             setGuildFull(null);
             setFocus({ x, y, n: Date.now() });

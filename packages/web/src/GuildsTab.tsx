@@ -166,8 +166,11 @@ export function GuildsTab({
 
       {detailFor && (
         <GuildDetailModal
+          client={client}
+          instanceId={instanceId}
           guild={detailFor}
           generatedAt={generatedAt}
+          onRescanned={() => void load()}
           onShowOnMap={
             onShowOnMap
               ? (x, y) => {

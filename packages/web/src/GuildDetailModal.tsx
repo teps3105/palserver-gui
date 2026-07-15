@@ -1,29 +1,90 @@
-import { FiHome, FiMapPin, FiPackage, FiUsers, FiX, FiZap } from "react-icons/fi";
+import { useCallback, useEffect, useState } from "react";
+import { FiHome, FiMapPin, FiPackage, FiRefreshCw, FiUsers, FiX, FiZap } from "react-icons/fi";
 import { GiBookshelf } from "react-icons/gi";
 import { savToMap, type SaveGuild } from "@palserver/shared";
+import type { AgentClient } from "./api";
 import { useGameData, displayName, findCharacter, itemIconUrl, type GameData } from "./gameData";
 import { t, useI18n } from "./i18n";
-import { Overlay, btnGhost, card } from "./ui";
+import { Overlay, btnGhost, card, errorCls } from "./ui";
 
 /**
- * 公會詳情彈窗(存檔快照驅動)— 與 PlayerDetailModal 同款 UX。
+ * 公會詳情彈窗(存檔快照驅動)— 與 PlayerDetailModal 同款 UX,含「從存檔刷新」。
  * 公會分頁與線上地圖共用:基礎資訊格 + 成員/據點駐守帕魯/公會倉庫/研究。
  */
 export function GuildDetailModal({
-  guild,
-  generatedAt,
+  client,
+  instanceId,
+  guild: initialGuild,
+  generatedAt: initialGeneratedAt,
   onShowOnMap,
+  onRescanned,
   onClose,
 }: {
+  client: AgentClient;
+  instanceId: string;
   guild: SaveGuild;
   /** 快照掃描時間(有給就顯示資料時效說明) */
   generatedAt?: string | null;
   /** 據點「在地圖上查看」(地圖座標);地圖頁傳 flyTo、其他頁傳切分頁 */
   onShowOnMap?: (x: number, y: number) => void;
+  /** 彈窗內重掃完成後通知(父層清單可重拉) */
+  onRescanned?: () => void;
   onClose: () => void;
 }) {
   useI18n();
   const gameData = useGameData();
+  const [guild, setGuild] = useState(initialGuild);
+  const [generatedAt, setGeneratedAt] = useState(initialGeneratedAt ?? null);
+  const [worldGuid, setWorldGuid] = useState<string | null>(null);
+  const [canScan, setCanScan] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  useEffect(() => {
+    client
+      .guildsSnapshot(instanceId)
+      .then((snap) => {
+        setWorldGuid(snap.worldGuid);
+        return client.saveHealth(instanceId, snap.worldGuid);
+      })
+      .then((h) => setCanScan(h.supported))
+      .catch(() => setCanScan(false));
+  }, [client, instanceId]);
+
+  const normId = (s: string) => s.replace(/[^0-9a-f]/gi, "").toLowerCase();
+
+  const scan = useCallback(async () => {
+    if (!worldGuid) return;
+    setScanError(null);
+    setScanning(true);
+    try {
+      await client.startSaveHealth(instanceId, worldGuid);
+      await new Promise<void>((resolve) => {
+        const timer = setInterval(async () => {
+          try {
+            const s = await client.saveHealth(instanceId, worldGuid);
+            if (s.phase === "idle") {
+              clearInterval(timer);
+              if (s.error) setScanError(s.error);
+              resolve();
+            }
+          } catch {
+            /* 暫時性網路錯誤:下一輪再試 */
+          }
+        }, 2000);
+      });
+      const snap = await client.guildsSnapshot(instanceId);
+      setGeneratedAt(snap.generatedAt);
+      const fresh = snap.guilds.find((g) => normId(g.id) === normId(initialGuild.id));
+      if (fresh) setGuild(fresh);
+      onRescanned?.();
+    } catch (err) {
+      setScanError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setScanning(false);
+    }
+  }, [client, instanceId, worldGuid, initialGuild.id, onRescanned]);
+
   const adminNorm = (guild.adminUid ?? "").replace(/[^0-9a-f]/gi, "").toLowerCase();
   const admin = guild.members.find((m) => m.uid.replace(/[^0-9a-f]/gi, "").toLowerCase() === adminNorm);
 
@@ -38,11 +99,24 @@ export function GuildDetailModal({
             <FiHome className="size-5 shrink-0 text-pal" />
             <span className="truncate">{guild.name}</span>
           </h2>
-          <button className={btnGhost} onClick={onClose}>
-            <FiX className="inline size-4" /> {t("關閉")}
-          </button>
+          <div className="flex items-center gap-2">
+            {canScan && (
+              <button
+                className={`${btnGhost} inline-flex items-center gap-1.5`}
+                onClick={() => void scan()}
+                disabled={scanning}
+              >
+                <FiRefreshCw className={`size-3.5 ${scanning ? "animate-spin" : ""}`} />
+                {scanning ? t("掃描存檔中…(依存檔大小可能需要幾分鐘)") : t("從存檔刷新")}
+              </button>
+            )}
+            <button className={btnGhost} onClick={onClose}>
+              <FiX className="inline size-4" /> {t("關閉")}
+            </button>
+          </div>
         </div>
 
+        {scanError && <p className={errorCls}>{t("存檔掃描失敗:{reason}", { reason: scanError })}</p>}
         {generatedAt && (
           <p className="-mt-2 text-xs text-ink-muted">
             {t("資料來自存檔掃描(掃描於 {when})。", { when: new Date(generatedAt).toLocaleString() })}
@@ -198,8 +272,9 @@ function ResearchSection({
   research: NonNullable<SaveGuild["research"]>;
   gameData: GameData | null;
 }) {
+  // 存檔的 research_info 是整份目錄(168 筆),只有 workAmount > 0 才是「有做過」;
+  // 全零也顯示區塊(明確的空狀態),否則使用者會以為功能壞掉
   const progressed = research.entries.filter((r) => r.workAmount > 0);
-  if (progressed.length === 0 && !research.currentId) return null;
   return (
     <div>
       <h4 className="mb-2 flex items-center gap-2 text-[13px] font-extrabold text-ink-muted">
