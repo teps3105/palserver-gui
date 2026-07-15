@@ -6,7 +6,7 @@ v2.2.5 已發布(2026-07-15 hotfix:鎖檔殘留行程自動清場(CrashReportCli
 發版流程:bump 四個 package.json → 四語 RELEASE_NOTES → chore(release) commit → tag → push --tags。
 
 ## Features(自 v2.2.5 起)
-- (尚無)
+- feat(native): 停止伺服器時清掉鎖檔殘留行程;adopt 目錄不清場守門(見 git log)
 
 ## 待確認 / 需實機驗證(v2.1.1 遺留)
 - 礦物圖層與公會成員定位:實機視覺確認(圓點密度/顏色分辨度、flyTo 縮放層級)。
