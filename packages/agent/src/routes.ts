@@ -513,22 +513,47 @@ export function registerRoutes(
     };
   });
 
-  app.put("/api/instances/:id/settings", async (req) => {
+  /** 世界設定的 ServerName/PublicPort 鏡射回實例的 name/gamePort:
+   *  首頁卡片與實際啟動埠(-port)讀的是 rec 欄位,建立時兩邊同值,
+   *  之後改世界設定也要跟上,否則首頁顯示與實際埠都停在舊值。
+   *  撞埠時靜默跳過(呼叫端要嚴格擋就先自行檢查)。 */
+  const mirrorIdentityFromSettings = (rec: InstanceRecord): InstanceRecord => {
+    const updates: Partial<Pick<InstanceRecord, "name" | "gamePort">> = {};
+    const sName = rec.settings.ServerName;
+    if (typeof sName === "string" && sName.trim() && sName !== rec.name) updates.name = sName;
+    const sPort = rec.settings.PublicPort;
+    if (typeof sPort === "number" && sPort > 0 && sPort !== rec.gamePort) {
+      const taken = store.list().some((r) => r.id !== rec.id && r.gamePort === sPort);
+      if (!taken) updates.gamePort = sPort;
+    }
+    return Object.keys(updates).length > 0 ? store.update(rec.id, updates) : rec;
+  };
+
+  app.put("/api/instances/:id/settings", async (req, reply) => {
     const rec = getOr404((req.params as { id: string }).id);
     const patch = UpdateSettingsSchema.parse(req.body);
     const nextSettings = WorldSettingsSchema.parse({ ...rec.settings, ...patch });
+    // 改埠先擋撞埠(寫入前檢查,不然設定存了、埠卻沒跟上)
+    const nextPort = nextSettings.PublicPort;
+    if (
+      typeof nextPort === "number" &&
+      nextPort !== rec.gamePort &&
+      store.list().some((r) => r.id !== rec.id && r.gamePort === nextPort)
+    ) {
+      return reply.code(409).send({ error: `遊戲埠 ${nextPort} 已被其他實例使用` });
+    }
     await snapshotBefore(rec, "world settings update");
     // The driver re-renders the ini on every start; pre-render for docker so
     // the bind-mounted config is already in place.
     if (rec.backend === "docker") {
-      const updated = store.update(rec.id, { settings: nextSettings });
+      const updated = mirrorIdentityFromSettings(store.update(rec.id, { settings: nextSettings }));
       dockerOps.writeConfig(store.instanceDir(rec.id), updated.settings);
       return { applied: "on-next-restart", settings: updated.settings };
     }
     // k8s: settings are applied as STS env on the next manual restart, not
     // immediately — same as native/docker. The k8s start flow patches env then.
     // All backends: store only, applied on next restart.
-    const updated = store.update(rec.id, { settings: nextSettings });
+    const updated = mirrorIdentityFromSettings(store.update(rec.id, { settings: nextSettings }));
     return { applied: "on-next-restart", settings: updated.settings };
   });
 
@@ -611,9 +636,11 @@ export function registerRoutes(
   const reconcileWorldIni = (rec: InstanceRecord): InstanceRecord => {
     const patch = worldIniPatch(rec);
     if (Object.keys(patch).length === 0) return rec;
-    return store.update(rec.id, {
-      settings: WorldSettingsSchema.parse({ ...rec.settings, ...patch }),
-    });
+    return mirrorIdentityFromSettings(
+      store.update(rec.id, {
+        settings: WorldSettingsSchema.parse({ ...rec.settings, ...patch }),
+      }),
+    );
   };
 
   /** 面板主動同步:把 ini 的外部改動併回 store 並回傳(編輯原始檔存檔後、開啟世界設定時呼叫)。 */
@@ -623,7 +650,9 @@ export function registerRoutes(
     const changedKeys = Object.keys(patch);
     const updated =
       changedKeys.length > 0
-        ? store.update(rec.id, { settings: WorldSettingsSchema.parse({ ...rec.settings, ...patch }) })
+        ? mirrorIdentityFromSettings(
+            store.update(rec.id, { settings: WorldSettingsSchema.parse({ ...rec.settings, ...patch }) }),
+          )
         : rec;
     return { settings: updated.settings, changedKeys };
   });

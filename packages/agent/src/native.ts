@@ -427,16 +427,43 @@ function classifyInstallError(err: unknown): InstallError {
  * (manifest 也清,確保全新下載)——注意這包含使用者裝的模組(UE4SS/PalDefender/pak),
  * 重灌後需要重新安裝,UI 文案要明講。
  */
+/** Windows 上遞迴清掉唯讀屬性(chmod 在 Windows 只影響 read-only bit)。
+ *  遊戲檔案偶有唯讀檔(如 dbghelp.dll),unlink 會 EPERM。 */
+function clearReadonly(target: string): void {
+  const st = fs.statSync(target, { throwIfNoEntry: false });
+  if (!st) return;
+  try {
+    fs.chmodSync(target, st.isDirectory() ? 0o777 : 0o666);
+  } catch {
+    /* 清不掉就交給重試 */
+  }
+  if (st.isDirectory()) {
+    for (const e of fs.readdirSync(target)) clearReadonly(path.join(target, e));
+  }
+}
+
+/** rm -rf,對 Windows 防呆:防毒短暫鎖檔用 maxRetries 撐過;唯讀檔(EPERM)
+ *  先清 read-only 屬性再重試一次(實例:dbghelp.dll 唯讀導致 unlink EPERM)。 */
+function rmrfRobust(target: string): void {
+  try {
+    fs.rmSync(target, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EPERM") throw err;
+    clearReadonly(target);
+    fs.rmSync(target, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
+  }
+}
+
 function wipeGameFiles(root: string, appendLog: (line: string) => void): void {
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
     if (entry.name === "Pal") {
       const palDir = path.join(root, "Pal");
       for (const sub of fs.readdirSync(palDir, { withFileTypes: true })) {
         if (sub.name === "Saved") continue; // 存檔與設定檔的家,絕不碰
-        fs.rmSync(path.join(palDir, sub.name), { recursive: true, force: true });
+        rmrfRobust(path.join(palDir, sub.name));
       }
     } else {
-      fs.rmSync(path.join(root, entry.name), { recursive: true, force: true });
+      rmrfRobust(path.join(root, entry.name));
     }
   }
   appendLog("[palserver] 已刪除遊戲本體檔案(Pal/Saved 存檔與設定檔完整保留)");
