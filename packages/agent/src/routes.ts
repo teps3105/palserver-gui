@@ -1512,15 +1512,16 @@ export function registerRoutes(
           .optional(),
       })
       .parse(req.body);
-    // 「每天固定時間」為贊助者功能:只擋「新啟用」—— 閘門上線前就在用 daily
-    // 的既有設定不破壞(軟性閘門,見 shared/features.ts 的定位說明)。
+    // 「每天固定時間」單一時刻人人可用;「多個時刻」為贊助者功能。只擋
+    // 「新啟用多時刻」—— 閘門上線前就這樣用的既有設定不破壞(軟性閘門,
+    // 見 shared/features.ts 的定位說明)。
     const prev = supervisor.readPolicy(rec.id);
-    const wantsDaily = policy.scheduled.enabled && policy.scheduled.mode === "daily";
-    const hadDaily = prev.scheduled.enabled && prev.scheduled.mode === "daily";
-    if (wantsDaily && !hadDaily && !featureEnabled("daily-restart")) {
+    const multi = (p: { scheduled: { enabled: boolean; mode: string; dailyTimes: string[] } }) =>
+      p.scheduled.enabled && p.scheduled.mode === "daily" && p.scheduled.dailyTimes.length > 1;
+    if (multi(policy) && !multi(prev) && !featureEnabled("daily-restart")) {
       return reply
         .code(403)
-        .send({ error: "每天固定時間重啟為贊助者專屬功能,請在設定頁輸入贊助者識別碼解鎖。" });
+        .send({ error: "每天「多個」固定時刻重啟為贊助者專屬功能(單一時刻免費),請在設定頁輸入贊助者識別碼解鎖。" });
     }
     return supervisor.writePolicy(rec.id, policy);
   });

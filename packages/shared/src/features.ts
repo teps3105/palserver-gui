@@ -22,7 +22,7 @@ export const EARLY_ACCESS_FEATURES: EarlyAccessFeature[] = [
   { id: "dashboard-stats", label: "首頁進階顯示(在線玩家 / 資源用量一覽)" },
   { id: "save-slim", label: "存檔健檢(組成分析 / 殘留統計)" },
   { id: "leaderboard", label: "伺服器排行榜(等級 / 財富 / 圖鑑 / 最強帕魯 + 掃描差異週報)" },
-  { id: "daily-restart", label: "每天固定時間自動重啟(多時刻對表,公告先行、準點重啟)" },
+  { id: "daily-restart", label: "每天多個固定時刻自動重啟(單一時刻免費;多時刻如 00:00/06:00/12:00/18:00)" },
 ];
 
 /** 這個功能是否對所有人免費 —— 只有「不在目錄裡」的功能免費;目錄內為贊助者專屬,無期限。 */
