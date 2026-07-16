@@ -57,7 +57,7 @@ export function InstanceSettingsTab({
 
       <LaunchOptionsCard client={client} instanceId={detail.id} category="general" />
 
-      <TabVisibilityCard />
+      <TabVisibilityCard instanceId={detail.id} enhanced={detail.flavor === "modded" || detail.enhancements.length > 0} />
 
       <OverviewCardsCard />
 
@@ -105,9 +105,9 @@ function ServerFilesCard({ client, instanceId }: { client: AgentClient; instance
 }
 
 /** 選擇實例詳情頁要顯示哪些分頁(存 localStorage,全實例共用)。總覽與本設定頁不可隱藏。 */
-function TabVisibilityCard() {
+function TabVisibilityCard({ instanceId, enhanced }: { instanceId: string; enhanced: boolean }) {
   useI18n();
-  const [hidden, setHidden] = useHiddenTabs();
+  const [hidden, setHidden] = useHiddenTabs(instanceId, enhanced);
   const toggle = (id: Tab) =>
     setHidden(hidden.includes(id) ? hidden.filter((x) => x !== id) : [...hidden, id]);
 
@@ -117,7 +117,7 @@ function TabVisibilityCard() {
         <FiColumns className="size-4 text-pal" /> {t("顯示的分頁")}
       </h3>
       <p className="text-[13px] text-ink-muted">
-        {t("勾選要在伺服器頁面顯示的分頁。取消勾選會把該分頁隱藏起來。")}
+        {t("勾選要在這台伺服器顯示的分頁(每台伺服器獨立記憶)。原味伺服器預設只顯示開服必要的五頁,更多功能分頁在這裡打開。")}
       </p>
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
         {TABS.map((tb) => {

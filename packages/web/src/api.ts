@@ -104,6 +104,21 @@ export interface ConfigSnapshotRestoreResult {
   safetySnapshot?: ConfigSnapshotInfo;
 }
 
+/** 埠檢查結果(agent GET /ports/check)。 */
+export interface PortCheckEntry {
+  key: "game" | "query" | "rest" | "rcon" | "paldefender";
+  port: number;
+  protocol: "udp" | "tcp";
+  free: boolean;
+  suggestion?: number;
+}
+export interface PortsCheckResult {
+  supported: boolean;
+  reason?: string;
+  ports: PortCheckEntry[];
+  anyConflict: boolean;
+}
+
 const STORAGE_KEY = "palserver.connection";
 
 export function loadConnection(): Connection | null {
@@ -671,6 +686,19 @@ export class AgentClient {
   ): Promise<{ worldGuid: string; history: SaveScanStats[]; autoScan: AutoScanSetting }> {
     const q = worldGuid ? `?worldGuid=${encodeURIComponent(worldGuid)}` : "";
     return this.request(`/api/instances/${id}/saves/stats-history${q}`);
+  }
+
+  /** 啟動前埠占用檢查(遺戲/查詢/REST/RCON/PalDefender)。 */
+  portsCheck(id: string): Promise<PortsCheckResult> {
+    return this.request(`/api/instances/${id}/ports/check`);
+  }
+
+  /** 套用埠修改(啟動前衝突面板)。 */
+  portsUpdate(
+    id: string,
+    patch: Partial<Record<"game" | "query" | "rest" | "rcon" | "paldefender", number>>,
+  ): Promise<{ gamePort: number; queryPort: number | null }> {
+    return this.request(`/api/instances/${id}/ports`, { method: "PUT", body: JSON.stringify(patch) });
   }
 
   /** 每小時自動掃描開關。 */

@@ -782,6 +782,38 @@ export function computeCpuPercent(
   return Math.round(ratio * 1000) / 10; // 百分比,一位小數
 }
 
+/** 建立時選了「強化」(flavor=modded)的實例:伺服器檔案就緒後、啟動前,
+ *  自動安裝 UE4SS + PalDefender(等同模組分頁的一鍵安裝)。已裝過就跳過;
+ *  失敗不擋啟動(伺服器照樣以原生開起來),原因寫進日誌讓使用者到模組分頁重試。
+ *  動態 import 避免 native ↔ mods 循環相依。 */
+async function autoEnhance(
+  rec: InstanceRecord,
+  ctx: DriverContext,
+  log: (line: string) => void,
+): Promise<void> {
+  if (rec.flavor !== "modded" || !IS_WIN) return;
+  const mods = await import("./mods.js");
+  for (const component of ["ue4ss", "paldefender"] as const) {
+    try {
+      const status = mods.getModsStatus(rec, ctx);
+      if (!status.supported) {
+        log(`[palserver] 強化模組跳過:${status.reason}`);
+        return;
+      }
+      if (status[component].installed) continue;
+      log(`[palserver] 強化模式:安裝 ${component}…`);
+      const { version } = await mods.installComponent(rec, ctx, component);
+      log(`[palserver] ${component} ${version} 安裝完成`);
+    } catch (err) {
+      log(
+        `[palserver] ${component} 自動安裝失敗(伺服器仍以原生模式啟動,可到「模組」分頁重試):${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+}
+
 export const nativeDriver: ServerDriver = {
   status: getNativeStatus,
 
@@ -798,6 +830,7 @@ export const nativeDriver: ServerDriver = {
     if (alreadyInstalled) {
       // Fast path: spawn synchronously so errors surface in the response.
       await ensureInstalled(rec, ctx, appendLog); // validates adopted dirs
+      await autoEnhance(rec, ctx, appendLog);
       await spawnServer(rec, ctx);
       installErrors.delete(rec.id); // 成功啟動,清掉上次的安裝失敗
       return true;
@@ -820,6 +853,7 @@ export const nativeDriver: ServerDriver = {
     void (async () => {
       try {
         await ensureInstalled(rec, ctx, installLog, (pct) => installProgress.set(rec.id, pct));
+        await autoEnhance(rec, ctx, installLog);
         await spawnServer(rec, ctx);
       } catch (err) {
         const info = classifyInstallError(err);

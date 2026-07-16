@@ -50,6 +50,7 @@ import { SERVER_LAUNCHER, classifyServerDir, detectManualIniEdits, installProgre
 import { cachedVersionSummary, getVersionStatus } from "./version.js";
 import { getConnectionInfo } from "./connectivity.js";
 import { getModsStatus, installComponent, installedEnhancements, removeComponent, setLuaModEnabled } from "./mods.js";
+import { checkPorts } from "./port-check.js";
 import * as pakMods from "./pak-mods.js";
 import { clearPalStats, getPalSchemaStatus, getPalStats, installPalSchema, removePalSchema, writePalStats } from "./palschema.js";
 import { getModerationLists, moderation } from "./moderation.js";
@@ -702,6 +703,112 @@ export function registerRoutes(
           )
         : rec;
     return { settings: updated.settings, changedKeys };
+  });
+
+  // ── 啟動前埠占用檢查(新手最常見的開不起來原因)──
+  // 檢查五種埠是否被「其他程式」占走(OS 層試綁),被占的附建議替代埠。
+  app.get("/api/instances/:id/ports/check", async (req, reply) => {
+    const rec = getOr404((req.params as { id: string }).id);
+    if (rec.backend !== "native") {
+      return { supported: false as const, reason: "埠檢查僅支援原生模式", ports: [], anyConflict: false };
+    }
+    const { status } = await driverOf(rec).status(rec, ctxOf(rec));
+    if (status === "running" || status === "restarting") {
+      // 運作中自己就占著埠,檢查沒有意義
+      return reply.code(409).send({ error: "伺服器運作中,無法檢查埠占用" });
+    }
+    const entries: { key: "game" | "query" | "rest" | "rcon" | "paldefender"; port: number; protocol: "udp" | "tcp" }[] = [
+      { key: "game", port: rec.gamePort, protocol: "udp" },
+    ];
+    if (rec.queryPort) entries.push({ key: "query", port: rec.queryPort, protocol: "udp" });
+    if (rec.settings.RESTAPIEnabled && typeof rec.settings.RESTAPIPort === "number") {
+      entries.push({ key: "rest", port: rec.settings.RESTAPIPort, protocol: "tcp" });
+    }
+    if (rec.settings.RCONEnabled && typeof rec.settings.RCONPort === "number") {
+      entries.push({ key: "rcon", port: rec.settings.RCONPort, protocol: "tcp" });
+    }
+    try {
+      const pd = getPdRestStatus(rec, ctxOf(rec));
+      if (pd.installed && pd.enabled) entries.push({ key: "paldefender", port: pd.port, protocol: "tcp" });
+    } catch {
+      /* PalDefender 狀態讀不到就不檢查它 */
+    }
+    // 其他實例已登記的埠也視為占用(即使它們目前沒開機,建議值避開)
+    const ports = await checkPorts(entries, {
+      udp: store.usedUdpPorts(rec.id),
+      tcp: store.usedTcpPorts(rec.id),
+    });
+    return { supported: true as const, ports, anyConflict: ports.some((p) => !p.free) };
+  });
+
+  // 套用埠修改(啟動前面板):一次改多種埠,各走既有的安全路徑。
+  app.put("/api/instances/:id/ports", async (req, reply) => {
+    const rec = getOr404((req.params as { id: string }).id);
+    if (rec.backend !== "native") return reply.code(400).send({ error: "埠修改面板僅支援原生模式" });
+    const { status } = await driverOf(rec).status(rec, ctxOf(rec));
+    if (status === "running" || status === "restarting") {
+      return reply.code(409).send({ error: "請先停止伺服器再修改埠" });
+    }
+    const portNum = z.number().int().min(1024).max(65535);
+    const body = z
+      .object({
+        game: portNum.optional(),
+        query: portNum.optional(),
+        rest: portNum.optional(),
+        rcon: portNum.optional(),
+        paldefender: portNum.optional(),
+      })
+      .strict()
+      .parse(req.body);
+
+    // 跨欄位撞埠檢查(同一實例內的新值彼此、與其他實例的登記埠)
+    const nextGame = body.game ?? rec.gamePort;
+    const nextQuery = body.query ?? rec.queryPort ?? undefined;
+    const usedUdp = store.usedUdpPorts(rec.id);
+    if (usedUdp.has(nextGame) || nextGame === nextQuery) {
+      return reply.code(409).send({ error: `遊戲埠 ${nextGame} 與其他埠衝突` });
+    }
+    if (nextQuery !== undefined && usedUdp.has(nextQuery)) {
+      return reply.code(409).send({ error: `查詢埠 ${nextQuery} 已被其他實例使用` });
+    }
+    const nextRest = body.rest ?? (typeof rec.settings.RESTAPIPort === "number" ? rec.settings.RESTAPIPort : undefined);
+    const nextRcon = body.rcon ?? (typeof rec.settings.RCONPort === "number" ? rec.settings.RCONPort : undefined);
+    const usedTcp = store.usedTcpPorts(rec.id);
+    for (const [label, val] of [["REST API 埠", nextRest], ["RCON 埠", nextRcon], ["PalDefender 埠", body.paldefender]] as const) {
+      if (val !== undefined && usedTcp.has(val)) {
+        return reply.code(409).send({ error: `${label} ${val} 已被其他實例使用` });
+      }
+    }
+    const tcpVals = [nextRest, nextRcon, body.paldefender].filter((v): v is number => v !== undefined);
+    if (new Set(tcpVals).size !== tcpVals.length) {
+      return reply.code(409).send({ error: "REST / RCON / PalDefender 埠不能相同" });
+    }
+
+    // 套用:世界設定欄位走 settings 更新(含 ini 落檔與鏡射),query 埠直接更新實例欄位
+    const settingsPatch: Record<string, number> = {};
+    if (body.game !== undefined) settingsPatch.PublicPort = body.game;
+    if (body.rest !== undefined) settingsPatch.RESTAPIPort = body.rest;
+    if (body.rcon !== undefined) settingsPatch.RCONPort = body.rcon;
+    let updated = rec;
+    if (Object.keys(settingsPatch).length > 0) {
+      const nextSettings = WorldSettingsSchema.parse({ ...rec.settings, ...settingsPatch });
+      updated = mirrorIdentityFromSettings(store.update(rec.id, { settings: nextSettings }));
+      if (updated.backend === "native") {
+        try {
+          writeWorldIni(updated, ctxOf(updated));
+        } catch {
+          /* 下次啟動 driver 會重 render */
+        }
+      }
+    }
+    if (body.query !== undefined) updated = store.update(rec.id, { queryPort: body.query });
+    if (body.paldefender !== undefined) setPdRestPort(updated, ctxOf(updated), body.paldefender);
+    return {
+      gamePort: updated.gamePort,
+      queryPort: updated.queryPort ?? null,
+      restApiPort: updated.settings.RESTAPIPort,
+      rconPort: updated.settings.RCONPort,
+    };
   });
 
   app.post("/api/instances/:id/start", async (req) => {

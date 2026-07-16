@@ -32,6 +32,8 @@ import { STATUS_LABELS } from "./labels";
 import { TABS, LOCKED_TABS, useHiddenTabs, useHiddenCards, type Tab } from "./tabPrefs";
 import { t, t as translate, useI18n } from "./i18n";
 import { InstallProgress, Overlay, StatusBadge, btn, btnGhost, card, errorCls } from "./ui";
+import { PortConflictModal } from "./PortConflictModal";
+import type { PortsCheckResult } from "./api";
 
 
 export function InstanceDetailPage({
@@ -50,7 +52,9 @@ export function InstanceDetailPage({
   const [tab, setTab] = useState<Tab>("overview");
   // 玩家詳情「據點跳地圖」:切到地圖分頁並聚焦座標(n 為 nonce,連點同一點也重觸發)
   const [mapFocus, setMapFocus] = useState<{ x: number; y: number; n: number } | null>(null);
-  const [hiddenTabs] = useHiddenTabs();
+  // 分頁偏好每實例獨立;預設集合依模式(建立時選強化 or 實際裝了模組)
+  const enhancedMode = detail ? detail.flavor === "modded" || detail.enhancements.length > 0 : false;
+  const [hiddenTabs] = useHiddenTabs(instanceId, enhancedMode);
   // 若目前分頁被使用者在設定裡藏起來,退回總覽,避免停在看不見的分頁。
   useEffect(() => {
     if (!LOCKED_TABS.includes(tab) && hiddenTabs.includes(tab)) setTab("overview");
@@ -64,6 +68,8 @@ export function InstanceDetailPage({
   const [palDefender, setPalDefender] = useState(false);
   // 非 null 時代表正在倒數(數字為剩餘秒數),用來鎖按鈕與顯示提示。
   const [countdown, setCountdown] = useState<number | null>(null);
+  // 啟動前偵測到埠被占用 → 開修改面板(新手最常見的開不起來原因)
+  const [portConflict, setPortConflict] = useState<PortsCheckResult | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -88,7 +94,16 @@ export function InstanceDetailPage({
     return () => clearInterval(timer);
   }, [refresh]);
 
-  const act = async (action: "start" | "stop" | "restart") => {
+  const act = async (action: "start" | "stop" | "restart", skipPortCheck = false) => {
+    // 啟動前先檢查五種埠(遊戲/查詢/REST/RCON/PalDefender)有沒有被其他程式占走;
+    // 有衝突就開修改面板,而不是讓伺服器啟動失敗留下天書錯誤。
+    if (action === "start" && !skipPortCheck && detail?.backend === "native" && detail.status !== "running") {
+      const chk = await client.portsCheck(instanceId).catch(() => null);
+      if (chk?.supported && chk.anyConflict) {
+        setPortConflict(chk);
+        return;
+      }
+    }
     // 手動停止/重啟時,agent 端會依「伺服器重啟設定」裡的倒數秒數,在遊戲聊天室倒數公告
     // 再執行;公告訊息用 GUI 介面語言的模板({n} 由 agent 代入剩餘秒數)。前端只負責把
     // 模板傳過去,並用讀到的秒數跑一個純顯示用的本地倒數。
@@ -230,6 +245,19 @@ export function InstanceDetailPage({
         <div className="rounded-xl border-2 border-sun/40 bg-sun/10 px-4 py-3">
           <InstallProgress percent={detail.installProgress} />
         </div>
+      )}
+
+      {portConflict && (
+        <PortConflictModal
+          client={client}
+          instanceId={instanceId}
+          check={portConflict}
+          onResolved={() => {
+            setPortConflict(null);
+            void act("start", true);
+          }}
+          onClose={() => setPortConflict(null)}
+        />
       )}
 
       {showConsole && (

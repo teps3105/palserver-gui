@@ -8,6 +8,7 @@ export * from "./launch-options.js";
 export * from "./paldefender-options.js";
 export * from "./pal-stats-options.js";
 export * from "./features.js";
+export * from "./world-presets.js";
 
 /** Value type an option can hold at runtime. */
 export type WorldOptionValue = string | number | boolean;

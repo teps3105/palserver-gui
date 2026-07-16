@@ -34,6 +34,7 @@ import { OPEN_SETTINGS_EVENT, SiteFooter } from "./SiteFooter";
 import { ThemeToggle } from "./theme";
 import { LangSelect, useI18n, t as translate } from "./i18n";
 import { fmtBytes, fmtDuration, knownCpuSample } from "./PerformanceTab";
+import { WORLD_PRESETS, type WorldPreset } from "@palserver/shared";
 import { InstallProgress, Overlay, Select, StatusBadge, btn, btnGhost, card, errorCls, inputCls, labelCls } from "./ui";
 
 export default function App() {
@@ -545,6 +546,10 @@ function CreateDialog({
   const [platform, setPlatform] = useState<string | null>(null);
   const [availableBackends, setAvailableBackends] = useState<Backend[]>(["native"]);
   const [advancedMode, setAdvancedMode] = useState(false);
+  // 精靈三步:0 基本資料 → 1 玩法 → 2 模組;新手不需要理解埠/後端,進階都收在摺疊裡
+  const [step, setStep] = useState(0);
+  const [preset, setPreset] = useState<WorldPreset["id"]>("official");
+  const [enhanced, setEnhanced] = useState(false);
   // k8s 是把伺服器跑在叢集裡(agent 只是遙控),所以 agent 這台是不是 macOS 無所謂。
   const isMac = platform === "darwin" && backend !== "k8s";
   const k8sIncomplete = backend === "k8s" && (!k8sNamespace.trim() || !k8sStatefulSet.trim());
@@ -563,22 +568,23 @@ function CreateDialog({
     }).catch(() => {});
   }, [client]);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async () => {
     setBusy(true);
     setError(null);
     try {
+      const presetValues = WORLD_PRESETS.find((x) => x.id === preset)?.values ?? {};
       const created = await client.createInstance({
         name,
         backend,
-        flavor: "vanilla",
+        // 強化 = 啟動安裝完伺服器檔案後,自動裝 UE4SS + PalDefender(agent 端 autoEnhance)
+        flavor: enhanced ? "modded" : "vanilla",
         gamePort,
         serverDir: backend === "native" && serverDir.trim() ? serverDir.trim() : undefined,
         dockerImage: backend === "docker" && dockerImage.trim() ? dockerImage.trim() : undefined,
         k8sNamespace: backend === "k8s" ? k8sNamespace.trim() : undefined,
         k8sStatefulSet: backend === "k8s" ? k8sStatefulSet.trim() : undefined,
         k8sServiceName: backend === "k8s" && k8sServiceName.trim() ? k8sServiceName.trim() : undefined,
-        settings: { ServerPlayerMaxNum: maxPlayers, ServerPassword: serverPassword },
+        settings: { ...presetValues, ServerPlayerMaxNum: maxPlayers, ServerPassword: serverPassword },
       });
       if (importWorld) await client.importSave(created.id, importWorld.path, false);
       onCreated();
@@ -588,209 +594,347 @@ function CreateDialog({
     }
   };
 
+  const enhanceAvailable = backend === "native" && platform === "win32";
+  const STEP_TITLES = [t("基本資料"), t("玩法"), t("模組")];
+  const canNext = step === 0 ? name.trim() !== "" && !k8sIncomplete : true;
+  const selectedPreset = WORLD_PRESETS.find((x) => x.id === preset);
+
   return (
     <Overlay onClose={onClose}>
-      <form
-        className={`${card} flex max-h-[90vh] w-[430px] max-w-full flex-col gap-3 overflow-y-auto`}
+      <div
+        className={`${card} flex max-h-[90vh] w-[520px] max-w-full flex-col gap-3 overflow-y-auto`}
         onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
       >
         <h2 className="inline-flex items-center gap-2 text-lg font-extrabold">
           <GiEggClutch className="size-5 text-pal" /> {t(importWorld ? "建立伺服器並匯入存檔" : "建立伺服器")}
         </h2>
-        {importWorld && (
-          <div className="rounded-xl border-2 border-pal/30 bg-pal/5 px-3 py-2 text-xs">
-            <p className="font-bold text-ink-muted">{t("將匯入的世界")}</p>
-            <p className="mt-0.5 font-mono text-[13px] font-bold">{importWorld.guid}</p>
-            <p className="text-ink-muted">
-              {importWorld.sizeMB} MB · {t("{n} 位玩家", { n: importWorld.players })}
-            </p>
-            <p className="mt-1 text-ink-muted">{t("建立後會自動匯入並設為啟用世界,玩家用原本的角色進來即可。")}</p>
-            {importWorld.coopHost && (
-              <p className="mt-1 inline-flex items-start gap-1.5 font-bold text-amber-600">
-                <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                {t("這是本機共玩存檔:建立後讓主機玩家先加入一次,再到「存檔備份」分頁按「修復主機角色」完成過戶。")}
+
+        {/* 步驟指示:新手一眼看懂進度,三步都很短 */}
+        <div className="flex items-center gap-2">
+          {STEP_TITLES.map((title, i) => (
+            <div key={title} className="flex items-center gap-2">
+              <span
+                className={`inline-flex size-6 items-center justify-center rounded-full text-xs font-extrabold ${
+                  i === step ? "bg-pal text-white" : i < step ? "bg-pal/20 text-pal" : "bg-card-soft text-ink-muted"
+                }`}
+              >
+                {i + 1}
+              </span>
+              <span className={`text-xs font-extrabold ${i === step ? "text-ink" : "text-ink-muted"}`}>{title}</span>
+              {i < STEP_TITLES.length - 1 && <span className="h-0.5 w-6 rounded bg-line" />}
+            </div>
+          ))}
+        </div>
+
+        {step === 0 && (
+          <>
+            {importWorld && (
+              <div className="rounded-xl border-2 border-pal/30 bg-pal/5 px-3 py-2 text-xs">
+                <p className="font-bold text-ink-muted">{t("將匯入的世界")}</p>
+                <p className="mt-0.5 font-mono text-[13px] font-bold">{importWorld.guid}</p>
+                <p className="text-ink-muted">
+                  {importWorld.sizeMB} MB · {t("{n} 位玩家", { n: importWorld.players })}
+                </p>
+                <p className="mt-1 text-ink-muted">{t("建立後會自動匯入並設為啟用世界,玩家用原本的角色進來即可。")}</p>
+                {importWorld.coopHost && (
+                  <p className="mt-1 inline-flex items-start gap-1.5 font-bold text-amber-600">
+                    <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                    {t("這是本機共玩存檔:建立後讓主機玩家先加入一次,再到「存檔備份」分頁按「修復主機角色」完成過戶。")}
+                  </p>
+                )}
+              </div>
+            )}
+            {isMac && (
+              <p className="rounded-xl border-2 border-sun/40 bg-sun/10 px-3 py-2 text-xs text-sun">
+                {t("這台 agent 執行在 macOS 上,")}<b>{t("無法實際執行 Palworld 伺服器")}</b>
+                {t("(SteamCMD/PalServer 在 macOS 不支援)。請把 agent 裝在 Windows 或 Linux 主機上;這裡僅供開發或管理遠端主機。")}
               </p>
             )}
-          </div>
-        )}
-        {isMac && (
-          <p className="rounded-xl border-2 border-sun/40 bg-sun/10 px-3 py-2 text-xs text-sun">
-            {t("這台 agent 執行在 macOS 上,")}<b>{t("無法實際執行 Palworld 伺服器")}</b>
-            {t("(SteamCMD/PalServer 在 macOS 不支援)。請把 agent 裝在 Windows 或 Linux 主機上;這裡僅供開發或管理遠端主機。")}
-          </p>
-        )}
-        <label className={labelCls}>
-          {t("名稱")}
-          <input
-            className={inputCls}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t("例:我的帕魯伺服器")}
-            maxLength={40}
-            required
-          />
-        </label>
-        <label className={labelCls}>
-          {t("運行方式")}
-          <Select value={backend} onChange={(e) => setBackend(e.target.value as "native" | "docker" | "k8s")}>
-            <option value="native" disabled={!availableBackends.includes("native")}>{t("原生(直接在這台主機上運行,推薦)")}</option>
-            <option
-              value="docker"
-              disabled={!availableBackends.includes("docker")}
-              title={
-                !availableBackends.includes("docker")
-                  ? platform === "win32"
-                    ? t("Windows 的 WSL2 UDP 不支援遊戲伺服器,請改用原生或管理遠端 k8s 實例")
-                    : t("未偵測到 Docker,請先安裝並啟動 Docker")
-                  : undefined
-              }
-            >
-              {t("Docker 容器(beta)")}
-              {!availableBackends.includes("docker")
-                ? platform === "win32"
-                  ? t("(Windows 不支援,請用原生或遠端 k8s)")
-                  : t("(未偵測到 Docker)")
-                : platform === "darwin"
-                  ? t("(非 x86 平台未經驗證)")
-                  : ""}
-            </option>
-            {advancedMode && !importWorld && (
-              <option value="k8s" disabled={!availableBackends.includes("k8s")}>
-                {t("Kubernetes(beta)")}{t("(遠端管理,不在本機運行)")}
-              </option>
-            )}
-          </Select>
-        </label>
-        {!advancedMode && !importWorld && (
-          <label className="flex items-center gap-2 text-xs text-ink-muted cursor-pointer">
-            <input
-              type="checkbox"
-              checked={advancedMode}
-              onChange={(e) => setAdvancedMode(e.target.checked)}
-            />
-            {t("顯示進階選項(Kubernetes)")}
-          </label>
-        )}
-        {backend === "docker" && (
-          <label className={labelCls}>
-            {t("自訂鏡像(選填)")}
-            <input
-              className={inputCls}
-              value={dockerImage}
-              onChange={(e) => setDockerImage(e.target.value)}
-              placeholder={t("留空=內建映像;或填 ghcr.io/…/palworld:tag")}
-              maxLength={200}
-            />
-            <span className="text-xs text-ink-muted">
-              {t("沿用你已在 Docker 部署的其他帕魯鏡像。鏡像需已存在於本機(先 docker pull)。")}
-            </span>
-          </label>
-        )}
-        {backend === "k8s" && (
-          <>
-            <p className="rounded-xl border-2 border-pal/30 bg-pal/5 px-3 py-2 text-xs text-ink-muted">
-              {t("k8s 模式不會幫你部署伺服器,而是遙控叢集裡「已存在」的 PalServer StatefulSet:啟動/停止會把副本數在 1 / 0 之間切換,存檔備份等透過 kubectl exec 進 Pod 操作。agent 會依序用 PALSERVER_KUBECONFIG、Pod 內 ServiceAccount、或 ~/.kube/config 連上叢集。")}
-            </p>
             <label className={labelCls}>
-              {t("命名空間(Namespace)")}
+              {t("伺服器名稱")}
               <input
-                className={`${inputCls} font-mono`}
-                value={k8sNamespace}
-                onChange={(e) => setK8sNamespace(e.target.value)}
-                placeholder="palworld"
+                className={inputCls}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("例:我的帕魯伺服器")}
+                maxLength={40}
                 required
               />
+              <span className="text-xs font-normal opacity-70">{t("朋友在遊戲內伺服器列表看到的名字,之後隨時可改。")}</span>
             </label>
             <label className={labelCls}>
-              {t("StatefulSet 名稱")}
+              {t("伺服器密碼(選填)")}
               <input
-                className={`${inputCls} font-mono`}
-                value={k8sStatefulSet}
-                onChange={(e) => setK8sStatefulSet(e.target.value)}
-                placeholder="palworld-server"
-                required
+                className={inputCls}
+                value={serverPassword}
+                onChange={(e) => setServerPassword(e.target.value)}
               />
+              <span className="text-xs font-normal opacity-70">
+                {t("朋友加入時要輸入的密碼。留空 = 不設密碼,任何知道位址的人都能加入。")}
+              </span>
             </label>
             <label className={labelCls}>
-              {t("Service 名稱(選填,用來顯示連線位址)")}
+              {t("最大玩家數")}
               <input
-                className={`${inputCls} font-mono`}
-                value={k8sServiceName}
-                onChange={(e) => setK8sServiceName(e.target.value)}
-                placeholder="palworld-server"
+                className={inputCls}
+                type="number"
+                value={maxPlayers}
+                onChange={(e) => setMaxPlayers(Number(e.target.value))}
+                min={1}
+                max={99}
               />
             </label>
+
+            <details className="rounded-xl border-2 border-line px-3 py-2">
+              <summary className="cursor-pointer text-[13px] font-extrabold text-ink-muted">
+                {t("進階設定(運行方式 / 埠 / 安裝位置)— 新手用預設值就好")}
+              </summary>
+              <div className="mt-2 flex flex-col gap-3">
+                <label className={labelCls}>
+                  {t("運行方式")}
+                  <Select value={backend} onChange={(e) => setBackend(e.target.value as "native" | "docker" | "k8s")}>
+                    <option value="native" disabled={!availableBackends.includes("native")}>{t("原生(直接在這台主機上運行,推薦)")}</option>
+                    <option
+                      value="docker"
+                      disabled={!availableBackends.includes("docker")}
+                      title={
+                        !availableBackends.includes("docker")
+                          ? platform === "win32"
+                            ? t("Windows 的 WSL2 UDP 不支援遊戲伺服器,請改用原生或管理遠端 k8s 實例")
+                            : t("未偵測到 Docker,請先安裝並啟動 Docker")
+                          : undefined
+                      }
+                    >
+                      {t("Docker 容器(beta)")}
+                      {!availableBackends.includes("docker")
+                        ? platform === "win32"
+                          ? t("(Windows 不支援,請用原生或遠端 k8s)")
+                          : t("(未偵測到 Docker)")
+                        : platform === "darwin"
+                          ? t("(非 x86 平台未經驗證)")
+                          : ""}
+                    </option>
+                    {advancedMode && !importWorld && (
+                      <option value="k8s" disabled={!availableBackends.includes("k8s")}>
+                        {t("Kubernetes(beta)")}{t("(遠端管理,不在本機運行)")}
+                      </option>
+                    )}
+                  </Select>
+                </label>
+                {!advancedMode && !importWorld && (
+                  <label className="flex items-center gap-2 text-xs text-ink-muted cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={advancedMode}
+                      onChange={(e) => setAdvancedMode(e.target.checked)}
+                    />
+                    {t("顯示進階選項(Kubernetes)")}
+                  </label>
+                )}
+                {backend === "docker" && (
+                  <label className={labelCls}>
+                    {t("自訂鏡像(選填)")}
+                    <input
+                      className={inputCls}
+                      value={dockerImage}
+                      onChange={(e) => setDockerImage(e.target.value)}
+                      placeholder={t("留空=內建映像;或填 ghcr.io/…/palworld:tag")}
+                      maxLength={200}
+                    />
+                    <span className="text-xs text-ink-muted">
+                      {t("沿用你已在 Docker 部署的其他帕魯鏡像。鏡像需已存在於本機(先 docker pull)。")}
+                    </span>
+                  </label>
+                )}
+                {backend === "k8s" && (
+                  <>
+                    <p className="rounded-xl border-2 border-pal/30 bg-pal/5 px-3 py-2 text-xs text-ink-muted">
+                      {t("k8s 模式不會幫你部署伺服器,而是遙控叢集裡「已存在」的 PalServer StatefulSet:啟動/停止會把副本數在 1 / 0 之間切換,存檔備份等透過 kubectl exec 進 Pod 操作。agent 會依序用 PALSERVER_KUBECONFIG、Pod 內 ServiceAccount、或 ~/.kube/config 連上叢集。")}
+                    </p>
+                    <label className={labelCls}>
+                      {t("命名空間(Namespace)")}
+                      <input
+                        className={`${inputCls} font-mono`}
+                        value={k8sNamespace}
+                        onChange={(e) => setK8sNamespace(e.target.value)}
+                        placeholder="palworld"
+                        required
+                      />
+                    </label>
+                    <label className={labelCls}>
+                      {t("StatefulSet 名稱")}
+                      <input
+                        className={`${inputCls} font-mono`}
+                        value={k8sStatefulSet}
+                        onChange={(e) => setK8sStatefulSet(e.target.value)}
+                        placeholder="palworld-server"
+                        required
+                      />
+                    </label>
+                    <label className={labelCls}>
+                      {t("Service 名稱(選填,用來顯示連線位址)")}
+                      <input
+                        className={`${inputCls} font-mono`}
+                        value={k8sServiceName}
+                        onChange={(e) => setK8sServiceName(e.target.value)}
+                        placeholder="palworld-server"
+                      />
+                    </label>
+                  </>
+                )}
+                {backend === "native" && (
+                  <label className={labelCls}>
+                    {t("伺服器路徑(選填)")}
+                    <input
+                      className={inputCls}
+                      value={serverDir}
+                      onChange={(e) => setServerDir(e.target.value)}
+                      placeholder={
+                        platform === "win32"
+                          ? t("例:{path}", { path: "D:\\palworld\\my-server" })
+                          : t("例:{path}", { path: "/opt/palworld/my-server" })
+                      }
+                    />
+                    <span className="text-xs font-normal opacity-70">
+                      {t("留空 = 安裝到 agent 資料夾。填既有 PalServer 安裝目錄會直接採用;填空資料夾或新路徑則會下載安裝到那裡。")}
+                    </span>
+                  </label>
+                )}
+                <label className={labelCls}>
+                  {t("遊戲埠(UDP)")}
+                  <input
+                    className={inputCls}
+                    type="number"
+                    value={gamePort}
+                    onChange={(e) => setGamePort(Number(e.target.value))}
+                  />
+                  <span className="text-xs font-normal opacity-70">
+                    {t("朋友連線用的「門牌號碼」,預設 8211 即可。從網際網路直連需在路由器開放此 UDP 埠;用 VPN(如 Tailscale)則不用開,教學見官網。")}
+                  </span>
+                </label>
+              </div>
+            </details>
           </>
         )}
-        {backend === "native" && (
-          <label className={labelCls}>
-            {t("伺服器路徑(選填)")}
-            <input
-              className={inputCls}
-              value={serverDir}
-              onChange={(e) => setServerDir(e.target.value)}
-              placeholder={
-                platform === "win32"
-                  ? t("例:{path}", { path: "D:\\palworld\\my-server" })
-                  : t("例:{path}", { path: "/opt/palworld/my-server" })
-              }
-            />
-            <span className="text-xs font-normal opacity-70">
-              {t("留空 = 安裝到 agent 資料夾。填既有 PalServer 安裝目錄會直接採用;填空資料夾或新路徑則會下載安裝到那裡。")}
-            </span>
-          </label>
+
+        {step === 1 && (
+          <>
+            <p className="text-[13px] text-ink-muted">
+              {t("選一個起跑點就好 — 建立後所有數值都能在「世界設定」分頁隨時微調。")}
+            </p>
+            {WORLD_PRESETS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setPreset(p.id)}
+                className={`rounded-xl border-2 px-3 py-2.5 text-left transition ${
+                  preset === p.id ? "border-pal bg-pal/5" : "border-line bg-card-soft/40 hover:border-pal/50"
+                }`}
+              >
+                <p className="text-sm font-extrabold">{t(p.label)}</p>
+                <p className="mt-0.5 text-xs text-ink-muted">{t(p.description)}</p>
+                {p.highlights.length > 0 && (
+                  <span className="mt-1.5 flex flex-wrap gap-1">
+                    {p.highlights.map((h) => (
+                      <span key={h} className="rounded-full bg-card-soft px-1.5 py-0.5 text-[11px] font-bold text-ink-muted">
+                        {t(h)}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </button>
+            ))}
+          </>
         )}
-        <label className={labelCls}>
-          {t("遊戲埠(UDP)")}
-          <input
-            className={inputCls}
-            type="number"
-            value={gamePort}
-            onChange={(e) => setGamePort(Number(e.target.value))}
-          />
-        </label>
-        <label className={labelCls}>
-          {t("最大玩家數")}
-          <input
-            className={inputCls}
-            type="number"
-            value={maxPlayers}
-            onChange={(e) => setMaxPlayers(Number(e.target.value))}
-            min={1}
-            max={99}
-          />
-        </label>
-        <label className={labelCls}>
-          {t("伺服器密碼(選填)")}
-          <input
-            className={inputCls}
-            value={serverPassword}
-            onChange={(e) => setServerPassword(e.target.value)}
-          />
-        </label>
-        {backend === "native" && (
-          <p className="inline-flex items-start gap-2 rounded-xl border-2 border-pal/30 bg-pal/5 px-3 py-2 text-xs text-ink-muted">
-            <FiDownload className="mt-0.5 size-4 shrink-0 text-pal" />
-            <span>
-              {t("首次安裝會下載 Palworld 伺服器檔案,")}
-              <b className="text-ink">{t("容量很大(數十 GB)")}</b>
-              {t(",需要一段時間,請耐心等候 —— 建立後可在")}
-              <b className="text-ink">{t("日誌")}</b>
-              {t("分頁看安裝進度。(填既有安裝目錄則會直接採用、跳過下載。)")}
-            </span>
-          </p>
+
+        {step === 2 && (
+          <>
+            <p className="text-[13px] text-ink-muted">
+              {t("要不要幫伺服器裝上強化模組?之後也隨時能在「模組」分頁安裝或移除。")}
+            </p>
+            <button
+              type="button"
+              onClick={() => setEnhanced(false)}
+              className={`rounded-xl border-2 px-3 py-2.5 text-left transition ${
+                !enhanced ? "border-pal bg-pal/5" : "border-line bg-card-soft/40 hover:border-pal/50"
+              }`}
+            >
+              <p className="inline-flex items-center gap-1.5 text-sm font-extrabold">
+                <FiServer className="size-4 text-pal" /> {t("原生")}
+              </p>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                {t("純官方伺服器,最穩定。適合單純想跟朋友一起玩的島主 — 拿不定主意選這個。")}
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => enhanceAvailable && setEnhanced(true)}
+              disabled={!enhanceAvailable}
+              className={`rounded-xl border-2 px-3 py-2.5 text-left transition ${
+                enhanced ? "border-pal bg-pal/5" : "border-line bg-card-soft/40"
+              } ${enhanceAvailable ? "hover:border-pal/50" : "cursor-not-allowed opacity-60"}`}
+            >
+              <p className="inline-flex items-center gap-1.5 text-sm font-extrabold">
+                <FiZap className="size-4 text-pal" /> {t("強化(自動安裝模組)")}
+              </p>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                {t("首次啟動時自動裝好 UE4SS 與 PalDefender:反作弊保護、進階玩家管理(給道具/傳送/封禁)、更多管理指令。")}
+              </p>
+              {!enhanceAvailable && (
+                <p className="mt-1 text-xs font-bold text-ink-muted">
+                  {backend !== "native"
+                    ? t("強化模式目前僅支援「原生」運行方式。")
+                    : t("模組(UE4SS/PalDefender)僅支援 Windows 主機。")}
+                </p>
+              )}
+              {enhanced && (
+                <p className="mt-1.5 inline-flex items-start gap-1.5 rounded-lg bg-sun/10 px-2 py-1.5 text-xs font-bold text-sun">
+                  <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                  {t("注意:模組是第三方社群專案,遊戲改版初期可能造成閃退或遊戲異常。出問題時到「模組」分頁移除即可恢復原生。")}
+                </p>
+              )}
+            </button>
+            {selectedPreset && (
+              <p className="text-xs text-ink-muted">
+                {t("玩法:{name}", { name: t(selectedPreset.label) })} · {t("模式:{name}", { name: enhanced ? t("強化") : t("原生") })}
+              </p>
+            )}
+            {backend === "native" && (
+              <p className="inline-flex items-start gap-2 rounded-xl border-2 border-pal/30 bg-pal/5 px-3 py-2 text-xs text-ink-muted">
+                <FiDownload className="mt-0.5 size-4 shrink-0 text-pal" />
+                <span>
+                  {t("首次安裝會下載 Palworld 伺服器檔案,")}
+                  <b className="text-ink">{t("容量很大(數十 GB)")}</b>
+                  {t(",需要一段時間,請耐心等候 —— 建立後可在")}
+                  <b className="text-ink">{t("日誌")}</b>
+                  {t("分頁看安裝進度。(填既有安裝目錄則會直接採用、跳過下載。)")}
+                </span>
+              </p>
+            )}
+          </>
         )}
+
         {error && <p className={errorCls}>{t(error)}</p>}
-        <div className="mt-1 flex gap-2">
-          <button className={btn} disabled={busy || k8sIncomplete}>
-            {busy ? t(importWorld ? "建立並匯入中…" : "建立中…") : t(importWorld ? "建立並匯入" : "建立")}
-          </button>
-          <button type="button" className={btnGhost} onClick={onClose}>
+        <div className="mt-1 flex flex-wrap gap-2">
+          {step > 0 && (
+            <button type="button" className={btnGhost} onClick={() => setStep(step - 1)} disabled={busy}>
+              {t("上一步")}
+            </button>
+          )}
+          {step < 2 ? (
+            <button type="button" className={btn} onClick={() => setStep(step + 1)} disabled={!canNext}>
+              {t("下一步")}
+            </button>
+          ) : (
+            <button type="button" className={btn} onClick={() => void submit()} disabled={busy || k8sIncomplete || !name.trim()}>
+              {busy ? t(importWorld ? "建立並匯入中…" : "建立中…") : t(importWorld ? "建立並匯入" : "建立")}
+            </button>
+          )}
+          <button type="button" className={btnGhost} onClick={onClose} disabled={busy}>
             {t("取消")}
           </button>
         </div>
-      </form>
+      </div>
     </Overlay>
   );
 }
