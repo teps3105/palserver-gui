@@ -29,7 +29,6 @@ import { dockerDriver } from "./docker.js";
 import { k8sDriver } from "./k8s.js";
 import { registerRoutes } from "./routes.js";
 import { startAutoScanLoop } from "./save-tools.js";
-import { initPlayit } from "./playit.js";
 import { activeWorldGuidAsync } from "./saves.js";
 import { announceBoot, trackPlayers } from "./telemetry.js";
 import { cleanupOldBinaries, startUpdateChecker, type UpdateOps } from "./self-update.js";
@@ -197,9 +196,6 @@ registerRoutes(app, store, presence, scheduler, supervisor, auth, updateOps);
 await app.listen({ host: HOST, port: PORT });
 
 startUpdateChecker(updateOps);
-
-// playit.gg:先前已綁定就把 daemon 帶起來,隧道自動恢復上線
-initPlayit();
 
 // 贊助者識別碼:啟動時驗證一次,之後定期重驗(內部有 12h 節流;訂閱到期/取消會在此收斂)。
 void refreshLicense(true).catch(() => {});

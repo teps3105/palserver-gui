@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { FiCopy, FiCheck, FiGlobe, FiExternalLink, FiShield, FiMessageCircle, FiX, FiZap, FiLink, FiLoader } from "react-icons/fi";
+import { FiCopy, FiCheck, FiGlobe, FiExternalLink, FiShield, FiMessageCircle, FiX, FiZap } from "react-icons/fi";
 import type { ConnectionInfo } from "@palserver/shared";
-import type { PlayitStatus } from "./api";
 import type { AgentClient } from "./api";
 import { copyText } from "./clipboard";
 import { usePromoConfig } from "./promoConfig";
@@ -33,46 +32,6 @@ export function ConnectionCard({
   };
   const [addr, setAddr] = useState("");
   const [savingAddr, setSavingAddr] = useState(false);
-  // playit 一鍵公網:選 playit 分頁時輪詢狀態(claim 等待/一鍵建隧道)
-  const [playit, setPlayit] = useState<PlayitStatus | null>(null);
-  const [playitBusy, setPlayitBusy] = useState(false);
-  const [playitErr, setPlayitErr] = useState<string | null>(null);
-  useEffect(() => {
-    if (method !== "playit") return;
-    let alive = true;
-    const tick = () => client.playitStatus().then((s) => alive && setPlayit(s)).catch(() => alive && setPlayit(null));
-    tick();
-    const timer = setInterval(tick, 3000);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-    };
-  }, [client, method]);
-  const playitAct = async (fn: () => Promise<unknown>) => {
-    setPlayitBusy(true);
-    setPlayitErr(null);
-    try {
-      await fn();
-      setPlayit(await client.playitStatus());
-    } catch (err) {
-      setPlayitErr(err instanceof Error ? err.message : String(err));
-    } finally {
-      setPlayitBusy(false);
-    }
-  };
-  const [needWeb, setNeedWeb] = useState(false);
-  const buildTunnel = () =>
-    playitAct(async () => {
-      const r = await client.playitTunnel(instanceId);
-      if (r.address) {
-        setNeedWeb(false);
-        refresh(); // externalAddress 已寫入,重抓連線資訊顯示位址
-      } else if (r.needWeb) {
-        setNeedWeb(true); // 需到 playit 網頁建隧道;下面的輪詢會自動偵測建好的隧道
-      } else {
-        setPlayitErr(t("隧道配置中(通常幾秒鐘),請稍後再按一次。"));
-      }
-    });
   const saveAddr = async () => {
     setSavingAddr(true);
     try {
@@ -94,23 +53,6 @@ export function ConnectionCard({
   }, [client, instanceId]);
 
   useEffect(() => refresh(), [refresh]);
-
-  // 等待網頁建立期間:每 3 秒重查,一偵測到符合的 UDP 隧道就自動接上
-  useEffect(() => {
-    if (!needWeb || method !== "playit") return;
-    const timer = setInterval(() => {
-      client
-        .playitTunnel(instanceId)
-        .then((r) => {
-          if (r.address) {
-            setNeedWeb(false);
-            refresh();
-          }
-        })
-        .catch(() => {});
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [needWeb, method, client, instanceId, refresh]);
 
   if (!info) return null;
   const port = info.gamePort;
@@ -161,125 +103,10 @@ export function ConnectionCard({
       {method === "playit" && (
         <Section
           icon={<FiZap className="size-4 text-pal" />}
-          title={t("playit.gg — 免費隧道,一鍵搞定")}
+          title={t("playit.gg — 免費隧道,五分鐘搞定")}
           hint={t("playit 給你一個公開位址,自動轉發到這台伺服器:不用動路由器,朋友直接輸入位址就能玩。")}
         >
-          {/* 一鍵模式:agent 代管 playit(綁定→daemon→隧道→位址,全自動) */}
-          <div className="mb-3 rounded-xl border-2 border-pal/40 bg-pal/5 p-3">
-            {!playit ? (
-              <p className="text-xs text-ink-muted">{t("查詢 playit 狀態中…")}</p>
-            ) : !playit.claimed ? (
-              playit.claim && (playit.claim.status === "waiting-visit" || playit.claim.status === "waiting-user") ? (
-                <div className="flex flex-col gap-2">
-                  <p className="inline-flex items-center gap-1.5 text-xs font-bold text-ink-muted">
-                    <FiLoader className="size-3.5 animate-spin" />
-                    {t("等待你在 playit.gg 按「同意」…(免費註冊,可用 Google 登入)")}
-                  </p>
-                  <a
-                    className={`${btnPrimary} inline-flex w-fit items-center gap-1.5 px-3 py-1.5 text-xs`}
-                    href={playit.claim.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <FiExternalLink className="size-3.5" /> {t("開啟 playit.gg 完成綁定")}
-                  </a>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <p className="text-xs text-ink-muted">
-                    {t("一鍵模式:GUI 幫你跑 playit、建隧道、拿位址,全程不用離開這裡。")}
-                  </p>
-                  {playit.claim?.status === "rejected" && (
-                    <p className="text-xs font-bold text-berry">{t("綁定被拒絕了,請再試一次。")}</p>
-                  )}
-                  {playit.claim?.status === "error" && (
-                    <p className="text-xs font-bold text-berry">{playit.claim.error ?? t("綁定失敗,請再試一次。")}</p>
-                  )}
-                  <button
-                    type="button"
-                    className={`${btnPrimary} inline-flex w-fit items-center gap-1.5 px-3 py-1.5 text-xs`}
-                    onClick={() => void playitAct(() => client.playitClaim())}
-                    disabled={playitBusy}
-                  >
-                    <FiLink className="size-3.5" /> {t("綁定 playit 帳號(免費)")}
-                  </button>
-                </div>
-              )
-            ) : (
-              <div className="flex flex-col gap-2">
-                <p className="inline-flex flex-wrap items-center gap-2 text-xs font-bold">
-                  <span className="inline-flex items-center gap-1 text-grass">
-                    <FiCheck className="size-3.5" /> {t("已綁定 playit")}
-                  </span>
-                  <span className={playit.daemonRunning ? "text-grass" : "text-ink-muted"}>
-                    {playit.daemonRunning
-                      ? t("隧道程式運作中")
-                      : playit.daemonSupported
-                        ? t("隧道程式未運行")
-                        : t("此主機平台不支援隧道程式(需 Windows/Linux)")}
-                  </span>
-                  {!playit.daemonRunning && playit.daemonSupported && (
-                    <button
-                      type="button"
-                      className={`${btnGhost} px-2 py-0.5 text-xs`}
-                      onClick={() => void playitAct(() => client.playitDaemon("start"))}
-                      disabled={playitBusy}
-                    >
-                      {t("啟動")}
-                    </button>
-                  )}
-                </p>
-                {needWeb && (
-                  <div className="rounded-lg bg-card-soft/70 p-2.5 text-xs">
-                    <p className="font-bold">{t("最後一步:到 playit 網頁建立隧道(帳號安全限制,這步只能在官網做)")}</p>
-                    <ol className="mt-1 flex list-decimal flex-col gap-0.5 pl-4 text-ink-muted">
-                      <li>{t("按下方按鈕開啟 playit 的 Create Tunnel 頁")}</li>
-                      <li>{t("類型選 Custom → 協定 UDP;Local Port 填 {port}", { port })}</li>
-                      <li>{t("按 Create — 回到這裡,位址幾秒內會自動出現")}</li>
-                    </ol>
-                    <a
-                      className={`${btnPrimary} mt-2 inline-flex w-fit items-center gap-1.5 px-3 py-1.5 text-xs`}
-                      href="https://playit.gg/account/tunnels/create"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <FiExternalLink className="size-3.5" /> {t("開啟 Create Tunnel 頁")}
-                    </a>
-                    <p className="mt-1.5 inline-flex items-center gap-1.5 font-bold text-ink-muted">
-                      <FiLoader className="size-3 animate-spin" /> {t("等待隧道建立,將自動偵測…")}
-                    </p>
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className={`${btnPrimary} inline-flex items-center gap-1.5 px-3 py-1.5 text-xs`}
-                    onClick={() => void buildTunnel()}
-                    disabled={playitBusy}
-                  >
-                    <FiZap className="size-3.5" /> {playitBusy ? t("處理中…") : t("取得公開位址")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`${btnGhost} px-3 py-1.5 text-xs`}
-                    onClick={() => {
-                      if (confirm(t("解除綁定會停止隧道程式並刪除本機的 playit 金鑰(playit 帳號與隧道本身不受影響)。確定?"))) {
-                        void playitAct(() => client.playitUnlink());
-                      }
-                    }}
-                    disabled={playitBusy}
-                  >
-                    {t("解除綁定")}
-                  </button>
-                </div>
-              </div>
-            )}
-            {playitErr && <p className="mt-2 text-xs font-bold text-berry">{playitErr}</p>}
-          </div>
-
-          <details>
-            <summary className="cursor-pointer text-xs font-bold text-ink-muted">{t("手動設定(自己跑 playit 程式)")}</summary>
-            <ol className="mt-2 mb-2 flex list-decimal flex-col gap-1 pl-5 text-xs text-ink-muted">
+          <ol className="mb-2 flex list-decimal flex-col gap-1 pl-5 text-xs text-ink-muted">
             <li>{t("到 playit.gg 下載並安裝(免費,支援 Windows/Linux),執行後照指示在網頁按「同意」完成綁定。")}</li>
             <li>{t("在 playit 網頁按「Create Tunnel」:類型選 Custom → UDP,Local port 填 {port}。", { port })}</li>
             <li>{t("把 playit 給你的位址(例:xxx.gl.ply.gg:12345)貼到下面,之後這張卡就會顯示給朋友的位址。")}</li>
@@ -309,7 +136,6 @@ export function ConnectionCard({
               {savingAddr ? t("儲存中…") : t("儲存")}
             </button>
           </div>
-          </details>
           {info.externalAddress && (
             <div className="mt-2">
               <p className="mb-1 text-xs font-bold text-ink-muted">{t("給朋友的位址(點擊複製):")}</p>
