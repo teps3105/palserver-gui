@@ -96,7 +96,6 @@ export function useHiddenTabs(instanceId: string, enhanced: boolean): [Tab[], (i
  */
 export type OverviewCard = string;
 export const OVERVIEW_CARDS: { id: string; label: string }[] = [
-  { id: "migration", label: "存檔遷移" },
   { id: "invite", label: "邀請朋友加入" },
 ];
 

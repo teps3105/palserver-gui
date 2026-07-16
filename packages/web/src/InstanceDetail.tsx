@@ -20,7 +20,6 @@ import { SavesTab } from "./SavesTab";
 import { RestartCard } from "./RestartCard";
 import { VersionCard } from "./VersionCard";
 import { ConnectionCard } from "./ConnectionCard";
-import { MigrationCard } from "./MigrationCard";
 import { InstanceSettingsTab } from "./InstanceSettingsTab";
 import { SHOW_SPONSOR_FEATURES } from "./flags";
 import { PerformanceTab } from "./PerformanceTab";
@@ -481,8 +480,12 @@ function OverviewTab({
           ))}
         </dl>
       </div>
-      {!hiddenCards.includes("migration") && (
-        <MigrationCard onDismiss={() => setHiddenCards([...hiddenCards, "migration"])} />
+      {!hiddenCards.includes("invite") && (
+        <ConnectionCard
+          client={client}
+          instanceId={detail.id}
+          onDismiss={() => setHiddenCards([...hiddenCards, "invite"])}
+        />
       )}
       <VersionCard
         client={client}
@@ -491,13 +494,6 @@ function OverviewTab({
         canReinstall={detail.backend === "native"}
         onUpdateStarted={onRefresh}
       />
-      {!hiddenCards.includes("invite") && (
-        <ConnectionCard
-          client={client}
-          instanceId={detail.id}
-          onDismiss={() => setHiddenCards([...hiddenCards, "invite"])}
-        />
-      )}
       </div>
     </div>
   );
