@@ -28,6 +28,8 @@ import { isInstalling, nativeDriver } from "./native.js";
 import { dockerDriver } from "./docker.js";
 import { k8sDriver } from "./k8s.js";
 import { registerRoutes } from "./routes.js";
+import { startAutoScanLoop } from "./save-tools.js";
+import { activeWorldGuidAsync } from "./saves.js";
 import { announceBoot, trackPlayers } from "./telemetry.js";
 import { cleanupOldBinaries, startUpdateChecker, type UpdateOps } from "./self-update.js";
 import { refreshLicense } from "./license.js";
@@ -166,6 +168,17 @@ const supervisor = new RestartSupervisor(store, (rec) =>
   rec.backend === "native" ? nativeDriver : rec.backend === "k8s" ? k8sDriver : dockerDriver,
 );
 supervisor.start();
+
+// 每小時自動掃描存檔(排行榜/週報資料;每實例可在排行榜分頁開關)
+startAutoScanLoop({
+  list: () => store.list(),
+  ctxOf: (rec) => ({ instanceDir: store.instanceDir(rec.id) }),
+  statusOf: async (rec) => {
+    const driver = rec.backend === "native" ? nativeDriver : rec.backend === "k8s" ? k8sDriver : dockerDriver;
+    return (await driver.status(rec, { instanceDir: store.instanceDir(rec.id) })).status;
+  },
+  activeWorldGuid: (rec, ctx) => activeWorldGuidAsync(rec, ctx),
+});
 
 // 自我更新會整個換掉執行檔並重啟行程。遊戲伺服器是 detached 生成的、不受影響,
 // 但 DepotDownloader 是 agent 的子行程 —— 安裝到一半重啟會把它砍掉。

@@ -70,7 +70,9 @@ import {
   getPlayerProfile,
   getPlayersSummary,
   getStatsHistory,
+  readAutoScan,
   startHealthCheck,
+  writeAutoScan,
 } from "./save-tools.js";
 import { applyHostFix, transferPalOwners } from "./host-save-fix.js";
 import { getEngineSettings, writeEngineSettings } from "./engine-ini.js";
@@ -1620,7 +1622,16 @@ export function registerRoutes(
       .parse(req.query);
     const worldGuid = q.worldGuid ?? (await saves.activeWorldGuidAsync(rec, ctxOf(rec)));
     if (!worldGuid) throw Object.assign(new Error("找不到啟用中的世界"), { statusCode: 404 });
-    return getStatsHistory(ctxOf(rec), worldGuid);
+    return { ...getStatsHistory(ctxOf(rec), worldGuid), autoScan: readAutoScan(ctxOf(rec)) };
+  });
+
+  // ── 每小時自動掃描開關(排行榜分頁的設定)──
+  app.put("/api/instances/:id/saves/auto-scan", async (req) => {
+    const rec = getOr404((req.params as { id: string }).id);
+    const body = z
+      .object({ enabled: z.boolean(), intervalMinutes: z.number().int().min(10).max(1440).optional() })
+      .parse(req.body);
+    return writeAutoScan(ctxOf(rec), body);
   });
 
   // ── 公會快照(存檔掃描產出;公會分頁讀這裡)──

@@ -799,7 +799,26 @@ export interface SaveScanTopPal {
   /** 三項個體值加總(0-300) */
   ivTotal: number;
   passiveCount: number;
+  /** 詞條 id 清單(最多 8;舊統計沒有此欄位) */
+  passives?: string[];
 }
+
+/** 最強帕魯加權評分 — agent 選各玩家最強帕魯與前端榜單排序共用,改公式兩邊一起改。
+ *  等級 1:1、IV 總和 ×0.1(滿 300 折 30)、星級 ×10(滿 4 星折 40)、詞條數 ×5。 */
+export function topPalScore(tp: Pick<SaveScanTopPal, "level" | "rank" | "ivTotal" | "passiveCount">): number {
+  const stars = Math.max((tp.rank ?? 0) - 1, 0);
+  return (tp.level ?? 0) + tp.ivTotal * 0.1 + stars * 10 + tp.passiveCount * 5;
+}
+
+/** 每小時自動掃描存檔(排行榜/週報的資料來源;與備份排程同款的每實例設定檔)。 */
+export interface AutoScanSetting {
+  enabled: boolean;
+  intervalMinutes: number;
+  lastRunAt?: string | null;
+  lastResult?: string | null;
+}
+
+export const DEFAULT_AUTO_SCAN: AutoScanSetting = { enabled: false, intervalMinutes: 60 };
 
 export interface SaveScanPlayerStat {
   uid: string;

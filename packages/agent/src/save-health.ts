@@ -327,8 +327,10 @@ class Analyzer {
           if (e.keyPlayerUid && e.keyPlayerUid !== ZERO_UUID) {
             this.playerChars.set(e.keyPlayerUid, {
               name: e.nickName || "?",
-              level: e.levelNum ?? null,
-              exp: e.expNum ?? null,
+              // UE 序列化會省略預設值:等級 1/經驗 0 的角色根本沒有這兩個欄位,
+              // 實體有解析到就補預設,不然新角色會顯示「無等級」(實機踩過)。
+              level: e.levelNum ?? 1,
+              exp: e.expNum ?? 0,
               statusPoints: [...(e.statusPoints ?? new Map()).entries()].map(([name, points]) => ({ name, points })),
               unusedStatusPoints: e.unusedStatusPoints ?? null,
             });
@@ -339,7 +341,7 @@ class Analyzer {
           const key = normGuid(e.containerId);
           const list = this.palsByContainer.get(key) ?? [];
           if (list.length < 30) {
-            list.push({ characterId: e.characterId, level: e.levelNum ?? null });
+            list.push({ characterId: e.characterId, level: e.levelNum ?? 1 });
             this.palsByContainer.set(key, list);
           }
         }
@@ -358,14 +360,15 @@ class Analyzer {
               location: kind ?? (kinds && kinds.size > 0 && e.containerId ? "base" : "unknown"),
               characterId: e.characterId,
               nickname: e.nickName || undefined,
-              level: e.levelNum ?? null,
+              // 預設值省略(同上):沒欄位 = 等級 1、IV 0
+              level: e.levelNum ?? 1,
               gender: e.gender === "EPalGenderType::Female" ? "female" : e.gender === "EPalGenderType::Male" ? "male" : null,
               rank: e.rank ?? 0,
               isLucky: e.isLucky ?? false,
               isBoss: e.characterId.toUpperCase().startsWith("BOSS_"),
-              talentHp: e.talentHp ?? null,
-              talentShot: e.talentShot ?? null,
-              talentDefense: e.talentDefense ?? null,
+              talentHp: e.talentHp ?? 0,
+              talentShot: e.talentShot ?? 0,
+              talentDefense: e.talentDefense ?? 0,
               passives: e.passives ?? [],
             });
           }

@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type {
+  AutoScanSetting,
   SaveGuild,
   SaveHealthReport,
   SaveHealthStatus,
@@ -16,6 +17,7 @@ import type {
   SaveScanPlayerStat,
   SaveScanTopPal,
 } from "@palserver/shared";
+import { DEFAULT_AUTO_SCAN, topPalScore } from "@palserver/shared";
 import { AGENT_VERSION, DATA_DIR, GITHUB_REPO } from "./env.js";
 import type { InstanceRecord } from "./store.js";
 import type { DriverContext } from "./driver.js";
@@ -44,8 +46,8 @@ const CONVERT_TIMEOUT_MS = 30 * 60_000;
 const REPORTS_FILE = "save-health.json";
 const SNAPSHOTS_FILE = "save-players.json";
 const STATS_HISTORY_FILE = "save-stats-history.json";
-/** 每個世界保留的掃描統計筆數(排行榜週報用;超過丟最舊)。 */
-const STATS_HISTORY_MAX = 60;
+/** 每個世界保留的掃描統計筆數(排行榜週報用;超過丟最舊)。每小時自動掃描約可放 20 天。 */
+const STATS_HISTORY_MAX = 500;
 const TMP_DIR = "health-tmp";
 
 function palsavAssetName(): string | null {
@@ -239,6 +241,65 @@ export function getStatsHistory(ctx: DriverContext, worldGuid: string): { worldG
   return { worldGuid, history: readStatsHistory(ctx)[worldGuid] ?? [] };
 }
 
+/* ── 每小時自動掃描(排行榜/週報資料來源;設定檔比照 backup-schedule) ── */
+
+const AUTO_SCAN_FILE = "auto-scan.json";
+
+export function readAutoScan(ctx: DriverContext): AutoScanSetting {
+  try {
+    return { ...DEFAULT_AUTO_SCAN, ...JSON.parse(fs.readFileSync(path.join(ctx.instanceDir, AUTO_SCAN_FILE), "utf8")) };
+  } catch {
+    return { ...DEFAULT_AUTO_SCAN };
+  }
+}
+
+export function writeAutoScan(ctx: DriverContext, patch: Partial<AutoScanSetting>): AutoScanSetting {
+  const next = { ...readAutoScan(ctx), ...patch };
+  fs.mkdirSync(ctx.instanceDir, { recursive: true });
+  fs.writeFileSync(path.join(ctx.instanceDir, AUTO_SCAN_FILE), JSON.stringify(next, null, 2));
+  return next;
+}
+
+/**
+ * 每分鐘 tick:啟用自動掃描、伺服器運作中、間隔已到、且該實例沒有掃描在跑,
+ * 就對啟用中的世界起一次健檢(產出健檢報告+快照+統計歷史,與手動同一條管線)。
+ * 停機時不掃(存檔沒在變);k8s/不支援平台由 saveHealthSupport 擋掉。
+ */
+export function startAutoScanLoop(deps: {
+  list: () => InstanceRecord[];
+  ctxOf: (rec: InstanceRecord) => DriverContext;
+  statusOf: (rec: InstanceRecord) => Promise<string>;
+  activeWorldGuid: (rec: InstanceRecord, ctx: DriverContext) => Promise<string | null>;
+}): NodeJS.Timeout {
+  const timer = setInterval(() => {
+    void (async () => {
+      for (const rec of deps.list()) {
+        const ctx = deps.ctxOf(rec);
+        const setting = readAutoScan(ctx);
+        if (!setting.enabled) continue;
+        const elapsedMin = setting.lastRunAt ? (Date.now() - Date.parse(setting.lastRunAt)) / 60_000 : Infinity;
+        if (elapsedMin < Math.max(setting.intervalMinutes, 10)) continue;
+        if (jobs.has(rec.id)) continue;
+        if (!saveHealthSupport(rec).supported) continue;
+        try {
+          if ((await deps.statusOf(rec)) !== "running") continue;
+          const worldGuid = await deps.activeWorldGuid(rec, ctx);
+          if (!worldGuid) continue;
+          startHealthCheck(rec, ctx, worldGuid);
+          writeAutoScan(ctx, { lastRunAt: new Date().toISOString(), lastResult: "已啟動掃描" });
+        } catch (err) {
+          writeAutoScan(ctx, {
+            lastRunAt: new Date().toISOString(),
+            lastResult: `失敗:${err instanceof Error ? err.message : String(err)}`,
+          });
+        }
+      }
+    })();
+  }, 60_000);
+  timer.unref();
+  return timer;
+}
+
 /** 從完整快照算出精簡統計(每玩家:等級/金錢/圖鑑數/最強帕魯;每公會:成員/據點)。 */
 function computeScanStats(snap: SavePlayersSnapshot): SaveScanStats {
   const players: SaveScanPlayerStat[] = snap.players.map((p) => {
@@ -246,18 +307,20 @@ function computeScanStats(snap: SavePlayersSnapshot): SaveScanStats {
     let topKey = -1;
     for (const pal of p.pals) {
       const iv = (pal.talentHp ?? 0) + (pal.talentShot ?? 0) + (pal.talentDefense ?? 0);
-      // 排序鍵:等級 → IV 總和 → 星級(單一數字比較,等級權重最大)
-      const key = (pal.level ?? 0) * 1_000_000 + iv * 100 + (pal.rank ?? 0);
+      const candidate: SaveScanTopPal = {
+        characterId: pal.characterId,
+        ...(pal.nickname ? { nickname: pal.nickname } : {}),
+        level: pal.level,
+        rank: pal.rank,
+        ivTotal: iv,
+        passiveCount: pal.passives.length,
+        passives: pal.passives.slice(0, 8),
+      };
+      // 加權評分(shared topPalScore):等級 + IV×0.1 + 星級×10 + 詞條數×5
+      const key = topPalScore(candidate);
       if (key > topKey) {
         topKey = key;
-        top = {
-          characterId: pal.characterId,
-          ...(pal.nickname ? { nickname: pal.nickname } : {}),
-          level: pal.level,
-          rank: pal.rank,
-          ivTotal: iv,
-          passiveCount: pal.passives.length,
-        };
+        top = candidate;
       }
     }
     return {

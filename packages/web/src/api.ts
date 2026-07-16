@@ -43,6 +43,7 @@ import type {
   RconCommandsResponse,
   RestartPolicy,
   RestartStatus,
+  AutoScanSetting,
   SaveGuild,
   SaveHealthStatus,
   SavePlayerProfile,
@@ -663,10 +664,21 @@ export class AgentClient {
     return this.request(`/api/instances/${id}/saves/guilds-snapshot${q}`);
   }
 
-  /** 掃描統計歷史(排行榜/週報;每次健檢追加一筆)。 */
-  statsHistory(id: string, worldGuid?: string): Promise<{ worldGuid: string; history: SaveScanStats[] }> {
+  /** 掃描統計歷史(排行榜/週報;每次健檢追加一筆)+ 自動掃描設定。 */
+  statsHistory(
+    id: string,
+    worldGuid?: string,
+  ): Promise<{ worldGuid: string; history: SaveScanStats[]; autoScan: AutoScanSetting }> {
     const q = worldGuid ? `?worldGuid=${encodeURIComponent(worldGuid)}` : "";
     return this.request(`/api/instances/${id}/saves/stats-history${q}`);
+  }
+
+  /** 每小時自動掃描開關。 */
+  setAutoScan(id: string, enabled: boolean): Promise<AutoScanSetting> {
+    return this.request(`/api/instances/${id}/saves/auto-scan`, {
+      method: "PUT",
+      body: JSON.stringify({ enabled }),
+    });
   }
 
   saveHealth(id: string, worldGuid: string): Promise<SaveHealthStatus> {
