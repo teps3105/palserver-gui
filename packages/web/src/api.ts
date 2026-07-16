@@ -112,6 +112,16 @@ export interface PortCheckEntry {
   free: boolean;
   suggestion?: number;
 }
+/** playit.gg 一鍵公網狀態(agent GET /api/playit)。 */
+export interface PlayitStatus {
+  daemonSupported: boolean;
+  claimed: boolean;
+  claim: { url: string; status: "waiting-visit" | "waiting-user" | "accepted" | "rejected" | "error" | "claimed"; error?: string } | null;
+  daemonRunning: boolean;
+  daemonUptimeSeconds: number | null;
+  tunnels: { id: string; displayAddress: string; portType: string }[] | null;
+}
+
 export interface PortsCheckResult {
   supported: boolean;
   reason?: string;
@@ -686,6 +696,23 @@ export class AgentClient {
   ): Promise<{ worldGuid: string; history: SaveScanStats[]; autoScan: AutoScanSetting }> {
     const q = worldGuid ? `?worldGuid=${encodeURIComponent(worldGuid)}` : "";
     return this.request(`/api/instances/${id}/saves/stats-history${q}`);
+  }
+
+  /** playit.gg 一鍵公網:狀態 / 綁定 / daemon 控制 / 解除 / 建隧道。 */
+  playitStatus(): Promise<PlayitStatus> {
+    return this.request("/api/playit");
+  }
+  playitClaim(): Promise<{ url: string; code: string }> {
+    return this.request("/api/playit/claim", { method: "POST", body: "{}" });
+  }
+  playitDaemon(action: "start" | "stop"): Promise<PlayitStatus> {
+    return this.request("/api/playit/daemon", { method: "POST", body: JSON.stringify({ action }) });
+  }
+  playitUnlink(): Promise<PlayitStatus> {
+    return this.request("/api/playit", { method: "DELETE" });
+  }
+  playitTunnel(id: string): Promise<{ address: string | null; pending: boolean }> {
+    return this.request(`/api/instances/${id}/playit-tunnel`, { method: "POST", body: "{}" });
   }
 
   /** 玩家連線用的公開位址(playit.gg 隧道等):空字串 = 清除。 */

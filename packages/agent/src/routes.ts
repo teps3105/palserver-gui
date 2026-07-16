@@ -51,6 +51,7 @@ import { cachedVersionSummary, getVersionStatus } from "./version.js";
 import { getConnectionInfo } from "./connectivity.js";
 import { getModsStatus, installComponent, installedEnhancements, removeComponent, setLuaModEnabled } from "./mods.js";
 import { checkPorts, udpPortFree } from "./port-check.js";
+import { ensureTunnel, playitStatus, startClaim, startDaemon, stopDaemon, unlink } from "./playit.js";
 import * as pakMods from "./pak-mods.js";
 import { clearPalStats, getPalSchemaStatus, getPalStats, installPalSchema, removePalSchema, writePalStats } from "./palschema.js";
 import { getModerationLists, moderation } from "./moderation.js";
@@ -714,6 +715,31 @@ export function registerRoutes(
           )
         : rec;
     return { settings: updated.settings, changedKeys };
+  });
+
+  // ── playit.gg 一鍵公網(免費,全員可用):claim 綁定 → daemon → UDP 隧道 ──
+  app.get("/api/playit", async () => playitStatus());
+
+  app.post("/api/playit/claim", async () => startClaim());
+
+  app.post("/api/playit/daemon", async (req) => {
+    const { action } = z.object({ action: z.enum(["start", "stop"]) }).parse(req.body);
+    if (action === "start") await startDaemon();
+    else await stopDaemon();
+    return playitStatus();
+  });
+
+  app.delete("/api/playit", async () => {
+    await unlink();
+    return playitStatus();
+  });
+
+  /** 為某實例建立(或查詢)playit UDP 隧道;拿到位址就存進實例的公開位址。 */
+  app.post("/api/instances/:id/playit-tunnel", async (req) => {
+    const rec = getOr404((req.params as { id: string }).id);
+    const result = await ensureTunnel(rec.id, rec.gamePort, rec.name);
+    if (result.address) store.update(rec.id, { externalAddress: result.address });
+    return result;
   });
 
   // ── 啟動前埠占用檢查(新手最常見的開不起來原因)──
