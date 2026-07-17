@@ -478,7 +478,7 @@ export function InstanceDetailPage({
             <div ref={moreRef} className="relative">
               <button
                 type="button"
-                className="inline-flex items-center px-3 py-2 text-sm font-extrabold text-ink-muted transition hover:text-ink"
+                className="inline-flex items-center self-center px-3 pb-1 pt-2.5 text-sm font-extrabold text-ink-muted transition hover:text-ink"
                 onClick={() => {
                   const r = moreRef.current?.getBoundingClientRect();
                   setMoreAlignRight(!!r && r.left + 224 > window.innerWidth - 16);
@@ -518,9 +518,6 @@ export function InstanceDetailPage({
                       </button>
                     );
                   })}
-                  <p className="mt-1 border-t-2 border-line px-2 pb-0.5 pt-1.5 text-[11px] text-ink-muted">
-                    {translate("點一下切換顯示;分頁標籤可直接拖曳排序。")}
-                  </p>
                   <button
                     type="button"
                     className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-bold text-ink-muted transition hover:bg-card-soft hover:text-ink"

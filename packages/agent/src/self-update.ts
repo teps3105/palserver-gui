@@ -375,9 +375,21 @@ async function run({ canApply, onRestart, log }: UpdateOps): Promise<void> {
       fs.copyFileSync(newExe, layout.exePath);
       fs.chmodSync(layout.exePath, 0o755);
       if (fs.existsSync(newWeb)) {
+        // 先把新 web 完整複製到目標同目錄(staging),成功後才動舊的;
+        // rename 幾乎不會失敗,失敗也能把舊的原樣還原 —— 避免舊版流程
+        // 「先搬走舊的、複製新的失敗」導致 web 消失、前端 404。
+        const staged = `${layout.webDir}.new-${Date.now()}`;
         const oldWeb = `${layout.webDir}.old-${Date.now()}`;
-        if (fs.existsSync(layout.webDir)) fs.renameSync(layout.webDir, oldWeb);
-        fs.cpSync(newWeb, layout.webDir, { recursive: true });
+        fs.cpSync(newWeb, staged, { recursive: true });
+        const hadOld = fs.existsSync(layout.webDir);
+        if (hadOld) fs.renameSync(layout.webDir, oldWeb);
+        try {
+          fs.renameSync(staged, layout.webDir);
+        } catch (err) {
+          if (hadOld) fs.renameSync(oldWeb, layout.webDir);
+          fs.rmSync(staged, { recursive: true, force: true });
+          throw err;
+        }
         fs.rmSync(oldWeb, { recursive: true, force: true });
       }
       // 授權條款必須留在散布出去的副本旁(PolyForm Notices)。

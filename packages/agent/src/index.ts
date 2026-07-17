@@ -273,6 +273,7 @@ function openBrowser(url: string): void {
 function resolveWebDist(): string | null {
   const candidates: string[] = [];
   if (process.env.PALSERVER_WEB_DIR) candidates.push(process.env.PALSERVER_WEB_DIR);
+  recoverStrandedWeb(path.dirname(process.execPath));
   candidates.push(path.join(path.dirname(process.execPath), "web"));
   try {
     candidates.push(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../web/dist"));
@@ -283,6 +284,26 @@ function resolveWebDist(): string | null {
     if (c && fs.existsSync(path.join(c, "index.html"))) return c;
   }
   return null;
+}
+
+/** 自我更新換檔失敗的自癒:web/ 缺失但旁邊留著 web.old-<ts>(換檔中途失敗的
+ *  殘留)時,把最新的一份改名回 web/,避免重啟後前端永遠 404。 */
+function recoverStrandedWeb(dir: string): void {
+  try {
+    const web = path.join(dir, "web");
+    if (fs.existsSync(path.join(web, "index.html"))) return;
+    const stranded = fs
+      .readdirSync(dir)
+      .filter((n) => /^web\.old-\d+$/.test(n))
+      .sort()
+      .at(-1);
+    if (stranded && fs.existsSync(path.join(dir, stranded, "index.html"))) {
+      fs.rmSync(web, { recursive: true, force: true });
+      fs.renameSync(path.join(dir, stranded), web);
+    }
+  } catch {
+    /* 自癒失敗就維持原狀(API-only) */
+  }
 }
 
 /** 收集本機各網卡的 IPv4,標出可能是 VPN(Tailscale / Radmin / Hamachi)的位址。 */

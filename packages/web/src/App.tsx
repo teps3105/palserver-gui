@@ -316,14 +316,6 @@ function Dashboard({ client, onOpen }: { client: AgentClient; onOpen: (id: strin
               <FiStar className="size-3.5 text-pal" />
             </button>
           )}
-          {ordered.length >= 6 && (
-            <input
-              className={`${inputCls} w-40 py-1.5 text-[13px]`}
-              value={listSearch}
-              placeholder={t("搜尋伺服器…")}
-              onChange={(e) => setListSearch(e.target.value)}
-            />
-          )}
           <button
             className={`${btn} inline-flex items-center gap-1.5`}
             onClick={() => setShowCreate(true)}
