@@ -221,7 +221,8 @@ export function ConnectionCard({
         </>
       )}
 
-      <p className="text-xs text-ink-muted">
+      {/* mt-auto:卡片被拉伸到與左欄同高時,提示貼底、空白留在中段之後 */}
+      <p className="mt-auto text-xs text-ink-muted">
         {t("提示:朋友連線用的是「遊戲埠 UDP {port}」。若朋友連不進來,先確認伺服器正在運作中、且防火牆有放行。", { port })}
       </p>
     </div>

@@ -466,38 +466,52 @@ function OverviewTab({
           </p>
         </div>
       )}
-      {/* 左欄:伺服器資訊+遊戲版本疊放;右欄:邀請朋友加入(內容較高,獨佔一欄) */}
-      <div className="grid items-start gap-4 sm:grid-cols-2">
-      <div className="flex flex-col gap-4">
-        <div className={card}>
-          <h3 className="mb-3 text-sm font-extrabold text-ink-muted">{t("伺服器資訊")}</h3>
-          <dl className="flex flex-col gap-2">
-            {rows.map(([k, v], i) => (
-              <div key={i} className="flex items-center justify-between gap-4 text-sm">
-                <dt className="shrink-0 text-ink-muted">{k}</dt>
-                <dd className="min-w-0 text-right font-bold">
-                  {typeof v === "string" ? <span className="break-all">{v}</span> : v}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-        <VersionCard
-          client={client}
-          instanceId={detail.id}
-          running={detail.status === "running"}
-          canReinstall={detail.backend === "native"}
-          onUpdateStarted={onRefresh}
-        />
-      </div>
-      {!hiddenCards.includes("invite") && (
-        <ConnectionCard
-          client={client}
-          instanceId={detail.id}
-          onDismiss={() => setHiddenCards([...hiddenCards, "invite"])}
-        />
-      )}
-      </div>
+      {/* 邀請卡顯示時:左欄「伺服器資訊+遊戲版本」疊放,右欄邀請卡撐同高;
+          關掉邀請卡後:回到資訊左、版本右的兩欄並排。 */}
+      {(() => {
+        const infoCard = (
+          <div className={card}>
+            <h3 className="mb-3 text-sm font-extrabold text-ink-muted">{t("伺服器資訊")}</h3>
+            <dl className="flex flex-col gap-2">
+              {rows.map(([k, v], i) => (
+                <div key={i} className="flex items-center justify-between gap-4 text-sm">
+                  <dt className="shrink-0 text-ink-muted">{k}</dt>
+                  <dd className="min-w-0 text-right font-bold">
+                    {typeof v === "string" ? <span className="break-all">{v}</span> : v}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        );
+        const versionCard = (
+          <VersionCard
+            client={client}
+            instanceId={detail.id}
+            running={detail.status === "running"}
+            canReinstall={detail.backend === "native"}
+            onUpdateStarted={onRefresh}
+          />
+        );
+        return hiddenCards.includes("invite") ? (
+          <div className="grid items-start gap-4 sm:grid-cols-2">
+            {infoCard}
+            {versionCard}
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-4">
+              {infoCard}
+              {versionCard}
+            </div>
+            <ConnectionCard
+              client={client}
+              instanceId={detail.id}
+              onDismiss={() => setHiddenCards([...hiddenCards, "invite"])}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }
