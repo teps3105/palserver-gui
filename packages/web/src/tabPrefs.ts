@@ -44,8 +44,10 @@ const VANILLA_VISIBLE: Tab[] = ["overview", "settings", "saves", "restart", "ins
 const ENHANCED_VISIBLE: Tab[] = [...VANILLA_VISIBLE, "players", "guilds", "map", "paldefender", "palstats"];
 
 /** 模式預設的「隱藏清單」(= 全部分頁 − 可見集合)。 */
-export function defaultHiddenTabs(enhanced: boolean): Tab[] {
+export function defaultHiddenTabs(enhanced: boolean, palDefenderInstalled = false): Tab[] {
   const visible = new Set(enhanced ? ENHANCED_VISIBLE : VANILLA_VISIBLE);
+  // 裝了 PalDefender 就讓它的分頁預設可見(否則裝了卻找不到設定頁)。
+  if (palDefenderInstalled) visible.add("paldefender");
   return TABS.map((t) => t.id).filter((id) => !visible.has(id) && !LOCKED_TABS.includes(id));
 }
 
@@ -55,14 +57,14 @@ const EVENT = "palserver:tabprefs";
 // 都吃到同一份舊清單,原味 5 頁/強化 10 頁的模式預設永遠不會生效。
 // 沒自訂過的實例一律用模式預設;要調整就到該實例的「設定 → 顯示的分頁」。
 
-export function getHiddenTabs(instanceId: string, enhanced: boolean): Tab[] {
+export function getHiddenTabs(instanceId: string, enhanced: boolean, palDefenderInstalled = false): Tab[] {
   try {
     const raw = localStorage.getItem(KEY_PREFIX + instanceId);
-    if (raw === null) return defaultHiddenTabs(enhanced);
+    if (raw === null) return defaultHiddenTabs(enhanced, palDefenderInstalled);
     const v = JSON.parse(raw);
-    return Array.isArray(v) ? (v.filter((x) => !LOCKED_TABS.includes(x)) as Tab[]) : defaultHiddenTabs(enhanced);
+    return Array.isArray(v) ? (v.filter((x) => !LOCKED_TABS.includes(x)) as Tab[]) : defaultHiddenTabs(enhanced, palDefenderInstalled);
   } catch {
-    return defaultHiddenTabs(enhanced);
+    return defaultHiddenTabs(enhanced, palDefenderInstalled);
   }
 }
 
@@ -74,18 +76,22 @@ export function setHiddenTabs(instanceId: string, ids: Tab[]): void {
 
 /** 訂閱某實例的隱藏分頁偏好(跨分頁/跨元件同步)。
  *  enhanced(裝了模組/建立時選強化)只影響「還沒自訂過」時的預設集合。 */
-export function useHiddenTabs(instanceId: string, enhanced: boolean): [Tab[], (ids: Tab[]) => void] {
-  const [hidden, setHidden] = useState<Tab[]>(() => getHiddenTabs(instanceId, enhanced));
+export function useHiddenTabs(
+  instanceId: string,
+  enhanced: boolean,
+  palDefenderInstalled = false,
+): [Tab[], (ids: Tab[]) => void] {
+  const [hidden, setHidden] = useState<Tab[]>(() => getHiddenTabs(instanceId, enhanced, palDefenderInstalled));
   useEffect(() => {
-    setHidden(getHiddenTabs(instanceId, enhanced));
-    const onChange = () => setHidden(getHiddenTabs(instanceId, enhanced));
+    setHidden(getHiddenTabs(instanceId, enhanced, palDefenderInstalled));
+    const onChange = () => setHidden(getHiddenTabs(instanceId, enhanced, palDefenderInstalled));
     window.addEventListener(EVENT, onChange);
     window.addEventListener("storage", onChange);
     return () => {
       window.removeEventListener(EVENT, onChange);
       window.removeEventListener("storage", onChange);
     };
-  }, [instanceId, enhanced]);
+  }, [instanceId, enhanced, palDefenderInstalled]);
   return [hidden, (ids) => setHiddenTabs(instanceId, ids)];
 }
 

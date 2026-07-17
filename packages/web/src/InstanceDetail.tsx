@@ -56,8 +56,12 @@ export function InstanceDetailPage({
   const [mapFocus, setMapFocus] = useState<{ x: number; y: number; n: number } | null>(null);
   // 分頁偏好每實例獨立;預設集合只看「建立時選的口味」——事後手動安裝模組
   // 不改變預設可見分頁(避免裝完 PalDefender 分頁自己跳出來),要開去「＋」面板。
+  // PalDefender 分頁的 gating(裝了才有/預設顯示);checkPalDefender 重查後更新。
+  const [palDefender, setPalDefender] = useState(false);
   const enhancedMode = detail ? detail.flavor === "modded" : false;
-  const [hiddenTabs, setHiddenTabs] = useHiddenTabs(instanceId, enhancedMode);
+  // PalDefender 已安裝時,其分頁預設顯示(裝了反作弊插件卻找不到設定分頁很困惑;
+  // 只影響 paldefender 這一頁,不牽動其他強化分頁)。使用者仍可在「＋」面板手動隱藏。
+  const [hiddenTabs, setHiddenTabs] = useHiddenTabs(instanceId, enhancedMode, palDefender);
   const [tabOrder, setTabOrder] = useTabOrder(instanceId);
   // 「＋」快速開啟面板:列出被隱藏(且通過 gating)的分頁,點了立刻顯示並切換過去
   const [morePanel, setMorePanel] = useState(false);
@@ -91,7 +95,6 @@ export function InstanceDetailPage({
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savingWorld, setSavingWorld] = useState(false);
-  const [palDefender, setPalDefender] = useState(false);
   // 非 null 時代表正在倒數(數字為剩餘秒數),用來鎖按鈕與顯示提示。
   const [countdown, setCountdown] = useState<number | null>(null);
   // 倒數中的動作(停止/重啟):停止倒數時把「停止」鈕換成「立即停止」(再按一下跳過倒數)
