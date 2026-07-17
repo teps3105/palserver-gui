@@ -162,6 +162,66 @@ const AnnounceBody = z.object({
   immediate: z.boolean().optional(),
 });
 
+// WebSocket
+interface FeedSocket {
+  send: (data: string) => void;
+  readyState: number;
+  OPEN: number;
+  on: (event: "close", cb: () => void) => void;
+}
+
+// 每個實例共用一份輪詢、推播給所有訂閱的 WebSocket。
+function createInstanceFeed<T>(build: (rec: InstanceRecord) => Promise<T>, intervalMs: number) {
+  const sockets = new Map<string, Set<FeedSocket>>();
+  const timers = new Map<string, ReturnType<typeof setInterval>>();
+  const busy = new Set<string>();
+
+  const stop = (id: string): void => {
+    const timer = timers.get(id);
+    if (timer) clearInterval(timer);
+    timers.delete(id);
+  };
+
+  const ensure = (rec: InstanceRecord): void => {
+    if (timers.has(rec.id)) return;
+    const tick = async (): Promise<void> => {
+      const s = sockets.get(rec.id);
+      if (!s || s.size === 0) return;
+      if (busy.has(rec.id)) return;
+      busy.add(rec.id);
+      try {
+        const payload = JSON.stringify(
+          await build(rec).catch((err: Error) => ({ error: err.message })),
+        );
+        for (const socket of s) {
+          if (socket.readyState === socket.OPEN) socket.send(payload);
+        }
+      } finally {
+        busy.delete(rec.id);
+      }
+    };
+    void tick();
+    timers.set(rec.id, setInterval(() => void tick(), intervalMs));
+  };
+
+  return function subscribe(rec: InstanceRecord, socket: FeedSocket): void {
+    let s = sockets.get(rec.id);
+    if (!s) {
+      s = new Set();
+      sockets.set(rec.id, s);
+    }
+    s.add(socket);
+    ensure(rec);
+    socket.on("close", () => {
+      s!.delete(socket);
+      if (s!.size === 0) {
+        sockets.delete(rec.id);
+        stop(rec.id);
+      }
+    });
+  };
+}
+
 export function registerRoutes(
   app: FastifyInstance,
   store: InstanceStore,
@@ -1336,8 +1396,7 @@ export function registerRoutes(
   // 統一名冊:有開 PalDefender REST 就以它的 /players 為準(1.8+ 含離線玩家),
   // 用 agent 自己的紀錄補歷史欄位(首見/上線時長/等級);沒開就純用自己的紀錄。
   // PalDefender 沒列到、但自己看過的玩家也保留(舊版 PalDefender 只回在線時的兜底)。
-  app.get("/api/instances/:id/players/known", async (req) => {
-    const rec = getOr404((req.params as { id: string }).id);
+  const computeKnownPlayers = async (rec: InstanceRecord): Promise<KnownPlayer[]> => {
     const own = presence.knownPlayers(rec.id);
     const pd = await getPdPlayers(rec, ctxOf(rec));
     if (!pd.available) return own;
@@ -1360,6 +1419,11 @@ export function registerRoutes(
     });
     for (const leftover of byId.values()) merged.push(leftover);
     return merged;
+  };
+
+  app.get("/api/instances/:id/players/known", async (req) => {
+    const rec = getOr404((req.params as { id: string }).id);
+    return computeKnownPlayers(rec);
   });
 
   app.get("/api/instances/:id/players/events", async (req) => {
@@ -2257,5 +2321,25 @@ export function registerRoutes(
       })
       .catch((err: Error) => socket.close(1011, err.message.slice(0, 120)));
     socket.on("close", () => cleanup?.());
+  });
+
+  // 玩家頁面即時推播:合併 live/known/events/moderation
+  const subscribePlayerFeed = createInstanceFeed(async (rec) => {
+    const [live, known, events, mod] = await Promise.all([
+      Promise.resolve(getLiveStatus(rec)),
+      computeKnownPlayers(rec),
+      Promise.resolve(presence.events(rec.id, 50)),
+      getModerationLists(rec, ctxOf(rec)),
+    ]);
+    return { live, known, events, moderation: mod };
+  }, 5000);
+
+  app.get("/api/instances/:id/players/feed", { websocket: true }, (socket, req) => {
+    const rec = store.get((req.params as { id: string }).id);
+    if (!rec) {
+      socket.close(4004, "instance not found");
+      return;
+    }
+    subscribePlayerFeed(rec, socket);
   });
 }

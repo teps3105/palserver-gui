@@ -938,4 +938,12 @@ export class AgentClient {
       `${wsUrl}/api/instances/${id}/logs?token=${encodeURIComponent(this.conn.token)}&source=${source}`,
     );
   }
+
+  // 玩家頁面即時推播(合併live/known/events/moderation)。
+  playersFeedSocket(id: string): WebSocket {
+    const wsUrl = this.conn.url.replace(/^http/, "ws");
+    return new WebSocket(
+      `${wsUrl}/api/instances/${id}/players/feed?token=${encodeURIComponent(this.conn.token)}`,
+    );
+  }
 }
