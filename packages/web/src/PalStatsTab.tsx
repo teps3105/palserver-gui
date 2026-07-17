@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FiAlertTriangle, FiDownload, FiEdit2, FiList, FiStar, FiTrash2 } from "react-icons/fi";
+import { FiAlertTriangle, FiDownload, FiEdit2, FiList, FiRefreshCw, FiStar, FiTrash2 } from "react-icons/fi";
 import { GiSheep } from "react-icons/gi";
 import {
   hasFeature,
@@ -142,7 +142,7 @@ export function PalStatsTab({ client, instanceId }: { client: AgentClient; insta
     setError(null);
     try {
       await client.installPalSchema(instanceId);
-      setNotice(t("PalSchema 已安裝,伺服器下次啟動後生效"));
+      setNotice(t("PalSchema 已是最新版,伺服器下次啟動後生效"));
       setTimeout(() => setNotice(null), 4000);
       await refresh();
     } catch (err) {
@@ -228,7 +228,21 @@ export function PalStatsTab({ client, instanceId }: { client: AgentClient; insta
           </span>
         </p>
         {status.schema.installed && (
-          <div className={locked ? "pointer-events-none opacity-55" : ""}>
+          <div className={`flex flex-wrap items-center gap-2 ${locked ? "pointer-events-none opacity-55" : ""}`}>
+            {status.schema.version && (
+              <span className="rounded-full bg-card-soft px-2.5 py-1 font-mono text-xs text-ink-muted">
+                PalSchema {status.schema.version}
+              </span>
+            )}
+            <button
+              className={`${btnGhost} inline-flex items-center gap-1.5`}
+              onClick={install}
+              disabled={installing}
+              title={t("重新下載最新版 PalSchema 與相依的 UE4SS(遊戲改版後模組失效時先做這個)")}
+            >
+              <FiRefreshCw className={`size-4 ${installing ? "animate-spin" : ""}`} />
+              {installing ? t("更新中…") : t("更新 PalSchema")}
+            </button>
             <button
               className={`${btnGhost} inline-flex items-center gap-1.5 text-berry hover:border-berry`}
               onClick={uninstall}
@@ -350,17 +364,43 @@ export function PalStatsTab({ client, instanceId }: { client: AgentClient; insta
                               <p className="mt-1 max-w-xl text-xs text-ink-muted">{t(meta.hint)}</p>
                             )}
                           </div>
-                          <input
-                            type="number"
-                            className={`${inputCls} w-32 text-right`}
-                            value={draft[k]}
-                            placeholder={original?.[k] != null ? String(original[k]) : t("不覆寫")}
-                            title={original?.[k] != null ? t("原版數值:{v}(留空 = 不覆寫)", { v: String(original[k]) }) : undefined}
-                            min={meta.min}
-                            max={meta.max}
-                            step={meta.type === "float" ? (meta.step ?? 0.01) : 1}
-                            onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
-                          />
+                          <div className="flex items-center gap-1.5">
+                            {([0.5, 2] as const).map((mult) => {
+                              const base = draft[k].trim() !== "" ? Number(draft[k]) : original?.[k];
+                              const usable = base != null && Number.isFinite(base);
+                              return (
+                                <button
+                                  key={mult}
+                                  type="button"
+                                  className="rounded-lg border-2 border-line px-1.5 py-1 font-mono text-[11px] font-bold text-ink-muted transition hover:border-pal hover:text-ink disabled:pointer-events-none disabled:opacity-40"
+                                  disabled={!usable}
+                                  title={t("以目前值(未填則以原版值)為基準套倍率")}
+                                  onClick={() => {
+                                    if (!usable) return;
+                                    const raw = (base as number) * mult;
+                                    const v =
+                                      meta.type === "int"
+                                        ? Math.min(meta.max, Math.max(meta.min, Math.round(raw)))
+                                        : Math.min(meta.max, Math.max(meta.min, Number(raw.toFixed(2))));
+                                    setDraft((d) => ({ ...d, [k]: String(v) }));
+                                  }}
+                                >
+                                  ×{mult}
+                                </button>
+                              );
+                            })}
+                            <input
+                              type="number"
+                              className={`${inputCls} w-28 text-right`}
+                              value={draft[k]}
+                              placeholder={original?.[k] != null ? String(original[k]) : t("不覆寫")}
+                              title={original?.[k] != null ? t("原版數值:{v}(留空 = 不覆寫)", { v: String(original[k]) }) : undefined}
+                              min={meta.min}
+                              max={meta.max}
+                              step={meta.type === "float" ? (meta.step ?? 0.01) : 1}
+                              onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
+                            />
+                          </div>
                         </div>
                       );
                     })}
@@ -435,15 +475,32 @@ export function PalStatsTab({ client, instanceId }: { client: AgentClient; insta
                         </div>
                       </div>
                       <div className="flex flex-1 flex-wrap gap-1.5">
-                        {changed.map(([k, val]) => (
-                          <span
-                            key={k}
-                            className="rounded-full bg-card-soft px-2 py-0.5 text-[11px] text-ink-muted"
-                          >
-                            {t(PAL_STAT_OPTIONS[k].label)}{" "}
-                            <span className="font-mono font-bold text-ink">{val}</span>
-                          </span>
-                        ))}
+                        {changed.map(([k, val]) => {
+                          const orig = defaults?.[r.row]?.[k];
+                          const pct =
+                            orig != null && orig !== 0 && orig !== val
+                              ? Math.round(((val - orig) / orig) * 100)
+                              : null;
+                          return (
+                            <span
+                              key={k}
+                              className="rounded-full bg-card-soft px-2 py-0.5 text-[11px] text-ink-muted"
+                            >
+                              {t(PAL_STAT_OPTIONS[k].label)}{" "}
+                              {orig != null && orig !== val && (
+                                <>
+                                  <span className="font-mono">{orig}</span> →{" "}
+                                </>
+                              )}
+                              <span className="font-mono font-bold text-ink">{val}</span>
+                              {pct != null && (
+                                <span className={`font-mono font-bold ${pct > 0 ? "text-grass" : "text-berry"}`}>
+                                  {" "}{pct > 0 ? "+" : ""}{pct}%
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })}
                       </div>
                       {!locked && (
                         <button

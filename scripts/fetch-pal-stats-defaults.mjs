@@ -40,6 +40,22 @@ const LABEL_MAP = {
   RideSprintSpeed: "RideSprintSpeed",
 };
 
+/** 工作頁 href → uasset 鍵(paldb 未顯示 OilExtraction,該鍵無 placeholder)。 */
+const WORK_MAP = {
+  Kindling: "WorkSuitability_EmitFlame",
+  Watering: "WorkSuitability_Watering",
+  Planting: "WorkSuitability_Seeding",
+  Generating_Electricity: "WorkSuitability_GenerateElectricity",
+  Handiwork: "WorkSuitability_Handcraft",
+  Gathering: "WorkSuitability_Collection",
+  Lumbering: "WorkSuitability_Deforest",
+  Mining: "WorkSuitability_Mining",
+  Medicine_Production: "WorkSuitability_ProduceMedicine",
+  Cooling: "WorkSuitability_Cool",
+  Transporting: "WorkSuitability_Transport",
+  Farming: "WorkSuitability_MonsterFarm",
+};
+
 async function fetchPage(slug) {
   const res = await fetch(`https://paldb.cc/en/${slug}`, { headers: { "User-Agent": UA } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -63,6 +79,15 @@ function parsePage(html) {
     const key = LABEL_MAP[label];
     if (key && /^-?\d+(\.\d+)?$/.test(value)) stats[key] = Number(value);
   }
+  // 工作適性卡:列格式 <a href="Mining">…</a> + Lv</span>(<span …>)?N
+  for (const m of html.matchAll(
+    /<a href="([A-Za-z_]+)"><img[^>]*\/>\s*[A-Za-z_ ]+<\/a><\/div><div><span style="font-size:x-small">Lv<\/span>(?:<span[^>]*>)?(\d+)/g,
+  )) {
+    const key = WORK_MAP[m[1]];
+    if (key && stats[key] === undefined) stats[key] = Number(m[2]);
+  }
+  // 沒列出的工作 = 0(頁面只列 >0 的);有 Code 才代表是帕魯頁
+  if (code) for (const key of Object.values(WORK_MAP)) stats[key] ??= 0;
   return { code, stats };
 }
 
