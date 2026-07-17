@@ -24,6 +24,9 @@ export function ModInstallCard({
   onInstallBeta,
   onUninstall,
   uninstallLabel,
+  enabled,
+  onToggleEnabled,
+  latestVersion,
   note,
   children,
 }: {
@@ -48,6 +51,12 @@ export function ModInstallCard({
   onInstallBeta?: () => void;
   onUninstall?: () => void;
   uninstallLabel?: string;
+  /** 已安裝時的啟用狀態(false=已停用;undefined=不支援/舊 agent,不顯示)。 */
+  enabled?: boolean;
+  /** 停用/啟用切換(不刪檔,改名主 DLL)。 */
+  onToggleEnabled?: () => void;
+  /** 最新穩定版 tag:與 version 不同時顯示「有新版」徽章。 */
+  latestVersion?: string | null;
   /** 底部小字備註(desc 之後)。 */
   note?: React.ReactNode;
   /** 追加內容(警告區塊等),整寬顯示在 desc 與 note 之間。 */
@@ -63,6 +72,19 @@ export function ModInstallCard({
           <span className="inline-flex items-center gap-1 rounded-full border-[1.5px] border-grass/40 bg-grass/15 px-3 py-1 text-xs font-bold text-grass">
             <FiCheck className="size-3.5" />
             {t("已安裝")}{version ? ` ${version}` : ""}
+          </span>
+        )}
+        {installed && enabled === false && (
+          <span className="rounded-full border-[1.5px] border-line bg-card-soft px-3 py-1 text-xs font-bold text-ink-muted">
+            {t("已停用")}
+          </span>
+        )}
+        {installed && version && latestVersion && latestVersion !== version && (
+          <span
+            className="rounded-full border-[1.5px] border-sun/40 bg-sun/10 px-3 py-1 text-xs font-bold text-sun"
+            title={t("改版後模組常需更新才相容;按「更新到最新版」升級")}
+          >
+            {t("有新版 {v}", { v: latestVersion })}
           </span>
         )}
       </div>
@@ -90,6 +112,22 @@ export function ModInstallCard({
             title={running ? t("請先停止伺服器") : t("安裝最新測試版(含較新功能,可能不穩定)")}
           >
             {t("安裝測試版")}
+          </button>
+        )}
+        {installed && onToggleEnabled && (
+          <button
+            className={`${btnGhost} inline-flex items-center gap-1.5`}
+            onClick={onToggleEnabled}
+            disabled={busy || running}
+            title={
+              running
+                ? t("請先停止伺服器")
+                : enabled === false
+                  ? t("重新啟用(把 DLL 改回原名)")
+                  : t("暫時停用不刪檔:改版後模組不相容時的安全退路,Lua/設定檔都會保留")
+            }
+          >
+            {busy ? t("處理中…") : enabled === false ? t("啟用") : t("停用")}
           </button>
         )}
         {installed && onUninstall && (

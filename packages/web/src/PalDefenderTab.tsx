@@ -51,7 +51,25 @@ export function PalDefenderTab({
   const [rest, setRest] = useState<PdRestStatus | null>(null);
   // 版本管理(從「模組」分頁移來):更新到最新版 / 安裝測試版
   const [mods, setMods] = useState<ModsStatus | null>(null);
-  const [verBusy, setVerBusy] = useState<"stable" | "beta" | null>(null);
+  const [verBusy, setVerBusy] = useState<"stable" | "beta" | "toggle" | null>(null);
+
+  // 最新穩定版(「有新版」徽章)與停用/啟用
+  const [latest, setLatest] = useState<{ ue4ss: string | null; paldefender: string | null } | null>(null);
+  useEffect(() => {
+    client.modsLatest().then(setLatest).catch(() => {});
+  }, [client]);
+  const toggleEnabled = async () => {
+    if (!mods) return;
+    setVerBusy("toggle");
+    setError(null);
+    try {
+      setMods(await client.setModEnabled(instanceId, "paldefender", mods.paldefender.enabled === false));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setVerBusy(null);
+    }
+  };
 
   const refresh = useCallback(async () => {
     try {
@@ -136,6 +154,9 @@ export function PalDefenderTab({
       busyLabel={t("安裝中…")}
       onInstall={() => void installVersion("stable")}
       onInstallBeta={() => void installVersion("beta")}
+      enabled={mods?.paldefender.enabled}
+      onToggleEnabled={() => void toggleEnabled()}
+      latestVersion={latest?.paldefender}
       note={<>{t("「玩家細節(查看帕魯/背包)」需要 v1.8.0 以上的測試版才支援。")}{t("安裝或更新後,重啟伺服器才會生效。")}</>}
     />
   );

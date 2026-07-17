@@ -162,6 +162,9 @@ export function ModsTab({
         onInstall={() => void install("ue4ss")}
         onInstallBeta={() => void install("ue4ss", "beta")}
         onUninstall={() => void uninstall("ue4ss")}
+        enabled={mods.ue4ss.enabled}
+        onToggleEnabled={() => void setComponentEnabled("ue4ss", mods.ue4ss.enabled === false)}
+        latestVersion={latest?.ue4ss}
         note={t("安裝或更新後,重啟伺服器才會生效。")}
       />
       <div className={card}>
