@@ -54,8 +54,9 @@ export function InstanceDetailPage({
   const [tab, setTab] = useState<Tab>("overview");
   // 玩家詳情「據點跳地圖」:切到地圖分頁並聚焦座標(n 為 nonce,連點同一點也重觸發)
   const [mapFocus, setMapFocus] = useState<{ x: number; y: number; n: number } | null>(null);
-  // 分頁偏好每實例獨立;預設集合依模式(建立時選強化 or 實際裝了模組)
-  const enhancedMode = detail ? detail.flavor === "modded" || detail.enhancements.length > 0 : false;
+  // 分頁偏好每實例獨立;預設集合只看「建立時選的口味」——事後手動安裝模組
+  // 不改變預設可見分頁(避免裝完 PalDefender 分頁自己跳出來),要開去「＋」面板。
+  const enhancedMode = detail ? detail.flavor === "modded" : false;
   const [hiddenTabs, setHiddenTabs] = useHiddenTabs(instanceId, enhancedMode);
   const [tabOrder, setTabOrder] = useTabOrder(instanceId);
   // 「＋」快速開啟面板:列出被隱藏(且通過 gating)的分頁,點了立刻顯示並切換過去
