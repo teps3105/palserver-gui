@@ -23,6 +23,7 @@ export const EARLY_ACCESS_FEATURES: EarlyAccessFeature[] = [
   { id: "save-slim", label: "存檔健檢(組成分析 / 殘留統計)" },
   { id: "leaderboard", label: "伺服器排行榜(等級 / 財富 / 圖鑑 / 最強帕魯 + 掃描差異週報)" },
   { id: "map-unlocks", label: "存檔解鎖(全體玩家快速傳送全開)" },
+  { id: "breeding-calc", label: "配種計算(PalCalc 配種路線規劃 + 全服帕魯掃描)" },
   { id: "daily-restart", label: "每天多個固定時刻自動重啟(單一時刻免費;多時刻如 00:00/06:00/12:00/18:00)" },
 ];
 

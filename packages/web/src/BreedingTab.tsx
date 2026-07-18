@@ -1,14 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiGitBranch, FiMaximize2, FiRefreshCw, FiSearch, FiZoomIn, FiZoomOut } from "react-icons/fi";
 import { GiEggClutch } from "react-icons/gi";
-import type { SaveBreedingPal } from "@palserver/shared";
+import { hasFeature, type SaveBreedingPal } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { EntityPicker } from "./EntityPicker";
 import { MultiPicker } from "./MultiPicker";
 import { displayName, palIconUrl, useGameData, type GameData } from "./gameData";
 import { solveBreeding, type BreedingData, type BreedingNode } from "./breedingSolver";
 import { t, useI18n } from "./i18n";
-import { btn, btnGhost, card, errorCls, labelCls, Select } from "./ui";
+import { EmptyState, SponsorLockNotice, btn, btnGhost, card, errorCls, labelCls, Select } from "./ui";
+
+let recipesCache: BreedingData | null = null;
+async function loadBreedingData(): Promise<BreedingData> {
+  if (recipesCache) return recipesCache;
+  const response = await fetch("/game-data/breeding.json");
+  if (!response.ok) throw new Error(`breeding.json: HTTP ${response.status}`);
+  recipesCache = (await response.json()) as BreedingData;
+  return recipesCache;
+}
 
 const locationLabel: Record<SaveBreedingPal["location"], string> = {
   party: "隊伍",
@@ -239,16 +248,28 @@ export function BreedingTab({ client, instanceId }: { client: AgentClient; insta
   const [maxGenerations, setMaxGenerations] = useState(4);
   const [calculating, setCalculating] = useState(false);
   const [solution, setSolution] = useState<ReturnType<typeof solveBreeding> | null>(null);
+  const [entitled, setEntitled] = useState<boolean | null>(null);
+  const scanTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    client
+      .license()
+      .then((l) => setEntitled(hasFeature("breeding-calc", l)))
+      .catch(() => setEntitled(false));
+  }, [client]);
+  useEffect(
+    () => () => {
+      if (scanTimer.current) clearInterval(scanTimer.current);
+    },
+    [],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [snapshot, recipes] = await Promise.all([
         client.breedingSnapshot(instanceId),
-        fetch("/game-data/breeding.json").then((response) => {
-          if (!response.ok) throw new Error(`breeding.json: HTTP ${response.status}`);
-          return response.json() as Promise<BreedingData>;
-        }),
+        loadBreedingData(),
       ]);
       setBreedingData(recipes);
       setPals(snapshot.pals);
@@ -286,16 +307,24 @@ export function BreedingTab({ client, instanceId }: { client: AgentClient; insta
     try {
       await client.startSaveHealth(instanceId, worldGuid);
       await new Promise<void>((resolve) => {
-        const timer = setInterval(async () => {
+        let failures = 0;
+        scanTimer.current = setInterval(async () => {
           try {
             const status = await client.saveHealth(instanceId, worldGuid);
+            failures = 0;
             if (status.phase === "idle") {
-              clearInterval(timer);
+              if (scanTimer.current) clearInterval(scanTimer.current);
               if (status.error) setError(status.error);
               resolve();
             }
           } catch {
-            // A transient request failure should not abort a scan running on the agent.
+            // 掃描仍在 agent 上跑,單次查詢失敗不中斷;但連續失敗代表 agent 斷線,停止輪詢。
+            failures += 1;
+            if (failures >= 45) {
+              if (scanTimer.current) clearInterval(scanTimer.current);
+              setError(t("無法取得掃描狀態(與 agent 的連線中斷)。請重新整理後再試。"));
+              resolve();
+            }
           }
         }, 2000);
       });
@@ -310,7 +339,9 @@ export function BreedingTab({ client, instanceId }: { client: AgentClient; insta
   const calculate = async () => {
     if (!breedingData || !targetId) return;
     setCalculating(true);
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    // 雙層 rAF:第一層在本幀 paint 前執行,巢狀的第二層落在下一幀 —— 讓「計算中…」先繪製出來,
+    // 同步求解才不會把這格 paint 一起卡死(單層 rAF 的 resolve 仍在 paint 之前)。
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     try {
       setSolution(solveBreeding(breedingData, available, targetId, passives, maxGenerations));
     } finally {
@@ -318,6 +349,8 @@ export function BreedingTab({ client, instanceId }: { client: AgentClient; insta
     }
   };
 
+  if (entitled === false)
+    return <SponsorLockNotice>{t("這是贊助者先行版功能。到「設定 → 贊助者識別碼」輸入識別碼即可使用。")}</SponsorLockNotice>;
   if (loading && !breedingData) return <p className="text-ink-muted">{t("載入中…")}</p>;
 
   return (
@@ -356,7 +389,13 @@ export function BreedingTab({ client, instanceId }: { client: AgentClient; insta
         </label>
         <label className="flex flex-col gap-1.5">
           <span className={labelCls}>{t("使用範圍")}</span>
-          <Select value={ownerUid} onChange={(event) => setOwnerUid(event.target.value)}>
+          <Select
+            value={ownerUid}
+            onChange={(event) => {
+              setOwnerUid(event.target.value);
+              setSolution(null);
+            }}
+          >
             <option value="">{t("全服玩家的帕魯")}</option>
             {owners.map(([uid, name]) => <option key={uid} value={uid}>{name}</option>)}
           </Select>
@@ -376,7 +415,13 @@ export function BreedingTab({ client, instanceId }: { client: AgentClient; insta
         </div>
         <label className="flex flex-col gap-1.5">
           <span className={labelCls}>{t("最大配種代數")}</span>
-          <Select value={String(maxGenerations)} onChange={(event) => setMaxGenerations(Number(event.target.value))}>
+          <Select
+            value={String(maxGenerations)}
+            onChange={(event) => {
+              setMaxGenerations(Number(event.target.value));
+              setSolution(null);
+            }}
+          >
             {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{t("{n} 代", { n })}</option>)}
           </Select>
         </label>
@@ -395,15 +440,18 @@ export function BreedingTab({ client, instanceId }: { client: AgentClient; insta
       )}
 
       {solution && !solution.target && (
-        <div className="rounded-md border-2 border-dashed border-line px-6 py-10 text-center text-ink-muted">
-          <GiEggClutch className="mx-auto mb-2 size-11" />
-          <p className="font-bold text-ink">{t("在 {n} 代內找不到路徑", { n: maxGenerations })}</p>
-          <p className="mt-1 text-xs">{t("已從現有帕魯推導出 {n} 個可達物種。可增加代數、擴大玩家範圍或減少目標詞條。", { n: solution.reachableSpecies })}</p>
-        </div>
+        <EmptyState icon={<GiEggClutch />} title={t("在 {n} 代內找不到路徑", { n: maxGenerations })}>
+          {t("已從現有帕魯推導出 {n} 個可達物種。可增加代數、擴大玩家範圍或減少目標詞條。", { n: solution.reachableSpecies })}
+        </EmptyState>
       )}
 
       {solution?.target && solution.target.generation > 0 && (
-        <BreedingTree target={solution.target} data={gameData} desired={passives} />
+        <>
+          <BreedingTree target={solution.target} data={gameData} desired={passives} />
+          <p className="text-center text-xs text-ink-muted">
+            {t("路線圖顯示詞條的可能繼承路徑;實際遺傳有機率成分,通常需要重複配種幾次才能讓子代集齊全部目標詞條。")}
+          </p>
+        </>
       )}
 
       <p className="text-center text-[11px] text-ink-muted">

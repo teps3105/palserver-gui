@@ -74,8 +74,8 @@ function compatibleParents(a: BreedingNode, requiredA: BreedingGender, b: Breedi
 }
 
 /**
- * PalCalc 配方上的有界动态规划。先最小化最长代数，再最小化整棵树的配种次数；
- * 词条按游戏的“双亲词条去重后继承”规则合并。新生帕鲁视为可孵出任一性别。
+ * PalCalc 配方上的有界動態規劃。先最小化最長代數,再最小化整棵樹的配種次數;
+ * 詞條按遊戲的「雙親詞條去重後繼承」規則合併。新生帕魯視為可孵出任一性別。
  */
 export function solveBreeding(
   data: BreedingData,
@@ -155,16 +155,3 @@ export function solveBreeding(
   return { target: candidates[0] ?? null, reachableSpecies: new Set([...states.values()].map((n) => n.species)).size };
 }
 
-/** 依代数排序并去掉共享子树的重复步骤，供 UI 显示执行清单。 */
-export function breedingSteps(target: BreedingNode): BreedingNode[] {
-  const seen = new Set<BreedingNode>();
-  const result: BreedingNode[] = [];
-  const visit = (node: BreedingNode) => {
-    if (seen.has(node)) return;
-    seen.add(node);
-    node.parents?.forEach(visit);
-    if (node.parents) result.push(node);
-  };
-  visit(target);
-  return result.sort((a, b) => a.generation - b.generation);
-}
