@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FiRefreshCw, FiMap, FiX, FiHome, FiUsers, FiStar, FiMoon, FiMapPin, FiExternalLink, FiZap, FiGlobe } from "react-icons/fi";
-import { GiCrownedSkull, GiCastle } from "react-icons/gi";
+import { GiCrownedSkull } from "react-icons/gi";
 import * as L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
   assignReportedBosses,
   bossRespawnInfo,
-  bossStateMapCoord,
-  dungeonBossInfo,
   guildColorFromId,
   hashSeed,
   isWorldTreeCoord,
@@ -16,7 +14,6 @@ import {
   savToWorldTreeMap,
   type BossRespawnState,
   type BossRespawnStatus,
-  type DungeonBossEntry,
   type LiveStatus,
   type RestPlayer,
   type PdGuild,
@@ -189,9 +186,6 @@ export function MapTab({
   // 頭目重生狀態(boss-respawn 模組回報;贊助者先行功能,無 feature/模組未安裝時
   // client.bossRespawns 回 supported:false/state:null,疊加層自然不顯示)。
   const [bossRespawns, setBossRespawns] = useState<BossRespawnStatus | null>(null);
-  // 固定地城→頭目帕魯對照(dungeon-bosses.json,已是主世界地圖座標,18 座)。
-  const [dungeonBosses, setDungeonBosses] = useState<Boss[]>([]);
-  const [showDungeons, setShowDungeons] = useState(false);
   // 世界樹的靜態圖層資料(worldtree-*.json;缺檔=舊資料包,圖層開關自動消失)
   const [treeLandmarks, setTreeLandmarks] = useState<Landmark[]>([]);
   const [treeBosses, setTreeBosses] = useState<Boss[]>([]);
@@ -256,10 +250,6 @@ export function MapTab({
       .then((r) => (r.ok ? (r.json() as Promise<Boss[]>) : []))
       .then((d) => setTreeBosses(Array.isArray(d) ? d : []))
       .catch(() => setTreeBosses([]));
-    fetch("/game-data/dungeon-bosses.json")
-      .then((r) => (r.ok ? (r.json() as Promise<Boss[]>) : []))
-      .then((d) => setDungeonBosses(Array.isArray(d) ? d : []))
-      .catch(() => setDungeonBosses([]));
   }, []);
 
   const refresh = useCallback(async () => {
@@ -393,26 +383,6 @@ export function MapTab({
                 <FiStar className="size-3.5 text-pal" />
               </button>
             ))}
-          {world === "main" &&
-            dungeonBosses.length > 0 &&
-            (guildsUnlocked ? (
-              <button
-                className={`${btnGhost} inline-flex items-center gap-1.5 ${showDungeons ? "border-pal text-pal" : "opacity-60"}`}
-                onClick={() => setShowDungeons((v) => !v)}
-              >
-                <GiCastle className="size-4" /> {t("地下城頭目")}
-                <FiStar className="size-3.5 text-pal" />
-              </button>
-            ) : (
-              <button
-                className={`${btnGhost} inline-flex items-center gap-1.5 opacity-70`}
-                title={t("此功能為贊助者專屬功能,可在設定頁輸入贊助者識別碼解鎖。")}
-                onClick={() => setGuildHint((v) => !v)}
-              >
-                <GiCastle className="size-4" /> {t("地下城頭目")}
-                <FiStar className="size-3.5 text-pal" />
-              </button>
-            ))}
         </div>
         <div className="flex gap-2">
           {!fullscreen && (
@@ -451,7 +421,6 @@ export function MapTab({
           landmarks={curLandmarks}
           bosses={curBosses}
           bossState={bossRespawns?.state ?? null}
-          dungeonBosses={world === "main" ? dungeonBosses : []}
           focus={focus}
           lang={lang}
           showPlayers={showPlayers}
@@ -459,7 +428,6 @@ export function MapTab({
           showBases={showBases}
           showLandmarks={showLandmarks}
           showBosses={showBosses}
-          showDungeons={showDungeons}
           gameData={gameData}
           onGuildClick={(id) => {
             // 免費用戶:REST 公會詳情被 agent 端 403(guild-map),直接走存檔版
@@ -849,7 +817,6 @@ function PlayerMap({
   landmarks,
   bosses,
   bossState,
-  dungeonBosses,
   focus,
   lang,
   showPlayers,
@@ -857,7 +824,6 @@ function PlayerMap({
   showBases,
   showLandmarks,
   showBosses,
-  showDungeons,
   gameData,
   onGuildClick,
   onPlayerClick,
@@ -872,8 +838,6 @@ function PlayerMap({
   bosses: Boss[];
   /** 頭目重生模組回報的最新狀態(null=無資料/未授權/模組未安裝;疊加層自然不顯示)。 */
   bossState: BossRespawnState | null;
-  /** 固定地城頭目對照表(dungeon-bosses.json,已是主世界地圖座標;非主世界時傳空陣列)。 */
-  dungeonBosses: Boss[];
   /** 公會詳情點成員後要跳到的地圖座標(n 為 nonce,同點重點也會觸發)。 */
   focus: { x: number; y: number; n: number } | null;
   lang: "zh" | "zh-CN" | "en" | "ja";
@@ -882,7 +846,6 @@ function PlayerMap({
   showBases: boolean;
   showLandmarks: boolean;
   showBosses: boolean;
-  showDungeons: boolean;
   gameData: GameData | null;
   onGuildClick?: (guildId: string) => void;
   /** Open the full player-detail view (same as the player list). */
@@ -1093,64 +1056,6 @@ function PlayerMap({
       }
     }
 
-    // Dungeon bosses: fixed-dungeon catalog (dungeon-bosses.json, main-world map
-    // coords only), rendered with the same boss divIcon pattern but a distinct
-    // amber frame + badge, so the layer reads apart from field/sealed wild bosses.
-    if (showDungeons) {
-      const DS = 36;
-      const reportedDungeons = bossState?.dungeons ?? [];
-      const dNowSec = Math.floor(Date.now() / 1000);
-      const matchDungeon = (c: Boss): DungeonBossEntry | null => {
-        let best: DungeonBossEntry | null = null;
-        let bd = 40;
-        for (const d of reportedDungeons) {
-          const m = bossStateMapCoord(d);
-          const dist = Math.hypot(m.x - c.x, m.y - c.y);
-          if (dist <= bd) {
-            bd = dist;
-            best = d;
-          }
-        }
-        return best;
-      };
-      for (const c of dungeonBosses) {
-        const matched = matchDungeon(c);
-        const info = matched ? dungeonBossInfo(matched, dNowSec) : null;
-        const dead = info?.status === "dead";
-        const iconUrl = c.icon ? palIconUrl(c.icon) : null;
-        const icon = L.divIcon({
-          className: "pmap-boss-wrap",
-          iconSize: [DS, DS],
-          iconAnchor: [DS / 2, DS / 2],
-          tooltipAnchor: [0, -DS / 2],
-          html:
-            `<span class="pmap-boss pmap-boss-dungeon${dead ? " pmap-boss-dead" : ""}" style="width:${DS}px;height:${DS}px">` +
-            (iconUrl ? `<img src="${escapeHtml(iconUrl)}" alt="" />` : "") +
-            `<span class="pmap-boss-badge pmap-boss-badge-dungeon">` +
-            `<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M4 21V10l8-6 8 6v11h-6v-6H10v6z"/></svg>` +
-            `</span>` +
-            (c.lv ? `<span class="pmap-boss-lv pmap-boss-lv-dungeon">${c.lv}</span>` : "") +
-            `</span>`,
-        });
-        L.marker([c.y, c.x], { icon, riseOnHover: true })
-          .bindTooltip(
-            `<div style="font-weight:800">${escapeHtml(
-              (lang === "zh-CN" ? c.name["zh-CN"] ?? c.name.zhCN : c.name[lang]) || c.name.en,
-            )}</div>` +
-              `<div>${t("地下城頭目")}${c.lv ? ` · Lv.${c.lv}` : ""}</div>` +
-              (dead
-                ? `<div>${
-                    info && info.secondsLeft !== null && info.secondsLeft > 0
-                      ? t("重生倒數 {c}", { c: fmtCountdown(info.secondsLeft) })
-                      : t("應已重生")
-                  }</div>`
-                : ""),
-            { direction: "top", className: "pmap-detail" },
-          )
-          .addTo(group);
-      }
-    }
-
     // Guild bases first (under players). world_pos → savToMap, same frame.
     // The whole guild feature is sponsor-only, so if we have any guild data the
     // viewer is a sponsor — bases are always coloured, named, and clickable.
@@ -1269,14 +1174,12 @@ function PlayerMap({
     landmarks,
     bosses,
     bossState,
-    dungeonBosses,
     lang,
     showPlayers,
     showOffline,
     showBases,
     showLandmarks,
     showBosses,
-    showDungeons,
     gameData,
     world,
   ]);
