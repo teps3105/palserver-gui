@@ -126,7 +126,7 @@ curl -X POST https://palserver-stats.iosoftware.workers.dev/api/license/issue \
    npx wrangler secret put AFDIAN_TOKEN      # 開發者頁生成的 API Token
    # 選填:只認特定包月方案(逗號分隔 plan_id);未設=所有常規方案(product_type=0)都算贊助
    #   [vars] AFDIAN_PLAN_IDS = "planid1,planid2"
-   # 選填:API 網域,預設 https://afdian.net;帳號在 ifdian.net 若 afdian.net 不通可覆寫
+   # API 網域:舊域 afdian.net 已停用(DNS 解不到),預設走 afdian.com;帳號在 ifdian.net 用它:
    #   [vars] AFDIAN_API_BASE = "https://ifdian.net"
    ```
 
@@ -134,7 +134,10 @@ curl -X POST https://palserver-stats.iosoftware.workers.dev/api/license/issue \
    (前端此入口只在 UI 語言切到**簡體中文**時顯示)。
 
 > `AFDIAN_USER_ID` / `AFDIAN_TOKEN` 任一沒設,webhook 與 redeem 一律拒絕(不無驗證發碼)。
-> 新增 `ext_id` 欄與 `afdian_orders` / `afdian_reg` 表:舊 DB 跑 `pnpm db:schema` 補上(見 schema.sql)。
+> 遷移:schema.sql 對既有 `licenses` 表的 `CREATE IF NOT EXISTS` 是 no-op、加 `ext_id` 欄的那行是註解,
+> 所以既有 DB 要**先手動加欄再跑 schema**(否則 ext_id 唯一索引會因缺欄失敗):
+> `wrangler d1 execute palserver-stats --remote --command "ALTER TABLE licenses ADD COLUMN ext_id TEXT;"`
+> 然後 `pnpm db:schema` 建 `afdian_orders` / `afdian_reg` 表與索引。
 > query-order 回查路徑(webhook 驗真、redeem 未命中)有 per-IP 節流(60 次/小時),擋惡意刷爆 API 配額。
 
 ### 管理 CLI(`manage.mjs`)

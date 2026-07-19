@@ -28,7 +28,8 @@ export interface Env {
   AFDIAN_TOKEN?: string;
   /** 選填:逗號分隔的包月方案 plan_id 白名單;未設=所有常規方案(product_type=0)都算贊助。 */
   AFDIAN_PLAN_IDS?: string;
-  /** 選填:愛發電開放 API 網域,預設 https://afdian.net;帳號在 ifdian.net 可覆寫成 https://ifdian.net。 */
+  /** 選填:愛發電開放 API 網域,預設 https://afdian.com(舊域 afdian.net 已停用);
+   *  帳號在 ifdian.net 可覆寫成 https://ifdian.net。三者同一套系統。 */
   AFDIAN_API_BASE?: string;
   /** Brevo(app.brevo.com)交易信 API key(wrangler secret put BREVO_API_KEY);沒設就不寄碼(仍會建碼)。 */
   BREVO_API_KEY?: string;
@@ -830,7 +831,7 @@ interface AfdianOrder {
  *  sign = md5(token + "params" + params + "ts" + ts + "user_id" + user_id)。 */
 async function afdianQueryOrder(env: Env, outTradeNo: string): Promise<AfdianOrder | null> {
   if (!env.AFDIAN_USER_ID || !env.AFDIAN_TOKEN) return null;
-  const base = (env.AFDIAN_API_BASE ?? "https://afdian.net").replace(/\/+$/, "");
+  const base = (env.AFDIAN_API_BASE ?? "https://afdian.com").replace(/\/+$/, "");
   const params = JSON.stringify({ out_trade_no: outTradeNo });
   const ts = Math.floor(Date.now() / 1000);
   const sign = await md5Hex(
