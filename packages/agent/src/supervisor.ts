@@ -157,8 +157,10 @@ export class RestartSupervisor {
     state.events.push(event);
     if (state.events.length > MAX_EVENTS) state.events = state.events.slice(-MAX_EVENTS);
     this.writeState(id, state);
-    // 這裡是所有重啟事件(crash / scheduled / memory / manual / startup-failure)的
-    // 唯一寫入點 —— 一處 emit 即覆蓋全部,推給 webhook。
+    // native 的崩潰由 native driver 的 child exit 事件即時發 server.crash(更準),這裡不重複發;
+    // 其餘(scheduled/memory/manual=restart、startup-failure)仍由這裡發,docker/k8s 的 crash 也由這裡發。
+    if (event.reason === "crash" && this.store.get(id)?.backend === "native") return;
+    // 這裡是重啟/啟動失敗事件的唯一寫入點 —— 一處 emit 覆蓋 restart / startup-failure(+ 非 native crash)。
     const type: WebhookEventType =
       event.reason === "crash"
         ? "server.crash"
@@ -227,7 +229,9 @@ export class RestartSupervisor {
     const state = this.readState(rec.id);
     const now = new Date();
     const { status } = await driver.status(rec, ctx);
-    this.emitStatusTransition(rec.id, status);
+    // native 由 native driver 直接發精準的生命週期事件(starting/running/exited/crash,見 native.ts);
+    // 這裡的輪詢轉移只給 docker/k8s 兜底(它們沒有 child handle / REST 探測那條路)。
+    if (rec.backend !== "native") this.emitStatusTransition(rec.id, status);
     this.emitUpdateTransition(rec, ctx);
 
     if (status !== "running") {

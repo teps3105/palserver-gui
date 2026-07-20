@@ -10,6 +10,7 @@ import type { InstanceRecord } from "./store.js";
 import { renderPalWorldSettingsIni, diffIniAgainstSnapshot } from "./settings-ini.js";
 import { mergeEnginePatch } from "./engine-ini-merge.js";
 import { rest } from "./restapi.js";
+import { emitAgentEvent } from "./events.js";
 import { DATA_DIR } from "./env.js";
 
 const execFileP = promisify(execFile);
@@ -707,6 +708,61 @@ async function getNativeStatus(
   return { status: "created", runtimeId: null };
 }
 
+// ── 精準的伺服器生命週期 webhook 事件(取代 supervisor 30s 輪詢的粗略判斷)──
+// starting:spawn 當下發。running:啟動後探測遊戲 REST /info,第一次通=真的可連才發。
+// exited/crash:child exit 事件即時發,靠 expectedStops 分辨「我們要求的停止」vs 崩潰。
+// agent 重啟後 detached 存活的行程沒有 child handle → 由 supervisor 輪詢兜底(見 supervisor.ts)。
+type ServerChild = ReturnType<typeof spawn>;
+const serverChildren = new Map<string, ServerChild>();
+const expectedStops = new Set<string>();
+const readyProbes = new Map<string, NodeJS.Timeout>();
+const READY_PROBE_MS = 3_000;
+const READY_PROBE_MAX = 40; // 逾此(~2 分鐘)即使 REST 未通也兜底發一次 running
+
+/** child 結束時判定「正常停止」vs「崩潰」:被我們要求停 或 exit code 0 = 正常;被 signal 砍
+ *  或 exit code 非 0 = 崩潰。純函式,方便測試。 */
+export function classifyServerExit(
+  code: number | null,
+  signal: NodeJS.Signals | null,
+  expected: boolean,
+): "exited" | "crash" {
+  if (expected) return "exited";
+  if (signal) return "crash";
+  return code === 0 ? "exited" : "crash";
+}
+
+/** 啟動後每 3s 探測遊戲 REST /info;第一次成功 = 遊戲真的可連 → 發 server.running。
+ *  逾時(REST/RCON 未開)兜底發一次。行程中途結束由 exit handler 取消本探測。 */
+function startReadyProbe(rec: InstanceRecord): void {
+  const existing = readyProbes.get(rec.id);
+  if (existing) clearInterval(existing);
+  let attempts = 0;
+  const timer = setInterval(() => {
+    void (async () => {
+      attempts += 1;
+      let version: string | undefined;
+      let reachable = false;
+      try {
+        const info = await rest.info(rec);
+        reachable = !!info;
+        version = info?.version;
+      } catch {
+        reachable = false;
+      }
+      if (!readyProbes.has(rec.id)) return; // 已被 exit handler 取消
+      if (reachable || attempts >= READY_PROBE_MAX) {
+        clearInterval(timer);
+        readyProbes.delete(rec.id);
+        if (serverChildren.has(rec.id)) {
+          emitAgentEvent("server.running", rec.id, version ? { version } : {});
+        }
+      }
+    })();
+  }, READY_PROBE_MS);
+  timer.unref();
+  readyProbes.set(rec.id, timer);
+}
+
 async function spawnServer(rec: InstanceRecord, ctx: DriverContext): Promise<void> {
   writeIni(rec, ctx);
   const root = serverRoot(rec, ctx);
@@ -751,6 +807,24 @@ async function spawnServer(rec: InstanceRecord, ctx: DriverContext): Promise<voi
   // 記下 PID + 建立時間當身分指紋,之後 isAlive/停止前都靠它辨認,避免 PID 重用誤殺。
   const id = await processIdentity(child.pid).catch(() => null);
   writePidRecord(ctx, { pid: child.pid, startedAt: id?.startedAt ?? null });
+
+  // 精準生命週期:spawn = starting;掛 exit 事件即時判 exited/crash;啟動 REST readiness 探測。
+  emitAgentEvent("server.starting", rec.id, {});
+  serverChildren.set(rec.id, child);
+  child.on("exit", (code, signal) => {
+    if (serverChildren.get(rec.id) === child) serverChildren.delete(rec.id);
+    const probe = readyProbes.get(rec.id);
+    if (probe) {
+      clearInterval(probe);
+      readyProbes.delete(rec.id);
+    }
+    const kind = classifyServerExit(code, signal, expectedStops.delete(rec.id));
+    emitAgentEvent(kind === "crash" ? "server.crash" : "server.exited", rec.id, {
+      code: code ?? undefined,
+      ...(kind === "crash" && signal ? { detail: `signal ${signal}` } : {}),
+    });
+  });
+  startReadyProbe(rec);
 }
 
 /** 每實例的 CPU 取樣歷史(instanceDir → 上一筆);行程結束就清掉。 */
@@ -905,6 +979,9 @@ export const nativeDriver: ServerDriver = {
       return;
     }
 
+    // 這是我們主動要求的停止:標記一下,讓 child exit handler 把退出判為正常(exited)而非崩潰。
+    expectedStops.add(rec.id);
+
     if (await requestGracefulShutdown(rec)) {
       // 等它自己收 —— 這期間用便宜的 isAlive 即可:行程還活著就不可能被重用。
       for (let i = 0; i < 20 && isAlive(pid); i++) {
@@ -943,6 +1020,11 @@ export const nativeDriver: ServerDriver = {
     }
     fs.rmSync(pidFile(ctx), { force: true });
     await sweepLeftovers();
+    // agent 重啟後 detached 存活的行程沒有 child handle → exit event 不會發,這裡兜底補一次
+    // server.exited;有 handle 的正常情況由 exit handler 發(此條件為 false,不會重複)。
+    if (!serverChildren.has(rec.id) && expectedStops.delete(rec.id)) {
+      emitAgentEvent("server.exited", rec.id, {});
+    }
   },
 
   async remove(rec, ctx) {
