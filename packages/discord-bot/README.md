@@ -6,39 +6,34 @@ palserver-GUI 官方 Discord bot:在 Discord 用 slash 指令回控 Palworld 伺
 
 這個套件同時也是**第三方串接 agent REST API 的參考實作**:如果你想串自己的機器人或工具,`src/agent.ts` 示範了完整的認證方式與各端點呼叫方法。
 
-## 需求
+> **想要零設定?同機部署直接用 GUI 的「Discord Bot」分頁** —— 貼上 bot token 就好,agent 會
+> 幫你把 bot 跑起來,不用碰這個套件、不用 Docker/Node。下面這套是給**跨機部署**、或想自己
+> 客製 / 當第三方串接範例的人用的。
 
-- Node.js 22、pnpm(repo 根目錄已設定 workspace)
-- 一個已在跑的 palserver agent,且知道它的 `AGENT_TOKEN`
+## 需求(手動 / 跨機部署)
+
+- 一個已在跑的 palserver agent
 - 一個 Discord Application + Bot(下方步驟會建)
+- 執行環境:Docker,或 Node.js 22 + pnpm(repo workspace)
 
 ## 設定步驟
 
 1. **建立 Discord Application 與 Bot**
-   到 [Discord Developer Portal](https://discord.com/developers/applications) 建立新 Application →
-   左側「Bot」分頁按 Reset Token 取得 **DISCORD_TOKEN**;Application 首頁最上方是 **DISCORD_CLIENT_ID**。
-   Bot 分頁把不必要的 Privileged Gateway Intents 全部關閉(這個 bot 不需要任何特權 intent)。
+   到 [Discord Developer Portal](https://discord.com/developers/applications) 建立 Application →
+   左側「Bot」分頁按 Reset Token 取得 **DISCORD_TOKEN**。不需要任何 Privileged Gateway Intents(全關)。
 
 2. **把 bot 邀進你的伺服器**
    用「OAuth2 → URL Generator」勾 `bot` + `applications.commands`,權限至少給 `Send Messages`,
-   產生連結開啟並選擇伺服器。開發者模式下右鍵伺服器圖示「複製伺服器 ID」得到 **DISCORD_GUILD_ID**。
+   開啟產生的連結並選擇伺服器。(**不用**複製伺服器 ID —— bot 上線會自動把指令註冊到它所在的每個伺服器。)
 
-3. **拿 AGENT_TOKEN**
-   agent 主機 data-dir 底下的 `token` 檔(原生預設 `~/.palserver-agent/token`),或用 GUI 設定頁的配對碼
-   在瀏覽器配對一次,同一份 token 就會寫進那個檔案。詳見 `.env.example` 裡的說明。
+3. **填 `.env`**
+   複製 `.env.example` 成 `.env`,填入 `DISCORD_TOKEN`。同機部署其餘留空即可;跨機才需要
+   `AGENT_URL`(agent 主機位址)與 `AGENT_TOKEN`(可在 GUI 的「Discord Bot」分頁直接複製)。
 
-4. **填 `.env`**
-   複製 `.env.example` 成 `.env`,填入上面幾步取得的值。
-
-5. **註冊 slash 指令**(每次改動指令定義都要重跑一次)
-   ```bash
-   pnpm --filter @palserver/discord-bot deploy-commands
-   ```
-
-6. **啟動**
-   - 開發:`pnpm --filter @palserver/discord-bot dev`
+4. **啟動**(slash 指令會在 bot 上線時自動註冊,沒有額外步驟)
    - Docker:`cd packages/discord-bot && docker compose up -d --build`
    - 純 Node:`pnpm --filter @palserver/discord-bot build && pnpm --filter @palserver/discord-bot start`
+   - 開發:`pnpm --filter @palserver/discord-bot dev`
 
 ## 指令列表
 

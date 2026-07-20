@@ -27,7 +27,8 @@ async function agentRequest<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       headers: {
         "content-type": "application/json",
-        authorization: `Bearer ${config.agentToken}`,
+        // 同機部署連 127.0.0.1 時 agent 免 token(loopback),AGENT_TOKEN 留空就不帶 header。
+        ...(config.agentToken ? { authorization: `Bearer ${config.agentToken}` } : {}),
         ...(init?.headers ?? {}),
       },
     });
