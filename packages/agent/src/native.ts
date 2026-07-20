@@ -808,7 +808,7 @@ async function spawnServer(rec: InstanceRecord, ctx: DriverContext): Promise<voi
   const id = await processIdentity(child.pid).catch(() => null);
   writePidRecord(ctx, { pid: child.pid, startedAt: id?.startedAt ?? null });
 
-  // 精準生命週期:spawn = starting;掛 exit 事件即時判 exited/crash;啟動 REST readiness 探測。
+  // 精準生命週期:spawn = starting;掛 exit 事件;啟動 REST readiness 探測。
   emitAgentEvent("server.starting", rec.id, {});
   serverChildren.set(rec.id, child);
   child.on("exit", (code, signal) => {
@@ -818,13 +818,43 @@ async function spawnServer(rec: InstanceRecord, ctx: DriverContext): Promise<voi
       clearInterval(probe);
       readyProbes.delete(rec.id);
     }
-    const kind = classifyServerExit(code, signal, expectedStops.delete(rec.id));
-    emitAgentEvent(kind === "crash" ? "server.crash" : "server.exited", rec.id, {
-      code: code ?? undefined,
-      ...(kind === "crash" && signal ? { detail: `signal ${signal}` } : {}),
-    });
+    if (expectedStops.delete(rec.id)) {
+      // 我們主動要求的停止(且已 sweep 殘留行程)→ 直接發 exited。
+      emitAgentEvent("server.exited", rec.id, { code: code ?? undefined });
+    } else {
+      // 非預期退出:child exit 未必代表伺服器真的掛了(Windows 上 shipping 可能 spawn 真正的
+      // 伺服器子行程後自己退出、或啟動途中 re-exec 換 PID)。先確認再發,避免誤報「已停止」。
+      void verifyThenEmitExit(rec, ctx, code, signal);
+    }
   });
   startReadyProbe(rec);
+}
+
+/** child exit 後,以 getNativeStatus(GUI 也用它,是可靠來源)確認伺服器是否真的掛了才發 exited/crash;
+ *  仍在跑(re-exec/子行程接手)就當誤報、不發。等幾秒讓過渡狀態落定。 */
+async function verifyThenEmitExit(
+  rec: InstanceRecord,
+  ctx: DriverContext,
+  code: number | null,
+  signal: NodeJS.Signals | null,
+): Promise<void> {
+  for (let i = 0; i < 5; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    let status: InstanceStatus;
+    try {
+      status = (await getNativeStatus(rec, ctx)).status;
+    } catch {
+      continue;
+    }
+    if (status === "running") return; // 其實還活著 → 誤報,不發
+    // 非 running 且非過渡態(starting/restarting/installing)→ 確定掛了,跳出去發。
+    if (status !== "starting" && status !== "restarting" && status !== "installing") break;
+  }
+  const kind = classifyServerExit(code, signal, false);
+  emitAgentEvent(kind === "crash" ? "server.crash" : "server.exited", rec.id, {
+    code: code ?? undefined,
+    ...(kind === "crash" && signal ? { detail: `signal ${signal}` } : {}),
+  });
 }
 
 /** 每實例的 CPU 取樣歷史(instanceDir → 上一筆);行程結束就清掉。 */

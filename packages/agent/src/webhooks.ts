@@ -28,7 +28,7 @@ import { featureEnabled } from "./license.js";
  * 即使有人繞過 UI 直接改 JSON,未授權也不會送出。
  */
 
-const FETCH_TIMEOUT_MS = 8_000;
+const FETCH_TIMEOUT_MS = 15_000; // Discord/遠端經 Tailscale 偶有延遲,給多點餘裕(失敗仍有重試佇列)
 const RETRY_TICK_MS = 30_000;
 const MAX_ATTEMPTS = 6;
 const MAX_QUEUE_AGE_MS = 24 * 60 * 60_000;
@@ -262,13 +262,14 @@ export class WebhooksService {
    *  (含記錄/入佇列),測試可 await。 */
   dispatchEvent(ev: AgentEvent): Promise<void> {
     if (!this.featureEnabledFn()) return Promise.resolve();
-    return this.serialize(ev.instanceId, async () => {
-      const cfg = readConfig(this.store, ev.instanceId);
-      const matched = cfg.webhooks.filter((w) => w.enabled && eventMatches(w.events, ev.type));
-      if (!matched.length) return;
-      const name = this.store.get(ev.instanceId)?.name ?? ev.instanceId;
-      const rt = readRuntime(this.store, ev.instanceId);
-      for (const wh of matched) {
+    const cfg = readConfig(this.store, ev.instanceId);
+    const matched = cfg.webhooks.filter((w) => w.enabled && eventMatches(w.events, ev.type));
+    if (!matched.length) return Promise.resolve();
+    const name = this.store.get(ev.instanceId)?.name ?? ev.instanceId;
+    // 每個 webhook 平行送出、且「不在網路請求期間佔序列化鎖」——一筆慢(甚至 timeout)不會拖垮
+    // 其他 webhook 或後續事件;只在寫 runtime 狀態(記錄/入佇列)時才短暫佔鎖避免並行互蓋。
+    return Promise.all(
+      matched.map(async (wh) => {
         const env: WebhookEnvelope = {
           id: genId(wh.id), // delivery id 以 webhook id 為前綴,方便回查該 webhook 的送出紀錄
           type: ev.type,
@@ -278,19 +279,22 @@ export class WebhooksService {
           data: ev.data,
         };
         const res = await deliver(wh, env, this.agentVersion);
-        this.record(rt, env, res, 1);
-        if (!res.ok) {
-          rt.queue.push({
-            webhookId: wh.id,
-            envelope: env,
-            attempts: 1,
-            nextAttemptAt: Date.now() + backoffMs(1),
-            firstTriedAt: Date.now(),
-          });
-        }
-      }
-      writeRuntime(this.store, ev.instanceId, rt);
-    });
+        await this.serialize(ev.instanceId, async () => {
+          const rt = readRuntime(this.store, ev.instanceId);
+          this.record(rt, env, res, 1);
+          if (!res.ok) {
+            rt.queue.push({
+              webhookId: wh.id,
+              envelope: env,
+              attempts: 1,
+              nextAttemptAt: Date.now() + backoffMs(1),
+              firstTriedAt: Date.now(),
+            });
+          }
+          writeRuntime(this.store, ev.instanceId, rt);
+        });
+      }),
+    ).then(() => {});
   }
 
   private async retryTick(): Promise<void> {
