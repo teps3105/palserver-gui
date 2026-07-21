@@ -7,6 +7,7 @@ import type {
   InstanceSummary,
   LiveStatus,
   PdGuildList,
+  PublicMapStatus,
   SavePlayersSummary,
   SavesStatus,
   VersionStatus,
@@ -221,6 +222,8 @@ export const agent = {
 
   bossRespawns: (instanceId: string) =>
     agentRequest<BossRespawnStatus>(`/api/instances/${instanceId}/boss-respawns`),
+
+  publicMap: (instanceId: string) => agentRequest<PublicMapStatus>(`/api/instances/${instanceId}/public-map`),
 };
 
 /** /kick 只吃 userId,但玩家在 Discord 端只會打名字——用 /live 的在線玩家名單解析,

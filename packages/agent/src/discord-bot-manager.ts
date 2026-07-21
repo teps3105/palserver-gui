@@ -9,6 +9,7 @@ import {
   WEBHOOK_SPEC_VERSION,
   type DiscordBotSettings,
   type DiscordBotStatus,
+  type DiscordBotLogLine,
   type WebhookEnvelope,
 } from "@palserver/shared";
 import { onAgentEvent, type AgentEvent } from "./events.js";
@@ -61,7 +62,14 @@ interface Runtime {
   /** 擷取子行程 stderr 尾段(~4KB),退出時把最後一行併進 lastError,讓 GUI 看得到真正原因。 */
   stderrTail: string;
   lastError?: string;
+  /** bot 子行程輸出的環形緩衝(stdout+stderr,供 GUI 日誌檢視);跨重啟保留,只受行數上限約束。 */
+  logs: DiscordBotLogLine[];
+  /** stdout/stderr 尚未遇到換行的殘段(chunk 不對齊行邊界)。 */
+  outPartial: string;
+  errPartial: string;
 }
+
+const MAX_LOG_LINES = 300;
 
 /**
  * 同機 Discord bot 生命週期管理:每實例 { enabled, token, adminUserIds, notify… } 存
@@ -118,6 +126,9 @@ export class DiscordBotManager {
         spawnSig: "",
         recentExits: [],
         stderrTail: "",
+        logs: [],
+        outPartial: "",
+        errPartial: "",
       };
       this.runtimes.set(id, r);
     }
@@ -126,6 +137,30 @@ export class DiscordBotManager {
 
   private isAlive(r: Runtime | undefined): boolean {
     return !!r?.child && r.child.exitCode === null && !r.child.killed;
+  }
+
+  /** 把子行程一段輸出切成行、推進環形緩衝(cap MAX_LOG_LINES),並原樣轉寫到本行程對應串流。 */
+  private captureOutput(r: Runtime, level: "info" | "error", chunk: Buffer): void {
+    (level === "error" ? process.stderr : process.stdout).write(chunk);
+    const key = level === "error" ? "errPartial" : "outPartial";
+    const combined = r[key] + chunk.toString();
+    const parts = combined.split(/\r?\n/);
+    r[key] = parts.pop() ?? ""; // 最後一段可能不完整,留到下次
+    const now = Date.now();
+    for (const line of parts) {
+      if (line.trim()) r.logs.push({ at: now, level, line });
+    }
+    if (r.logs.length > MAX_LOG_LINES) r.logs.splice(0, r.logs.length - MAX_LOG_LINES);
+  }
+
+  private pushLog(r: Runtime, level: "info" | "error", line: string): void {
+    r.logs.push({ at: Date.now(), level, line });
+    if (r.logs.length > MAX_LOG_LINES) r.logs.splice(0, r.logs.length - MAX_LOG_LINES);
+  }
+
+  /** GUI 日誌檢視:回傳 bot 子行程近期輸出(時間序)。 */
+  logs(id: string): DiscordBotLogLine[] {
+    return this.runtimes.get(id)?.logs ?? [];
   }
 
   /** 影響子行程 env 的設定簽章:只有這些變了才需要重啟 bot 套用(notify 是 live、不算)。 */
@@ -220,12 +255,12 @@ export class DiscordBotManager {
     //   SEA/exe:execArgv=[] → 等於重跑自己這顆 exe;`node dist/index.js`:重跑該檔;
     //   dev(tsx watch):execArgv 含 tsx loader(如 --import tsx)→ 保留它才能重跑 .ts,否則 node 不認得 .ts 秒退。
     // 護欄:子行程帶 PALSERVER_RUN_BOT=1,主入口據此只跑 bot 分支、不會再進到這裡 spawn(見 index.ts 開頭)。
-    // stdio 第 4 個是 IPC:agent 主行程用它把事件通知傳給 bot 子行程(child.send)。
+    // stdio:stdout/stderr 都 pipe 起來收進日誌環形緩衝(GUI 可看);第 4 個是 IPC(child.send 傳通知)。
     const child = spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {
       // 不 detached:bot 隨 agent 一起活/死。孤兒 bot 控制著可能已停的伺服器是錯的,也免去 pid re-adopt。
       detached: false,
       windowsHide: true,
-      stdio: ["ignore", "inherit", "pipe", "ipc"],
+      stdio: ["ignore", "pipe", "pipe", "ipc"],
       env: {
         ...process.env,
         PALSERVER_RUN_BOT: "1",
@@ -244,15 +279,20 @@ export class DiscordBotManager {
     r.child = child;
     r.starting = false;
     r.stderrTail = "";
+    r.outPartial = "";
+    r.errPartial = "";
+    this.pushLog(r, "info", `── bot 啟動(${new Date().toISOString()})──`);
+    child.stdout?.on("data", (d: Buffer) => this.captureOutput(this.rt(id), "info", d));
     child.stderr?.on("data", (d: Buffer) => {
       const cur = this.rt(id);
       cur.stderrTail = (cur.stderrTail + d.toString()).slice(-4000);
-      process.stderr.write(d);
+      this.captureOutput(cur, "error", d);
     });
 
     child.on("error", (err) => {
       const cur = this.rt(id);
       cur.lastError = `無法啟動 bot 子行程:${err.message}`;
+      this.pushLog(cur, "error", cur.lastError);
     });
 
     child.on("exit", (code, signal) => {

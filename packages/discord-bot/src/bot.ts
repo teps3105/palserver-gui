@@ -48,6 +48,16 @@ export function startBot(opts: StartBotOptions): RunningBot {
   // 之後才呼叫 setLang 就太晚了(見 commands.ts 頂部註解)。
   setLang(opts.language ?? "en");
 
+  // 監督式長駐 bot:單一次互動 / 通知的未預期錯誤不該讓整個行程崩潰 —— 否則行程一死,當下與
+  // 後續所有 slash 指令都會顯示「該申請未受回應」(Discord 3 秒內收不到 ack),直到監督者重啟。
+  // 記進 log(GUI 看得到)後繼續跑;真正致命的登入失敗仍由下方 login().catch 明確退出。
+  process.on("unhandledRejection", (reason) => {
+    console.error("[discord-bot] 未處理的 rejection:", reason instanceof Error ? (reason.stack ?? reason.message) : reason);
+  });
+  process.on("uncaughtException", (err) => {
+    console.error("[discord-bot] 未捕捉的例外:", err instanceof Error ? (err.stack ?? err.message) : err);
+  });
+
   // slash 指令走 Interactions,不需要讀訊息內容,所以只要 Guilds intent。
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
   const commands = buildCommands();
@@ -153,7 +163,16 @@ export function startBot(opts: StartBotOptions): RunningBot {
 
   client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
-    await handleCommand(interaction);
+    // 外層再包一次:handleCommand 內的 deferReply/reply 若拋錯(如互動已逾時)會逃逸成
+    // unhandledRejection —— 這裡吞掉並記錄,確保一次壞互動不會拖垮整個行程。
+    try {
+      await handleCommand(interaction);
+    } catch (err) {
+      console.error(
+        `[discord-bot] /${interaction.commandName} 互動處理未預期錯誤:`,
+        err instanceof Error ? (err.stack ?? err.message) : err,
+      );
+    }
   });
 
   // 登入失敗(token 無效等)= 這個 bot 行程沒有存在意義 —— 印出原因並以非零碼退出,

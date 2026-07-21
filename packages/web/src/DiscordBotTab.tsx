@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FiCheck, FiCopy, FiExternalLink, FiMail, FiMessageCircle, FiX } from "react-icons/fi";
 import { BOT_LANGS, hasFeature } from "@palserver/shared";
-import type { BotLang, DiscordBotStatus, WebhookEventType } from "@palserver/shared";
+import type { BotLang, DiscordBotLogLine, DiscordBotStatus, WebhookEventType } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { CopyPath } from "./CopyPath";
 import { EventPicker } from "./WebhookSettingsTab";
@@ -110,6 +110,8 @@ export function DiscordBotTab({ client, instanceId }: { client: AgentClient; ins
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [logs, setLogs] = useState<DiscordBotLogLine[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
   const { botService } = usePromoConfig();
   const [hiddenCards, setHiddenCards] = useHiddenCards();
 
@@ -142,6 +144,19 @@ export function DiscordBotTab({ client, instanceId }: { client: AgentClient; ins
     const timer = setInterval(refreshStatus, 5000);
     return () => clearInterval(timer);
   }, [entitled, refreshStatus]);
+
+  // bot 日誌:只有展開時才輪詢(3s),避免沒看時白拉。
+  useEffect(() => {
+    if (!entitled || !showLogs) return;
+    const pull = () =>
+      client
+        .discordBotLogs(instanceId)
+        .then(setLogs)
+        .catch(() => {});
+    pull();
+    const timer = setInterval(pull, 3000);
+    return () => clearInterval(timer);
+  }, [entitled, showLogs, client, instanceId]);
 
   // 首次載入(或重置後)以 status 初始化草稿;之後輪詢不覆蓋草稿。
   useEffect(() => {
@@ -385,6 +400,35 @@ export function DiscordBotTab({ client, instanceId }: { client: AgentClient; ins
           <span className="text-ink-muted">:</span> <span className={`font-bold ${statusTone}`}>{statusText}</span>
         </div>
         {err && <p className="mt-1 text-[11px] font-bold text-berry">{err}</p>}
+
+        <div className="mt-3">
+          <button
+            type="button"
+            className="text-xs font-bold text-pal hover:underline"
+            onClick={() => setShowLogs((v) => !v)}
+          >
+            {showLogs ? t("隱藏 bot 日誌") : t("顯示 bot 日誌")}
+          </button>
+          {showLogs && (
+            <div className="mt-2 max-h-72 overflow-y-auto rounded-lg border border-line bg-ink/95 p-3 font-mono text-[11px] leading-relaxed">
+              {logs.length === 0 ? (
+                <span className="text-ink-muted">{t("目前沒有日誌(bot 尚未輸出任何訊息)。")}</span>
+              ) : (
+                logs.map((l, i) => (
+                  <div key={i} className={l.level === "error" ? "text-berry" : "text-sky-soft"}>
+                    <span className="text-ink-muted">
+                      {new Date(l.at).toLocaleTimeString(undefined, { hour12: false })}
+                    </span>{" "}
+                    {l.line}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+          <p className="mt-1 text-[11px] text-ink-muted">
+            {t("bot 子行程的輸出(含錯誤堆疊);回報問題時把這裡的內容貼給我們最有幫助。")}
+          </p>
+        </div>
       </section>
 
       <section className={card}>

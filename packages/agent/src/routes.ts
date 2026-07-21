@@ -2052,6 +2052,12 @@ export function registerRoutes(
     return discordBot.update(rec.id, patch);
   });
 
+  app.get("/api/instances/:id/discord-bot/logs", async (req, reply) => {
+    if (!webhookGate(reply)) return reply;
+    const rec = getOr404((req.params as { id: string }).id);
+    return discordBot.logs(rec.id);
+  });
+
   app.get("/api/instances/:id/version", async (req) => {
     const rec = getOr404((req.params as { id: string }).id);
     return getVersionStatus(rec, ctxOf(rec));

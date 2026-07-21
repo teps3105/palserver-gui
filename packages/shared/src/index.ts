@@ -1264,6 +1264,14 @@ export const DEFAULT_DISCORD_BOT_SETTINGS: DiscordBotSettings = {
   language: DEFAULT_BOT_LANG,
 };
 
+/** 同機 bot 子行程的一行輸出(供 GUI「Discord Bot」分頁的日誌檢視)。 */
+export interface DiscordBotLogLine {
+  /** epoch ms。 */
+  at: number;
+  level: "info" | "error";
+  line: string;
+}
+
 /** GET / PUT /api/instances/:id/discord-bot 的回應形狀。永不含 token 本身。 */
 export interface DiscordBotStatus {
   settings: DiscordBotSettings;

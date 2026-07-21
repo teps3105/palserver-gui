@@ -153,6 +153,19 @@ const DICTS: Record<string, Dict> = {
   據點: { en: "Bases", ja: "拠点", "zh-CN": "据点" },
   "公會清單({n})": { en: "Guild list ({n})", ja: "ギルド一覧({n})", "zh-CN": "公会列表({n})" },
 
+  // ── /map ──
+  查看公開地圖連結: { en: "Show the public map link", ja: "公開マップのリンクを表示", "zh-CN": "查看公开地图链接" },
+  公開地圖: { en: "Public map", ja: "公開マップ", "zh-CN": "公开地图" },
+  "此伺服器尚未開啟公開地圖(贊助者先行版功能),請服主到 GUI 的地圖分頁開啟「公開地圖」設定。": {
+    en: 'This server hasn\'t enabled the public map yet (a sponsor feature) — ask the server owner to turn on "Public Map" in the GUI\'s map tab.',
+    ja: "このサーバーではまだ公開マップが有効になっていません(スポンサー機能)。サーバー管理者に GUI のマップタブで「公開マップ」を有効にしてもらってください。",
+    "zh-CN": "此服务器尚未开启公开地图(赞助者先行版功能),请服主到 GUI 的地图分页开启「公开地图」设置。",
+  },
+  "點這裡打開公開地圖:\n{url}": { en: "Open the public map here:\n{url}", ja: "こちらから公開マップを開けます:\n{url}", "zh-CN": "点这里打开公开地图:\n{url}" },
+  上次發布: { en: "Last published", ja: "最終公開", "zh-CN": "上次发布" },
+  成功: { en: "succeeded", ja: "成功", "zh-CN": "成功" },
+  失敗: { en: "failed", ja: "失敗", "zh-CN": "失败" },
+
   // ── /boss ──
   "野外頭目重生狀態(需頭目回報模組)": { en: "Wild boss respawn status (requires the boss reporter mod)", ja: "野生ボスのリスポーン状況(ボス報告 mod が必要)", "zh-CN": "野外头目重生状态(需头目回报模组)" },
   頭目重生: { en: "Boss respawns", ja: "ボスのリスポーン", "zh-CN": "头目重生" },

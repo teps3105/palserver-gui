@@ -257,7 +257,7 @@ export function buildCommands(): BotCommand[] {
           `**${t("公網")}** \`${c.publicIp}:${c.gamePort}\`${c.behindNat ? t("(需在路由器設定連接埠轉發)") : ""}`,
         );
       }
-      if (c.lan[0]) lines.push(`**${t("區網")}** \`${c.lan[0]}:${c.gamePort}\``);
+      // 不列區網(LAN)位址:那只有同網段的人能用,對 Discord 上的遠端玩家沒意義還造成誤導。
       return brandEmbed({
         color: BRAND.primary,
         title: t("如何加入伺服器"),
@@ -301,6 +301,38 @@ export function buildCommands(): BotCommand[] {
       );
       const updated = relativeTime(v.latestUpdatedAt);
       if (updated) embed.addFields({ name: t("官方最新更新"), value: updated, inline: true });
+      return embed;
+    },
+  },
+
+  {
+    json: new SlashCommandBuilder().setName("map").setDescription(t("查看公開地圖連結")).toJSON(),
+    admin: false,
+    ephemeral: false,
+    run: async (_interaction, instance) => {
+      const m = await agent.publicMap(instance.id);
+      if (!m.settings.enabled || !m.shareUrl) {
+        return brandEmbed({
+          color: BRAND.muted,
+          title: t("公開地圖"),
+          description: t("此伺服器尚未開啟公開地圖(贊助者先行版功能),請服主到 GUI 的地圖分頁開啟「公開地圖」設定。"),
+          instanceName: instance.name,
+        });
+      }
+      const embed = brandEmbed({
+        color: BRAND.primary,
+        title: t("公開地圖"),
+        description: t("點這裡打開公開地圖:\n{url}", { url: m.shareUrl }),
+        instanceName: instance.name,
+      });
+      if (m.lastPublish) {
+        const at = `<t:${Math.floor(m.lastPublish.at / 1000)}:R>`;
+        embed.addFields({
+          name: t("上次發布"),
+          value: `${at}(${m.lastPublish.ok ? t("成功") : t("失敗")})`,
+          inline: true,
+        });
+      }
       return embed;
     },
   },

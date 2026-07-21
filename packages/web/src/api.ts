@@ -57,6 +57,7 @@ import type {
   VersionStatus,
   BotLang,
   DiscordBotStatus,
+  DiscordBotLogLine,
   WebhookConfigPublic,
   WebhookDelivery,
   WebhookFormat,
@@ -635,6 +636,11 @@ export class AgentClient {
       method: "PUT",
       body: JSON.stringify(patch),
     });
+  }
+
+  /** 同機 bot 子行程近期輸出(stdout+stderr,供分頁日誌檢視;含崩潰堆疊)。 */
+  discordBotLogs(id: string): Promise<DiscordBotLogLine[]> {
+    return this.request(`/api/instances/${id}/discord-bot/logs`);
   }
 
   palDefenderRest(id: string): Promise<PdRestStatus> {
