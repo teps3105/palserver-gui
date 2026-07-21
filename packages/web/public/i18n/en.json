@@ -1780,7 +1780,7 @@
   "將在儲存後清除": "Will be cleared on save",
   "開發者": "Developers",
   "agent 提供完整的 REST API,GUI 與官方 Discord bot 都是它的客戶端 —— 可以用任何語言自製工具串接。": "The agent exposes a full REST API — this GUI and the official Discord bot are both just clients of it. Build your own tools in any language.",
-  "palserver GUI Agent API 文件": "palserver GUI Agent API docs",
+  "Agent REST API 參考": "Agent REST API reference",
   "自製機器人 / 第三方串接指南": "Build your own bot / third-party integration guide",
   "復原": "Undo",
   "啟動伺服器": "Start the server",

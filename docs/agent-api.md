@@ -1,4 +1,4 @@
-# palserver GUI Agent API
+# Agent REST API 參考
 
 palserver-GUI 由兩個行程組成:**agent**(常駐、跑在伺服器主機上,管理 Palworld 伺服器行程)與
 **GUI 前端**(瀏覽器頁面,呼叫 agent 的 REST API)。agent 對外只有一組 HTTP API —— GUI 前端、

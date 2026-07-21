@@ -405,7 +405,7 @@ export function SettingsModal({
             rel="noreferrer"
             className="mt-2 inline-flex items-center gap-1.5 text-sm font-bold text-pal hover:underline"
           >
-            {t("palserver GUI Agent API 文件")}
+            {t("Agent REST API 參考")}
             <FiExternalLink className="size-3.5" />
           </a>
         </div>
