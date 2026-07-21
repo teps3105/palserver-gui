@@ -158,13 +158,16 @@ async function announceCountdown(
   }
 }
 
-/** 進行中的停機倒數(instance id → 中止器);「立即停止」按第二下時取消。 */
-const pendingCountdowns = new Map<string, AbortController>();
+/** 進行中的停機倒數(instance id → 中止器 + 是否被取消)。
+ *  「立即停止」中止倒數、讓原請求接手停止;「取消停止」中止倒數並標記 cancelled,原請求不執行。 */
+const pendingCountdowns = new Map<string, { ctrl: AbortController; cancelled: boolean }>();
 
 const AnnounceBody = z.object({
   announceTemplate: z.string().max(500).optional(),
   /** true = 跳過/中止倒數公告,立即執行(停止按第二下)。 */
   immediate: z.boolean().optional(),
+  /** true = 取消:中止倒數且不執行停止/重啟(讓伺服器繼續跑)。 */
+  cancel: z.boolean().optional(),
 });
 
 // WebSocket
@@ -1041,18 +1044,19 @@ export function registerRoutes(
 
   /** 停止/重啟前若帶了 announceTemplate 且伺服器在跑,依該實例的 announceSeconds 設定
    * 先在遊戲聊天室倒數公告(0 秒 = 不公告)。announceSeconds 與自動重啟共用同一個設定。 */
-  const announceBeforeDowntime = async (rec: InstanceRecord, body: unknown): Promise<void> => {
+  const announceBeforeDowntime = async (rec: InstanceRecord, body: unknown): Promise<{ cancelled: boolean }> => {
     const parsed = AnnounceBody.safeParse(body ?? {}).data;
-    if (parsed?.immediate) return; // 立即模式:不倒數
+    if (parsed?.immediate) return { cancelled: false }; // 立即模式:不倒數
     const template = parsed?.announceTemplate;
-    if (!template) return;
+    if (!template) return { cancelled: false };
     const seconds = Math.min(Math.max(supervisor.readPolicy(rec.id).announceSeconds, 0), 300);
-    if (seconds <= 0) return;
-    if ((await driverOf(rec).status(rec, ctxOf(rec))).status !== "running") return;
-    const ctrl = new AbortController();
-    pendingCountdowns.set(rec.id, ctrl);
+    if (seconds <= 0) return { cancelled: false };
+    if ((await driverOf(rec).status(rec, ctxOf(rec))).status !== "running") return { cancelled: false };
+    const entry = { ctrl: new AbortController(), cancelled: false };
+    pendingCountdowns.set(rec.id, entry);
     try {
-      await announceCountdown(rec, seconds, template, ctrl.signal);
+      await announceCountdown(rec, seconds, template, entry.ctrl.signal);
+      return { cancelled: entry.cancelled }; // 倒數期間收到取消 → 呼叫端不執行停止/重啟
     } finally {
       pendingCountdowns.delete(rec.id);
     }
@@ -1060,16 +1064,28 @@ export function registerRoutes(
 
   app.post("/api/instances/:id/stop", async (req) => {
     const rec = getOr404((req.params as { id: string }).id);
-    // 「立即停止」:有進行中的倒數就中止它 —— 原請求會馬上接手執行停止,
-    // 本請求只回摘要,避免兩個請求同時對 driver 下 stop。
-    if (AnnounceBody.safeParse(req.body ?? {}).data?.immediate) {
+    const body = AnnounceBody.safeParse(req.body ?? {}).data;
+    // 「取消停止」:標記取消並中止倒數 —— 原本掛著等倒數的 stop 請求會醒來、看到 cancelled 就
+    // 直接返回不執行停止(伺服器繼續跑)。沒有進行中的倒數 = 太晚了(已進入實際停止)或沒在倒數。
+    if (body?.cancel) {
       const pending = pendingCountdowns.get(rec.id);
       if (pending) {
-        pending.abort();
+        pending.cancelled = true;
+        pending.ctrl.abort();
+      }
+      return toSummary(rec);
+    }
+    // 「立即停止」:有進行中的倒數就中止它 —— 原請求會馬上接手執行停止,
+    // 本請求只回摘要,避免兩個請求同時對 driver 下 stop。
+    if (body?.immediate) {
+      const pending = pendingCountdowns.get(rec.id);
+      if (pending) {
+        pending.ctrl.abort();
         return toSummary(rec);
       }
     }
-    await announceBeforeDowntime(rec, req.body);
+    const { cancelled } = await announceBeforeDowntime(rec, req.body);
+    if (cancelled) return toSummary(rec); // 倒數期間被取消:不停,伺服器繼續跑
     await driverOf(rec).stop(rec, ctxOf(rec));
     presence.markAllOffline(rec.id);
     // A deliberate stop must not look like a crash to the supervisor.
@@ -1079,7 +1095,17 @@ export function registerRoutes(
 
   app.post("/api/instances/:id/restart", async (req) => {
     let rec = getOr404((req.params as { id: string }).id);
-    await announceBeforeDowntime(rec, req.body);
+    // 「取消重啟」:比照停止 —— 中止倒數並標記取消,原請求醒來看到 cancelled 就不重啟。
+    if (AnnounceBody.safeParse(req.body ?? {}).data?.cancel) {
+      const pending = pendingCountdowns.get(rec.id);
+      if (pending) {
+        pending.cancelled = true;
+        pending.ctrl.abort();
+      }
+      return toSummary(rec);
+    }
+    const { cancelled } = await announceBeforeDowntime(rec, req.body);
+    if (cancelled) return toSummary(rec); // 倒數期間被取消:不重啟,伺服器繼續跑
     await driverOf(rec).stop(rec, ctxOf(rec));
     presence.markAllOffline(rec.id);
     rec = await reconcileWorldIni(rec);

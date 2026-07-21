@@ -340,12 +340,14 @@ export class AgentClient {
     announceTemplate?: string,
     /** true = 中止進行中的倒數公告,立即執行(「立即停止」按第二下)。 */
     immediate?: boolean,
+    /** true = 取消:中止倒數且不執行停止/重啟(倒數中按「取消」,伺服器繼續跑)。 */
+    cancel?: boolean,
   ): Promise<InstanceSummary> {
     return this.request(`/api/instances/${id}/${action}`, {
       method: "POST",
       body:
-        announceTemplate || immediate
-          ? JSON.stringify({ announceTemplate, immediate })
+        announceTemplate || immediate || cancel
+          ? JSON.stringify({ announceTemplate, immediate, cancel })
           : undefined,
     });
   }

@@ -1594,6 +1594,8 @@
   "把全部快速傳送點解鎖給所有玩家(寫入玩家存檔;需伺服器停止,會先自動備份)": "Unlock every fast travel point for all players (writes player saves; server must be stopped, auto-backup first)",
   "存檔解鎖(全體玩家快速傳送全開)": "Save unlocks (all fast travel for every player)",
   "立即停止": "Stop now",
+  "取消停止": "Cancel stop",
+  "取消重啟": "Cancel restart",
   "配種計算": "Breeding",
   "未知位置": "Unknown location",
   "第 {n} 代配種結果": "Generation {n} result",
