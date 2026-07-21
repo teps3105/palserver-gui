@@ -33,6 +33,7 @@ import type {
   PalDefenderConfigStatus,
   PalSchemaStatus,
   PalStatsStatus,
+  BossRespawnStatus,
   PalStatValues,
   PdGuildList,
   PdGuildDetail,
@@ -54,6 +55,10 @@ import type {
   SaveScanStats,
   SavesStatus,
   VersionStatus,
+  DiscordBotStatus,
+  WebhookConfigPublic,
+  WebhookDelivery,
+  WebhookFormat,
   WorldSettings,
 } from "@palserver/shared";
 
@@ -225,6 +230,15 @@ export class AgentClient {
     const body = await res.json().catch(() => ({ error: res.statusText }));
     if (!res.ok) throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
     return body as T;
+  }
+
+  /** 目前連線的 base URL 與存取權杖 —— 給「Discord bot / 其他工具」設定用。
+   *  token 是 agent 的完整存取權杖,顯示時務必遮蔽(見 DiscordBotTab)。 */
+  get baseUrl(): string {
+    return this.conn.url;
+  }
+  get token(): string {
+    return this.conn.token;
   }
 
   info(): Promise<AgentInfo> {
@@ -553,6 +567,74 @@ export class AgentClient {
     return this.request(`/api/instances/${id}/public-map/rotate`, { method: "POST" });
   }
 
+  /** Webhook 設定清單(贊助者先行版 webhooks)。 */
+  webhooks(id: string): Promise<WebhookConfigPublic[]> {
+    return this.request(`/api/instances/${id}/webhooks`);
+  }
+
+  /** 新增 webhook;回傳的 secret 只在建立當下給一次,之後看不到,要當場顯示給使用者複製。 */
+  createWebhook(
+    id: string,
+    input: { url: string; events: string[]; format?: WebhookFormat; label?: string; enabled?: boolean },
+  ): Promise<{ config: WebhookConfigPublic; secret: string }> {
+    return this.request(`/api/instances/${id}/webhooks`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  updateWebhook(
+    id: string,
+    whId: string,
+    patch: Partial<{ url: string; events: string[]; format: WebhookFormat; enabled: boolean; label: string }>,
+  ): Promise<WebhookConfigPublic> {
+    return this.request(`/api/instances/${id}/webhooks/${whId}`, {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    });
+  }
+
+  deleteWebhook(id: string, whId: string): Promise<{ ok: true }> {
+    return this.request(`/api/instances/${id}/webhooks/${whId}`, { method: "DELETE" });
+  }
+
+  /** 換發 HMAC 簽章密鑰;舊密鑰立即失效。回傳的新 secret 一樣只顯示這一次。 */
+  rotateWebhookSecret(id: string, whId: string): Promise<{ secret: string }> {
+    return this.request(`/api/instances/${id}/webhooks/${whId}/rotate-secret`, { method: "POST" });
+  }
+
+  /** 手動送一次測試事件(webhook.ping)。 */
+  testWebhook(id: string, whId: string): Promise<{ result: { ok: boolean; status?: number; error?: string } }> {
+    return this.request(`/api/instances/${id}/webhooks/${whId}/test`, { method: "POST" });
+  }
+
+  webhookDeliveries(id: string, whId: string): Promise<WebhookDelivery[]> {
+    return this.request(`/api/instances/${id}/webhooks/${whId}/deliveries`);
+  }
+
+  /** 同機 Discord bot(agent 自跑)目前狀態:啟用與否、是否已設 token、子行程是否在跑。 */
+  discordBot(id: string): Promise<DiscordBotStatus> {
+    return this.request(`/api/instances/${id}/discord-bot`);
+  }
+
+  /** 更新同機 Discord bot 設定(enabled / token / 管理員白名單 / 通知頻道與事件);token 寫入後不回讀(僅回 tokenSet)。回傳同 discordBot()。 */
+  setDiscordBot(
+    id: string,
+    patch: {
+      enabled?: boolean;
+      token?: string;
+      adminUserIds?: string[];
+      notifyChannelId?: string;
+      notifyEvents?: string[];
+      statusChannelId?: string;
+    },
+  ): Promise<DiscordBotStatus> {
+    return this.request(`/api/instances/${id}/discord-bot`, {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    });
+  }
+
   palDefenderRest(id: string): Promise<PdRestStatus> {
     return this.request(`/api/instances/${id}/paldefender-rest`);
   }
@@ -627,6 +709,20 @@ export class AgentClient {
   /** 清空所有物種數值調整(改回原本設定)。非贊助者也可用。 */
   clearPalStats(id: string): Promise<PalStatsStatus> {
     return this.request(`/api/instances/${id}/pal-stats`, { method: "DELETE" });
+  }
+
+  /** 頭目重生時間(PalserverBossReporter Lua 模組)狀態 + 最新回報。 */
+  bossRespawns(id: string): Promise<BossRespawnStatus> {
+    return this.request(`/api/instances/${id}/boss-respawns`);
+  }
+
+  /** 安裝/更新頭目回報模組(必要時一併裝 UE4SS)。需先停伺服器(409);非贊助者回 403。 */
+  installBossReporter(id: string): Promise<{ installed: string; version: string; applied: string }> {
+    return this.request(`/api/instances/${id}/boss-respawns/install`, { method: "POST" });
+  }
+
+  uninstallBossReporter(id: string): Promise<{ removed: string }> {
+    return this.request(`/api/instances/${id}/boss-respawns/uninstall`, { method: "POST" });
   }
 
   configHealth(id: string): Promise<ConfigHealth> {

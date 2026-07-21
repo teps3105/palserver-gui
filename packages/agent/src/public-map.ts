@@ -2,25 +2,35 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import {
+  buildPublicMapBossPoints,
   DEFAULT_PUBLIC_MAP_SETTINGS,
+  guildColorFromId,
   isWorldTreeCoord,
+  pickPalAvatarIcon,
+  RAID_RADIUS,
   savToMap,
   savToWorldTreeMap,
+  type PdGuild,
+  type PdPlayerSummary,
   type PublicMapArea,
   type PublicMapBasePoint,
+  type PublicMapBossPoint,
   type PublicMapPlayerPoint,
   type PublicMapPublishResult,
   type PublicMapSettings,
   type PublicMapSnapshot,
   type PublicMapStatus,
+  type RestPlayer,
 } from "@palserver/shared";
 import { STATS_URLS, PALSERVER_MAP_VIEWER, DATA_DIR } from "./env.js";
 import type { InstanceRecord, InstanceStore } from "./store.js";
 import type { DriverContext, ServerDriver } from "./driver.js";
 import { getLiveStatus } from "./restapi.js";
 import { getPdPlayers, getPdGuilds } from "./paldefender-rest.js";
+import { getBossReporterStatus } from "./boss-reporter.js";
 import { featureEnabled } from "./license.js";
 import type { PresenceTracker } from "./presence.js";
+import { FIELD_BOSS_CATALOG, TREE_BOSS_CATALOG } from "./boss-catalog.generated.js";
 
 /**
  * 公開地圖:服主一鍵把地圖公開到全網。贊助者先行版功能(public-map,見 @palserver/shared
@@ -71,6 +81,9 @@ export interface PublicMapRawBase {
   worldX: number;
   worldY: number;
   guildName?: string;
+  /** PalDefender 公會 id —— 用來算 guildColorFromId(跟 GUI 據點圈色同一顆雜湊)與
+   *  偷襲警告的「同公會」判定。缺(PalDefender 拿不到 id 的舊情境)就不附配色。 */
+  guildId?: string;
 }
 
 export interface PublicMapAssembleInput {
@@ -80,6 +93,13 @@ export interface PublicMapAssembleInput {
   online: PublicMapRawPlayer[];
   offline: PublicMapRawPlayer[];
   bases: PublicMapRawBase[];
+  /** 偷襲警告:目前站在「非自己公會」據點附近(RAID_RADIUS 內)的在線玩家 userId 集合。
+   *  只有 showPlayers 與 showBases 都開啟時,呼叫端才會算這個集合;
+   *  assemblePublicMapSnapshot 會再依 show.bases 把關一次,不信任呼叫端一定算對。 */
+  raidingUserIds?: ReadonlySet<string>;
+  /** 野外/封印頭目重生狀態點(assemble() 已用 buildPublicMapBossPoints 配好);
+   *  只有 showBossRespawns 開啟時呼叫端才會填。 */
+  bosses?: PublicMapBossPoint[];
 }
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
@@ -93,6 +113,53 @@ function toMapPoint(savX: number, savY: number): { x: number; y: number; m: Publ
   return { x: round1(x), y: round1(y), m: "world" };
 }
 
+/** 偷襲警告的判定演算法 —— 原樣照抄 packages/web/src/MapTab.tsx 的 guildOf() /
+ *  enemyBaseNear():用 PalDefender 名冊(userId/playerUid → 公會名)與公會列表
+ *  (公會名 → 公會、members → 公會)兩條路徑幫每個在線玩家找公會,再看有沒有站在
+ *  「非自己公會」的據點 RAID_RADIUS 內(依 toMapPoint 的 m 分主世界/世界樹,同世界才比較)。
+ *  沒配到公會的玩家一律不判定(跟 GUI 一樣 —— 沒配到公會等於「跟誰都算敵對」是錯的)。
+ *  匯出成獨立純函式方便單元測試,不需要真的組一份完整快照。 */
+export function computeRaidingUserIds(
+  players: RestPlayer[],
+  pdPlayers: PdPlayerSummary[],
+  guilds: PdGuild[],
+): Set<string> {
+  const guildByName = new Map(guilds.map((g) => [g.name, g] as const));
+  const guildNameById = new Map<string, string>();
+  for (const pp of pdPlayers) {
+    if (!pp.guildName) continue;
+    if (pp.userId) guildNameById.set(pp.userId, pp.guildName);
+    if (pp.playerUid) guildNameById.set(pp.playerUid, pp.guildName);
+  }
+  const guildByMember = new Map<string, PdGuild>();
+  for (const g of guilds) for (const uid of g.members) guildByMember.set(uid, g);
+  const guildOf = (p: RestPlayer): PdGuild | undefined => {
+    const gn = guildNameById.get(p.userId) ?? guildNameById.get(p.playerId);
+    return (gn ? guildByName.get(gn) : undefined) ?? guildByMember.get(p.playerId) ?? guildByMember.get(p.userId);
+  };
+
+  const baseMapPoints = guilds.flatMap((g) =>
+    g.bases.map((b) => ({ ...toMapPoint(b.worldX, b.worldY), guildId: g.id })),
+  );
+  const enemyBaseNear = (px: number, py: number, m: PublicMapArea, ownGuildId: string): boolean => {
+    for (const b of baseMapPoints) {
+      if (b.m !== m) continue;
+      if (b.guildId === ownGuildId) continue;
+      if (Math.hypot(b.x - px, b.y - py) < RAID_RADIUS) return true;
+    }
+    return false;
+  };
+
+  const raiding = new Set<string>();
+  for (const p of players) {
+    const guild = guildOf(p);
+    if (!guild) continue;
+    const pt = toMapPoint(p.location_x, p.location_y);
+    if (enemyBaseNear(pt.x, pt.y, pt.m, guild.id)) raiding.add(p.userId);
+  }
+  return raiding;
+}
+
 /** uid → 穩定的匿名代號(Player 1..n)。按 uid 字母序排,同一組 uid 不論輸入順序、
  *  不論呼叫幾次都得到同樣的代號 —— 這是「顯示玩家名稱」關閉時的匿名化規則。 */
 export function anonymizedLabels(userIds: string[]): Map<string, string> {
@@ -100,13 +167,31 @@ export function anonymizedLabels(userIds: string[]): Map<string, string> {
   return new Map(sorted.map((id, i) => [id, `Player ${i + 1}`]));
 }
 
-function mapPlayers(list: PublicMapRawPlayer[], showNames: boolean): PublicMapPlayerPoint[] {
+function mapPlayers(
+  list: PublicMapRawPlayer[],
+  showNames: boolean,
+  raidingUserIds?: ReadonlySet<string>,
+): PublicMapPlayerPoint[] {
   const labels = showNames ? null : anonymizedLabels(list.map((p) => p.userId));
-  return list.map((p) => ({
-    n: showNames ? p.name : labels!.get(p.userId)!,
-    lv: p.level,
-    ...toMapPoint(p.savX, p.savY),
-  }));
+  return list.map((p) => {
+    const point: PublicMapPlayerPoint = {
+      n: showNames ? p.name : labels!.get(p.userId)!,
+      lv: p.level,
+      ...toMapPoint(p.savX, p.savY),
+    };
+    // 頭像:與 GUI PlayerAvatar 同一顆雜湊 + 同一份候選清單(pal-avatars.generated.ts)。
+    // **只在 showPlayerNames 開啟時才送** —— pickPalAvatarIcon 是 userId 的穩定雜湊,雜湊函式
+    // 與候選清單都隨 viewer bundle 公開;若在「隱藏名稱(匿名成 Player N)」時仍送頭像,等於給
+    // 每個匿名玩家一個穩定、可離線重算的識別碼:觀察者能靠固定頭像跨快照重連同一人(擊穿
+    // Player N 重排的匿名性)、甚至用已知 userId 反查出頭像在匿名地圖上定位特定真人。名稱已公開時
+    // 頭像不增加任何洩漏,才附上以對齊 GUI 視覺。
+    if (showNames) {
+      const icon = pickPalAvatarIcon(p.userId);
+      if (icon) point.icon = icon;
+    }
+    if (raidingUserIds?.has(p.userId)) point.warn = true;
+    return point;
+  });
 }
 
 /** 組出過濾後的快照(v1)。guildNamesUnlocked = featureEnabled("guild-map") 的結果,
@@ -123,6 +208,7 @@ export function assemblePublicMapSnapshot(
     offline: settings.showOfflinePlayers,
     bases: settings.showBases,
     guildNames: settings.showGuildNames && guildNamesUnlocked,
+    bossRespawns: settings.showBossRespawns,
   };
   const snapshot: PublicMapSnapshot = {
     v: 1,
@@ -132,14 +218,21 @@ export function assemblePublicMapSnapshot(
     show,
   };
   if (input.maxPlayers != null) snapshot.maxPlayers = input.maxPlayers;
-  if (show.players) snapshot.players = mapPlayers(input.online, show.names);
+  // 偷襲警告只有兩個圖層都開才有意義(據點都不公開了,「靠近據點」本身就是洩漏);
+  // 這裡是第二道防線 —— 就算呼叫端算錯了範圍,不滿足 show.bases 就一律不套用。
+  if (show.players) snapshot.players = mapPlayers(input.online, show.names, show.bases ? input.raidingUserIds : undefined);
   if (show.offline) snapshot.offline = mapPlayers(input.offline, show.names);
   if (show.bases) {
     snapshot.bases = input.bases.map((b) => {
       const pt = toMapPoint(b.worldX, b.worldY);
-      return show.guildNames && b.guildName ? { ...pt, g: b.guildName } : pt;
+      const out: PublicMapBasePoint = { ...pt };
+      if (show.guildNames && b.guildName) out.g = b.guildName;
+      // 配色跟公會名稱是獨立開關:顏色本身認不出是哪個公會,showGuildNames 關閉時仍可帶。
+      if (b.guildId) out.c = guildColorFromId(b.guildId);
+      return out;
     });
   }
+  if (show.bossRespawns && input.bosses?.length) snapshot.bosses = input.bosses;
   return snapshot;
 }
 
@@ -152,7 +245,7 @@ function offlineSnapshot(serverName: string, now = Date.now()): PublicMapSnapsho
     name: serverName,
     generatedAt: now,
     onlineCount: 0,
-    show: { players: false, names: false, offline: false, bases: false, guildNames: false },
+    show: { players: false, names: false, offline: false, bases: false, guildNames: false, bossRespawns: false },
   };
 }
 
@@ -189,7 +282,7 @@ export function minimalSnapshot(serverName: string, onlineCount: number, now: nu
     name: serverName,
     generatedAt: now,
     onlineCount,
-    show: { players: false, names: false, offline: false, bases: false, guildNames: false },
+    show: { players: false, names: false, offline: false, bases: false, guildNames: false, bossRespawns: false },
   };
 }
 
@@ -321,6 +414,7 @@ const PATCHABLE_KEYS = [
   "showOfflinePlayers",
   "showBases",
   "showGuildNames",
+  "showBossRespawns",
   "delayMinutes",
 ] as const satisfies readonly (keyof PublicMapSettings)[];
 
@@ -632,24 +726,8 @@ export class PublicMapPublisher {
       ? live.players.map((p) => ({ userId: p.userId, name: p.name, level: p.level, savX: p.location_x, savY: p.location_y }))
       : [];
 
-    let offline: PublicMapRawPlayer[] = [];
-    if (settings.showOfflinePlayers) {
-      const pd = await getPdPlayers(rec, ctx).catch(() => null);
-      if (pd?.available) {
-        const known = new Map(this.presence.knownPlayers(rec.id).map((k) => [k.userId, k]));
-        offline = pd.players
-          .filter((p) => !p.online && p.worldX != null && p.worldY != null)
-          .map((p) => ({
-            userId: p.userId,
-            name: p.name,
-            level: known.get(p.userId)?.lastLevel ?? 0,
-            savX: p.worldX!,
-            savY: p.worldY!,
-          }));
-      }
-    }
-
     let bases: PublicMapRawBase[] = [];
+    let pdGuildsList: PdGuild[] = [];
     if (settings.showBases) {
       // 公開地圖本身開關是贊助者先行版(public-map,見 tickOne 的 gate),但「開啟之後
       // 顯示哪些圖層」這件事裡,據點「位置」一律免費,公會「名稱」才另外是贊助者
@@ -658,10 +736,60 @@ export class PublicMapPublisher {
       // getPdGuilds 的 detailed 旗標(那個旗標是全有全無,會連位置都拿不到)。
       const pdg = await getPdGuilds(rec, ctx, true).catch(() => null);
       if (pdg?.available) {
-        bases = pdg.guilds.flatMap((g) => g.bases.map((b) => ({ worldX: b.worldX, worldY: b.worldY, guildName: g.name })));
+        pdGuildsList = pdg.guilds;
+        bases = pdg.guilds.flatMap((g) =>
+          g.bases.map((b) => ({ worldX: b.worldX, worldY: b.worldY, guildName: g.name, guildId: g.id })),
+        );
       }
     }
 
-    return assemblePublicMapSnapshot({ serverName, onlineCount, maxPlayers, online, offline, bases }, settings, guildNamesUnlocked);
+    // PalDefender 名冊(userId → 公會名):離線玩家的位置來源,同時也是偷襲警告要幫在線玩家
+    // 找公會的必要輸入 —— 兩個用途共用同一次 fetch,避免 showOfflinePlayers 關閉時還多打一次。
+    let pdPlayersList: PdPlayerSummary[] = [];
+    const needPdPlayers = settings.showOfflinePlayers || (settings.showPlayers && settings.showBases);
+    if (needPdPlayers) {
+      const pd = await getPdPlayers(rec, ctx).catch(() => null);
+      if (pd?.available) pdPlayersList = pd.players;
+    }
+
+    let offline: PublicMapRawPlayer[] = [];
+    if (settings.showOfflinePlayers) {
+      const known = new Map(this.presence.knownPlayers(rec.id).map((k) => [k.userId, k]));
+      offline = pdPlayersList
+        .filter((p) => !p.online && p.worldX != null && p.worldY != null)
+        .map((p) => ({
+          userId: p.userId,
+          name: p.name,
+          level: known.get(p.userId)?.lastLevel ?? 0,
+          savX: p.worldX!,
+          savY: p.worldY!,
+        }));
+    }
+
+    // 偷襲警告:同 GUI(MapTab.tsx)的演算法(見 computeRaidingUserIds),只在兩個圖層都開、
+    // 且拿得到公會列表時才算 —— 結果只是一個「有沒有靠近他人據點」的布林,不含據點座標。
+    let raidingUserIds: Set<string> | undefined;
+    if (settings.showPlayers && settings.showBases && live.available && pdGuildsList.length > 0) {
+      raidingUserIds = computeRaidingUserIds(live.players, pdPlayersList, pdGuildsList);
+    }
+
+    // 頭目重生:只在開關開啟時才讀模組狀態檔(其餘圖層同款「只在開啟時才 fetch」慣例)。
+    // getBossReporterStatus 本身已自我防護(非 Windows / 模組未裝 / 狀態檔缺都回 null),
+    // 這裡的 .catch(() => null) 是雙重保險,不讓頭目層的失敗中斷整份快照組裝。
+    let bosses: PublicMapBossPoint[] = [];
+    if (settings.showBossRespawns) {
+      const boss = await getBossReporterStatus(rec, ctx).catch(() => null);
+      bosses = buildPublicMapBossPoints(
+        boss?.state ?? null,
+        { field: FIELD_BOSS_CATALOG, tree: TREE_BOSS_CATALOG },
+        Math.floor(Date.now() / 1000),
+      );
+    }
+
+    return assemblePublicMapSnapshot(
+      { serverName, onlineCount, maxPlayers, online, offline, bases, raidingUserIds, bosses },
+      settings,
+      guildNamesUnlocked,
+    );
   }
 }

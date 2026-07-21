@@ -428,17 +428,17 @@ export async function getPdPlayers(rec: InstanceRecord, ctx: DriverContext): Pro
   }
 }
 
-/** 公會 + 據點(PalDefender /guilds)。整個功能是贊助者限定:非贊助者(detailed=false)
- * 直接拿不到任何公會資料。前端拿據點的 world_pos 走 savToMap 畫到地圖。 */
+/** 公會 + 據點(PalDefender /guilds)。據點位置與公會名稱人人可見;detailed=false(非贊助者)
+ * 時只把「成員名單 / 會長名」拿掉(那些屬於公會詳情,贊助者先行版),據點座標與公會名照給。
+ * 前端拿據點的 world_pos 走 savToMap 畫到地圖;detailed 旗標讓前端決定點擊走 REST 詳情或存檔版。 */
 export async function getPdGuilds(
   rec: InstanceRecord,
   ctx: DriverContext,
   detailed: boolean,
 ): Promise<PdGuildList> {
-  if (!detailed) return { available: true, detailed: false, guilds: [] };
   const status = await getPdRestStatus(rec, ctx);
   if (!status.enabled) {
-    return { available: false, detailed: true, reason: status.reason, guilds: [] };
+    return { available: false, detailed, reason: status.reason, guilds: [] };
   }
   const dir = (await getPdDir(rec, ctx))!;
   try {
@@ -451,9 +451,10 @@ export async function getPdGuilds(
         id,
         name: String(g.name ?? ""),
         level: Number(g.Level ?? 0),
-        adminName: String(admin.name ?? ""),
+        // 會長名與成員名單屬公會詳情(贊助者先行);非贊助者不給,但據點/公會名/人數照顯示。
+        adminName: detailed ? String(admin.name ?? "") : "",
         memberCount: Number(g.member_count ?? (Array.isArray(g.members) ? g.members.length : 0)),
-        members: Array.isArray(g.members) ? g.members.map(String) : [],
+        members: detailed && Array.isArray(g.members) ? g.members.map(String) : [],
         bases: camps
           .map((c) => {
             const world = ((c ?? {}).world_pos ?? {}) as Record<string, unknown>;
@@ -462,9 +463,9 @@ export async function getPdGuilds(
           .filter((b) => Number.isFinite(b.worldX) && Number.isFinite(b.worldY)),
       };
     });
-    return { available: true, detailed: true, guilds };
+    return { available: true, detailed, guilds };
   } catch (err) {
-    return { available: false, detailed: true, reason: err instanceof Error ? err.message : String(err), guilds: [] };
+    return { available: false, detailed, reason: err instanceof Error ? err.message : String(err), guilds: [] };
   }
 }
 

@@ -9,6 +9,7 @@ import { usePromoConfig } from "./promoConfig";
 /** 贊助者專屬功能的鎖定提示:識別碼指引+Buy Me a Coffee 引導按鈕。 */
 export function SponsorLockNotice({ children }: { children?: ReactNode }) {
   const { company } = usePromoConfig();
+  const { lang } = useI18n();
   return (
     <div className="flex flex-wrap items-center gap-2.5 rounded-cute border-2 border-sun/40 bg-sun/10 px-3 py-2 text-xs font-bold text-sun">
       <span className="inline-flex items-center gap-2">
@@ -17,7 +18,7 @@ export function SponsorLockNotice({ children }: { children?: ReactNode }) {
       </span>
       <a
         className={`${btnSponsor} inline-flex items-center gap-1.5 px-3 py-1 text-xs`}
-        href={company.sponsor}
+        href={lang === "zh-CN" && company.afdian ? company.afdian : company.sponsor}
         target="_blank"
         rel="noreferrer"
       >

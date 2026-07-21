@@ -1,9 +1,23 @@
 # 下一版 release 草稿(尚未發布)
 
-## 配種計算(PR #43 已合併 + 收尾)
-- feat:PalCalc 配種計算分頁(UCKETX,PR #43):存檔掃描全服帕魯→最短配種路線樹狀圖。
-- 已納入贊助者功能(breeding-calc);審查後修正:計算中提示真的會顯示(雙層 rAF)、改條件清舊結果、掃描輪詢斷線停止+unmount 清理、配方 2.3MB 模組級快取、機率性遺傳免責文案、EmptyState 統一、四語 README 同步。
-- 已補:pals.json 302 筆(屋久島/泰拉瑞亞聯動 12 筆含四語名+圖示);新分頁對自訂過清單的使用者也預設隱藏(knownTabs 遷移)。待辦:同步求解未來可移 Web Worker;self-only 物種無解提示可再精準。
+(目前無草稿 —— 頭目重生已於 v2.6.0 對外發布,見下。)
+
+v2.6.0 已發布(2026-07-19:主打「頭目重生時間」贊助功能對外開放。伺服器端 UE4SS 模組
+PalserverBossReporter v1.3:野外+地城頭目死活/重生;**狀態黏著**(看過活的一直記活、擊殺後倒數
+不因玩家離開/spawner 卸載而停),已在 Windows 測試機實機驗證(重啟後 loadPrevState 保留 diedAt、
+bossCount 3→21 穩定)。頭目重生分頁(贊助 gating,未解鎖只顯示說明卡、不預覽內容)。GUI 地圖與
+公開地圖疊頭目重生 —— 地城頭目本就在 bosses.json 同座標,一個「頭目」開關一起疊(野外用
+state.bosses、地城用 state.dungeons)。**野外頭目重生綁「遊戲內時間」(下個遊戲日,非固定 1 小時**;
+測試機實測 FairyDragon respawnInterval=1170s 佐證;已移除錯誤的 DEFAULT_BOSS_RESPAWN_SECONDS=3600):
+有實測才給精準倒數,否則定性「約下個遊戲日重生」;地城頭目時間由遊戲內建、精準。另:兩張地圖
+移除礦物層、頭目改名並區分 Alpha/封印領域。研究/計畫:.claude/notes/wild-boss-respawn-research.md、
+boss-map-integration-plan.md;memory `boss-respawn-feature.md`。)
+
+v2.5.0 已發布(2026-07-19:兩個贊助者新功能 —— 公開地圖(服主一鍵把伺服器地圖公開成全網唯讀連結、
+細項隱私設定、viewer 對齊管理員地圖呈現+官網品牌外框+四語、部署到 stats worker + Zeabur /map)、
+配種計算(PalCalc,PR#43 UCKETX,存檔掃全服帕魯算最短配種路線);pals.json 補屋久島 12 物種;
+分頁顯示修正(反作弊 tab、新分頁預設隱藏);官網下載按鈕依平台直連+更新日誌頁。
+**頭目重生時間已 commit 但用 SHOW_BOSS_RESPAWN=false 隱藏,本版不對外開放**(見下方,待 Windows 驗證))。
 
 v2.4.1 已發布(2026-07-18:玩家頁改 WebSocket 推播 PR#39(LilaS-tw,含審查後 4 修:新鮮 rec/刪除收攤/輪詢兜底/錯誤字串化);反作弊插件 tab 消失修復(PalDefender 已安裝→分頁預設顯示))。
 

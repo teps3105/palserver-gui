@@ -15,12 +15,14 @@ import { useEffect, useState } from "react";
  */
 
 export interface PromoConfig {
-  company: { name: string; website: string; instagram: string; discord: string; sponsor: string };
+  company: { name: string; website: string; instagram: string; discord: string; sponsor: string; afdian?: string };
   ipService: { name: string; website: string; discord: string };
   /** 常見問題站,header 與頁尾都會連過去。 */
   faq: string;
   /** 我們自己的遊戲伺服器代管維護服務(月費制),在引擎微調頁推廣。 */
   maintenanceService: { name: string; url: string; tagline: string; email: string };
+  /** 客製化 Discord 機器人開發服務,在 Discord Bot 分頁「進階」區推廣。 */
+  botService: { name: string; url: string; tagline: string; email: string };
   vpn: {
     radmin: { site: string; tutorial: string };
     tailscale: { site: string; tutorial: string };
@@ -33,6 +35,8 @@ export interface PromoConfig {
     /** 推廣大使(YouTuber / 社群推廣者);舊版遠端設定可能沒有這欄。 */
     ambassadors?: { name: string; role: string; url?: string }[];
     donate: string;
+    /** 愛發電贊助頁連結;未設定(空字串)時 UI 不顯示這個選項。 */
+    donateAfdian?: string;
   };
 }
 
@@ -47,19 +51,26 @@ const DEFAULT: PromoConfig = {
     name: "io software",
     website: "https://iosoftware.ai/",
     instagram: "https://www.instagram.com/iosoftware.ai/",
-    discord: "https://discord.gg/sgMMdUZd3V",
+    discord: "https://discord.gg/w3YupCut",
     sponsor: "https://buymeacoffee.com/dalufish",
+    afdian: "https://ifdian.net/a/dalufish",
   },
   ipService: {
     name: "IP 直連設定服務",
     website: "https://iosoftware.ai/ip-connect-service",
-    discord: "https://discord.gg/sgMMdUZd3V",
+    discord: "https://discord.gg/w3YupCut",
   },
   faq: "https://faq.toc.icu/",
   maintenanceService: {
     name: "遊戲伺服器維護服務",
     url: "https://iosoftware.ai/server-maintain-service",
     tagline: "版本更新、存檔備份、崩潰救援、連線設定,月費制透明計價,維運交給我們。",
+    email: "contact@iosoftware.ai",
+  },
+  botService: {
+    name: "客製化 Discord 機器人服務",
+    url: "https://iosoftware.ai/",
+    tagline: "從需求討論到部署上線,由 io software 團隊為你打造。",
     email: "contact@iosoftware.ai",
   },
   vpn: {
@@ -89,6 +100,7 @@ const DEFAULT: PromoConfig = {
     ],
     ambassadors: [{ name: "捷克", role: "推廣大使", url: "https://www.youtube.com/@PXJ" }],
     donate: "https://buymeacoffee.com/dalufish",
+    donateAfdian: "https://ifdian.net/a/dalufish",
   },
 };
 

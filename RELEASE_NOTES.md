@@ -1,8 +1,8 @@
-# palserver GUI — v2.4.1
+# palserver GUI — v2.6.0
 
-修補版:玩家頁改用 WebSocket 即時推播(解決 PalDefender 塞車卡在載入中),修復裝了反作弊插件卻找不到分頁
-Patch: players page now updates over WebSocket (fixes the PalDefender-congestion "stuck loading"), and the anti-cheat plugin tab shows again when PalDefender is installed
-パッチ:プレイヤーページを WebSocket 更新に変更(PalDefender 混雑での「読み込み中」を解消)、アンチチート導入時にタブが出ない不具合を修正
+贊助者新功能:頭目重生時間 —— 一鍵安裝純伺服器端模組,顯示全服野外頭目與地下城頭目的死活與重生時間,並疊到 GUI 地圖與公開地圖上。玩家端不需安裝。
+New supporter feature: Boss Respawn Timers — one-click install a server-side mod that shows which overworld and dungeon bosses are alive or down (with respawn timers), overlaid on both the in-app map and the public map. Nothing to install on players' machines.
+サポーター向け新機能:ボスのリスポーン時間 —— サーバー側モジュールをワンクリック導入し、フィールドボスとダンジョンボスの生死・リスポーン時間を表示、アプリ内マップと公開マップに重ねて表示。プレイヤー側の導入は不要です。
 
 > 有開自動更新會自己抓,或依下方手動下載。
 > The in-app updater fetches it automatically, or download below.
@@ -11,35 +11,51 @@ Patch: players page now updates over WebSocket (fixes the PalDefender-congestion
 <details>
 <summary><b>🇹🇼 繁體中文</b></summary>
 
-### 修正
-- **玩家頁改用 WebSocket 即時推播**(感謝 @LilaS-tw,PR #39) — 原本用輪詢,當 PalDefender 查詢塞車時整頁會卡在「載入中」;改為推播後即時更新;連不上或連到舊版 agent 會自動退回輪詢,斷線自動重連。
-- **反作弊插件(PalDefender)分頁消失修復** — 裝了 PalDefender 的伺服器,分頁會因為「設定入口按鈕」在改版中遺失而找不到;現在 PalDefender 一旦安裝,分頁就會顯示(仍可在分頁列的「＋」面板手動隱藏)。
+### 新功能(贊助者先行)
+- **頭目重生時間** — 新分頁一鍵安裝純伺服器端的 UE4SS Lua 模組,顯示全伺服器野外頭目與地下城頭目的死活與重生時間;還會疊到 GUI 地圖與公開地圖上——已擊殺的頭目 marker 變灰,滑過看重生時刻或倒數。模組只讀取遊戲狀態、不改遊戲內容,玩家端不需安裝任何東西。
+  - **狀態黏著**:只要有人經過看到頭目活著,就會一直記著,不會因為玩家離開該區就變回「未知」;擊殺後的重生倒數也不會因為玩家離開而中斷。
+  - 野外頭目綁「遊戲內時間」重生(約下個遊戲日),沒有固定秒數——本模組實測到一輪完整重生後才顯示精準倒數;地下城頭目的重生時間由遊戲內建、精準。
+
+### 修正與改進
+- 地圖:兩張底圖移除礦物圖層;野外頭目改用正式名稱,並區分「Alpha 頭目」與「封印領域」兩類。
 
 </details>
 
 <details>
 <summary><b>🇨🇳 简体中文</b></summary>
 
-### 修复
-- **玩家页改用 WebSocket 实时推送**(感谢 @LilaS-tw,PR #39) — 原本用轮询,PalDefender 查询拥塞时整页会卡在「加载中」;改为推送后实时更新;连不上或连到旧版 agent 会自动退回轮询,断线自动重连。
-- **反作弊插件(PalDefender)标签页消失修复** — 装了 PalDefender 的服务器,标签会因为「设置入口按钮」在改版中丢失而找不到;现在 PalDefender 一旦安装,标签就会显示(仍可在标签栏的「＋」面板手动隐藏)。
+### 新功能(赞助者先行)
+- **头目重生时间** — 新分页一键安装纯服务器端的 UE4SS Lua 模块,显示全服务器野外头目与地下城头目的死活与重生时间;还会叠加到 GUI 地图与公开地图上——已击杀的头目标记变灰,滑过查看重生时刻或倒数。模块只读取游戏状态、不改游戏内容,玩家端无需安装任何东西。
+  - **状态黏着**:只要有人经过看到头目活着,就会一直记住,不会因为玩家离开该区就变回「未知」;击杀后的重生倒数也不会因为玩家离开而中断。
+  - 野外头目绑「游戏内时间」重生(约下个游戏日),没有固定秒数——本模块实测到一轮完整重生后才显示精准倒数;地下城头目的重生时间由游戏内建、精准。
+
+### 修正与改进
+- 地图:两张底图移除矿物图层;野外头目改用正式名称,并区分「Alpha 头目」与「封印领域」两类。
 
 </details>
 
 <details>
 <summary><b>🇬🇧 English</b></summary>
 
-### Fixes
-- **Players page now pushes over WebSocket** (thanks @LilaS-tw, PR #39) — it used to poll, so a congested PalDefender query left the whole page stuck on "loading." It now updates live over a socket, falls back to polling on older/unreachable agents, and reconnects automatically.
-- **Anti-cheat plugin (PalDefender) tab no longer goes missing** — the tab's discovery button was lost in a refactor, so servers with PalDefender installed couldn't find it. The tab now shows whenever PalDefender is installed (you can still hide it via the "+" panel in the tab bar).
+### New features (supporters first)
+- **Boss Respawn Timers** — A new tab installs a server-side UE4SS Lua mod with one click and shows which overworld and dungeon bosses are alive or down, plus their respawn times — overlaid on both the in-app map and the public map (a downed boss's marker greys out; hover to see its respawn time or countdown). The mod only reads game state and changes nothing in-game; players don't install anything.
+  - **Sticky status**: once anyone passing by sees a boss alive, it stays remembered — it won't flip back to "unknown" just because the player left the area, and a post-kill countdown keeps running even after they leave.
+  - Overworld bosses respawn on in-game time (around the next in-game day) with no fixed timer — a precise countdown appears only after the mod has measured one full respawn; dungeon boss respawn times are game-native and precise.
+
+### Fixes & improvements
+- Map: removed the ore layer from both base maps; overworld bosses now use their proper names and are split into "Alpha" bosses and "Sealed Realm" bosses.
 
 </details>
 
 <details>
 <summary><b>🇯🇵 日本語</b></summary>
 
-### 修正
-- **プレイヤーページを WebSocket 更新に変更**(@LilaS-tw さん、PR #39) — 従来はポーリングで、PalDefender のクエリが混雑するとページ全体が「読み込み中」で止まっていました。ソケットでリアルタイム更新するようになり、古い/接続できない agent ではポーリングに自動フォールバック、切断時は自動再接続します。
-- **アンチチート(PalDefender)タブが消える不具合を修正** — タブへの導線ボタンがリファクタで失われ、PalDefender を導入したサーバーでタブが見つからなくなっていました。PalDefender を導入していればタブが表示されます(タブバーの「＋」パネルから手動で非表示にもできます)。
+### 新機能(サポーター先行)
+- **ボスのリスポーン時間** — 新しいタブからサーバー側の UE4SS Lua モジュールをワンクリックで導入し、サーバー上のフィールドボスとダンジョンボスの生死・リスポーン時間を表示します。アプリ内マップと公開マップにも重ねて表示され、討伐済みのボスはマーカーがグレーになり、ホバーでリスポーン時刻またはカウントダウンを確認できます。モジュールはゲーム状態を読み取るだけでゲーム内容は一切変更せず、プレイヤー側の導入も不要です。
+  - **状態の記憶**:誰かが近くを通ってボスが生きているのを確認すれば、その状態を記憶し続けます。プレイヤーがエリアを離れても「不明」に戻らず、討伐後のカウントダウンも中断されません。
+  - フィールドボスはゲーム内時間(おおよそ翌ゲーム内日)でリポップし、固定タイマーはありません——正確なカウントダウンは一度リポップを実測した後のみ表示されます。ダンジョンボスのリスポーン時間はゲーム内蔵で正確です。
+
+### 修正・改善
+- マップ:2 つのベースマップから鉱石レイヤーを削除。フィールドボスは正式名称に変更し、「アルファ」ボスと「封印領域」ボスに分類しました。
 
 </details>

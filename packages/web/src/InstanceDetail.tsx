@@ -11,7 +11,10 @@ import { SettingsEditor } from "./SettingsEditor";
 import { ModsTab } from "./ModsTab";
 import { PalDefenderTab } from "./PalDefenderTab";
 import { PalStatsTab } from "./PalStatsTab";
+import { BossRespawnTab } from "./BossRespawnTab";
 import { BreedingTab } from "./BreedingTab";
+import { WebhookSettingsTab } from "./WebhookSettingsTab";
+import { DiscordBotTab } from "./DiscordBotTab";
 import { PlayersTab } from "./PlayersTab";
 import { GuildsTab } from "./GuildsTab";
 import { LeaderboardTab } from "./LeaderboardTab";
@@ -22,7 +25,7 @@ import { RestartCard } from "./RestartCard";
 import { VersionCard } from "./VersionCard";
 import { ConnectionCard } from "./ConnectionCard";
 import { InstanceSettingsTab } from "./InstanceSettingsTab";
-import { SHOW_SPONSOR_FEATURES } from "./flags";
+import { SHOW_SPONSOR_FEATURES, SHOW_BOSS_RESPAWN } from "./flags";
 import { PerformanceTab } from "./PerformanceTab";
 import { EngineTab } from "./EngineTab";
 import { maskSteamIdsInText } from "./SteamId";
@@ -88,7 +91,11 @@ export function InstanceDetailPage({
   }, [morePanel]);
   // 若目前分頁被使用者在設定裡藏起來,退回總覽,避免停在看不見的分頁。
   useEffect(() => {
-    if (!LOCKED_TABS.includes(tab) && hiddenTabs.includes(tab)) setTab("overview");
+    if (
+      !LOCKED_TABS.includes(tab) &&
+      (hiddenTabs.includes(tab) || (tab === "bossrespawn" && !SHOW_BOSS_RESPAWN))
+    )
+      setTab("overview");
   }, [hiddenTabs, tab]);
   const [showConsole, setShowConsole] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
@@ -460,7 +467,8 @@ export function InstanceDetailPage({
         const orderedTabs = tabOrder
           .map((id) => TABS.find((tb) => tb.id === id))
           .filter((tb): tb is (typeof TABS)[number] => !!tb)
-          .filter((tb) => tb.id !== "palstats" || SHOW_SPONSOR_FEATURES);
+          .filter((tb) => tb.id !== "palstats" || SHOW_SPONSOR_FEATURES)
+          .filter((tb) => tb.id !== "bossrespawn" || SHOW_BOSS_RESPAWN);
         const visibleTabs = orderedTabs.filter((tb) => LOCKED_TABS.includes(tb.id) || !hiddenTabs.includes(tb.id));
         const manageable = orderedTabs.filter((tb) => !LOCKED_TABS.includes(tb.id));
         const onDragEnd = (e: DragEndEvent) => {
@@ -605,11 +613,14 @@ export function InstanceDetailPage({
         <PalDefenderTab client={client} instanceId={detail.id} running={detail.status === "running"} />
       )}
       {tab === "palstats" && <PalStatsTab client={client} instanceId={detail.id} running={detail.status === "running"} />}
+      {SHOW_BOSS_RESPAWN && tab === "bossrespawn" && <BossRespawnTab client={client} instanceId={detail.id} running={detail.status === "running"} />}
       {tab === "breeding" && <BreedingTab client={client} instanceId={detail.id} />}
       {tab === "saves" && (
         <SavesTab client={client} instanceId={detail.id} running={detail.status === "running"} />
       )}
       {tab === "restart" && <RestartCard client={client} instanceId={detail.id} />}
+      {tab === "webhooks" && <WebhookSettingsTab client={client} instanceId={detail.id} />}
+      {tab === "discord-bot" && <DiscordBotTab client={client} instanceId={detail.id} />}
       {tab === "instance" && (
         <InstanceSettingsTab client={client} detail={detail} onChanged={refresh} onDeleted={onDeleted} />
       )}

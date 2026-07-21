@@ -13,6 +13,13 @@ export interface SnapshotEntity {
   y: number;
   /** 缺省視為 "world"(主世界)。 */
   m?: SnapshotWorld;
+  /** 頭像圖示裸檔名(game-data/pals/ 內的檔名),agent 用跟 GUI PlayerAvatar 相同的雜湊
+   *  演算法依 userId 挑好;沒有就退回首字母徽章。實際檔案由 copy-map-assets.mjs 複製到
+   *  /map-assets/pal-avatars/,URL 組法見 LeafletMap.tsx 的 palAvatarUrl()。 */
+  icon?: string;
+  /** 偷襲警告:站在「非自己公會」據點附近。只有 agent 端 showPlayers 與 showBases 都開啟
+   *  時才會出現;離線玩家不會有這個欄位。 */
+  warn?: boolean;
 }
 
 export interface SnapshotBase {
@@ -21,6 +28,10 @@ export interface SnapshotBase {
   m?: SnapshotWorld;
   /** 公會名,可能省略。 */
   g?: string;
+  /** 公會配色(HSL 字串),agent 用跟 GUI guildColor 相同的演算法(依 guildId)算好;
+   *  showGuildNames 關閉時仍可能有值(顏色本身不洩漏名稱)。沒有值時 viewer 退回依公會名
+   *  雜湊出的顏色(對齊舊快照 / 沒有 guildId 的情境)。 */
+  c?: string;
 }
 
 export interface MapSnapshotV1 {
@@ -35,11 +46,17 @@ export interface MapSnapshotV1 {
     offline?: boolean;
     bases?: boolean;
     guildNames?: boolean;
+    /** 頭目重生資料是否隨快照發布(伺服器主的隱私開關;鏡像 shared show.bossRespawns)。
+     *  false/缺 = 沒有重生資料,viewer 不顯示重生開關。 */
+    bossRespawns?: boolean;
   };
   /** 關掉的圖層,這個 key 可能整個不存在。 */
   players?: SnapshotEntity[];
   offline?: SnapshotEntity[];
   bases?: SnapshotBase[];
+  /** 野外/封印頭目的重生狀態,agent 端用 assignReportedBosses 一對一配好後,以 bosses.json
+   *  的「地圖座標」為鍵發出(viewer 用 `${x},${y}` 精確配對疊到 StaticBoss marker 上)。 */
+  bosses?: SnapshotBossRespawn[];
 }
 
 export interface SnapshotApiResponse {
@@ -47,7 +64,8 @@ export interface SnapshotApiResponse {
   snapshot: MapSnapshotV1 | null;
 }
 
-/** 靜態地標(Fast Travel / Tower):抄自 packages/web/src/MapTab.tsx 的 Landmark 形狀。 */
+/** 靜態地標(Fast Travel / Tower / Dungeon):抄自 packages/web/src/MapTab.tsx 的
+ * Landmark 形狀。type 集合以 GUI 的 LANDMARK_STYLE 為準(見 markerIcon.ts)。 */
 export interface StaticLandmark {
   type: string;
   name: { en: string; zh: string; 'zh-CN'?: string; zhCN?: string; ja: string };
@@ -56,18 +74,32 @@ export interface StaticLandmark {
   lv?: number;
 }
 
-export type MapWorld = 'main' | 'tree';
-
-/** 礦物靜態圖層:抄自 packages/web/src/MapTab.tsx 的 OreData 形狀,資料來源
- * game-data/ores.json / worldtree-ores.json(scripts/copy-map-assets.mjs 同步)。 */
-export interface OreType {
+/** 頭目:抄自 packages/web/src/MapTab.tsx 的 Boss 形狀,資料來源
+ * game-data/bosses.json / worldtree-bosses.json(scripts/copy-map-assets.mjs 同步)。
+ * 依 kind 區分野外頭目(Alpha Pal)與封印領域(Sealed Realm),對齊 palworld.gg 的分類。 */
+export interface StaticBoss {
   name: { en: string; zh: string; 'zh-CN'?: string; zhCN?: string; ja: string };
-  icon: string;
-  color: string;
-  big?: boolean;
+  x: number;
+  y: number;
+  lv?: number;
+  /** 帕魯圖鑑頭像裸檔名(game-data/pals/ 內),沒有就不畫圖只留框。 */
+  icon?: string;
+  /** 'field' = 野外頭目(Alpha Pal,紅框皇冠);'sealed' = 封印領域(紫框傳送門)。
+   * 選填,舊資料(沒有這個欄位)一律當 'field' 處理。 */
+  kind?: 'field' | 'sealed';
 }
 
-export interface OreData {
-  types: Record<string, OreType>;
-  spots: { t: string; x: number; y: number }[];
+/** 野外/封印頭目重生狀態(疊在 bundled bosses.json marker 上)。x/y = 對照表地圖座標(精確配對鍵)。 */
+export interface SnapshotBossRespawn {
+  x: number;
+  y: number;
+  m?: SnapshotWorld;
+  /** 'alive' | 'dead' | 'unknown'(對齊 shared BossLiveStatus)。 */
+  st: 'alive' | 'dead' | 'unknown';
+  /** 預估重生 epoch 秒(st==='dead' 且有觀測到擊殺時);否則省略。 */
+  ra?: number;
+  /** 倒數是否採實測重生間隔(false/缺 = 官方預設 3600s 估算)。 */
+  ms?: boolean;
 }
+
+export type MapWorld = 'main' | 'tree';

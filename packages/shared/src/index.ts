@@ -9,6 +9,11 @@ export * from "./paldefender-options.js";
 export * from "./pal-stats-options.js";
 export * from "./features.js";
 export * from "./world-presets.js";
+export * from "./boss-respawn.js";
+export * from "./map-helpers.js";
+export * from "./pal-avatars.generated.js";
+export * from "./log-events.js";
+export * from "./webhooks.js";
 
 /** Value type an option can hold at runtime. */
 export type WorldOptionValue = string | number | boolean;
@@ -1201,6 +1206,9 @@ export interface PublicMapSettings {
   showOfflinePlayers: boolean;
   showBases: boolean;
   showGuildNames: boolean;
+  /** 頭目重生:在公開地圖疊野外/封印頭目的死活與重生倒數,並顯示地下城頭目層。
+   *  需伺服器已安裝 PalserverBossReporter 模組(否則快照無資料,viewer 開關不出現)。 */
+  showBossRespawns: boolean;
   /** 發布延遲(分鐘):0 = 即時;5 / 15 = 發布 N 分鐘前的緩衝快照,防止即時 PvP 用地圖抓位置。 */
   delayMinutes: 0 | 5 | 15;
 }
@@ -1212,6 +1220,7 @@ export const DEFAULT_PUBLIC_MAP_SETTINGS: PublicMapSettings = {
   showOfflinePlayers: false,
   showBases: true,
   showGuildNames: false,
+  showBossRespawns: false,
   delayMinutes: 0,
 };
 
@@ -1229,6 +1238,38 @@ export interface PublicMapStatus {
   lastPublish: PublicMapPublishResult | null;
 }
 
+/** 同機 Discord bot(agent 自跑並監督;見 packages/agent/src/discord-bot-manager.ts)前端可見/可改的設定。
+ *  token 不放這個型別 —— 只寫入 agent 端,前端靠 DiscordBotStatus.tokenSet 得知是否已設。 */
+export interface DiscordBotSettings {
+  enabled: boolean;
+  /** 管理員白名單:只有這些 Discord user id 能用管理指令(broadcast/restart/kick/ban/rcon…)。
+   *  留空 = 沒有人能用管理指令(whitelist-only,不看 Discord 伺服器管理員權限)。 */
+  adminUserIds: string[];
+  /** 事件通知要貼到的 Discord 頻道 id(留空 = 不發通知)。bot 用 gateway 直接貼,免另設 webhook URL。 */
+  notifyChannelId?: string;
+  /** 要通知的事件型別(同 webhook 的訂閱語法:精確 / "player.*" / "*")。空陣列 = 不發。 */
+  notifyEvents: string[];
+  /** 狀態面板頻道 id(留空 = 不顯示):bot 在該頻道維護一則每分鐘自動更新的伺服器狀態 embed。 */
+  statusChannelId?: string;
+}
+
+export const DEFAULT_DISCORD_BOT_SETTINGS: DiscordBotSettings = {
+  enabled: false,
+  adminUserIds: [],
+  notifyEvents: [],
+};
+
+/** GET / PUT /api/instances/:id/discord-bot 的回應形狀。永不含 token 本身。 */
+export interface DiscordBotStatus {
+  settings: DiscordBotSettings;
+  /** 是否已設定 bot token(不回傳 token 本身,僅告知有無)。 */
+  tokenSet: boolean;
+  /** bot 子行程目前是否在執行(agent 同機自跑)。 */
+  running: boolean;
+  /** 最近一次非預期退出/連線失敗的簡述(達重啟上限而停用時亦記於此),供 UI 顯示。 */
+  lastError?: string;
+}
+
 /** 快照裡的座標屬於主世界底圖還是世界樹(見 savToMap / savToWorldTreeMap)。 */
 export type PublicMapArea = "world" | "tree";
 
@@ -1240,6 +1281,13 @@ export interface PublicMapPlayerPoint {
   x: number;
   y: number;
   m: PublicMapArea;
+  /** 頭像圖示檔名(game-data/pals/ 內的裸檔名,與 GUI PlayerAvatar 同一顆雜湊 +
+   *  同一份候選清單挑出來的 —— 見 pickPalAvatarIcon)。URL 前綴由消費端決定。 */
+  icon?: string;
+  /** 偷襲警告:這個(在線)玩家目前站在「非自己公會」的據點附近(RAID_RADIUS 內)。
+   *  只有 showPlayers 與 showBases 兩個圖層都開啟時才會算、才會出現這個欄位;
+   *  離線玩家一律不計算(對齊 GUI 只對在線玩家判定的行為)。 */
+  warn?: boolean;
 }
 
 /** 快照裡的一個公會據點。 */
@@ -1249,6 +1297,25 @@ export interface PublicMapBasePoint {
   m: PublicMapArea;
   /** 公會名 — 只有「顯示公會名稱」開啟且贊助者授權(guild-map)才有,否則整欄省略。 */
   g?: string;
+  /** 公會配色(HSL 字串,guildColorFromId(guildId) 算好的)。跟 g 是獨立開關 ——
+   *  顏色本身不洩漏公會名稱,showGuildNames 關閉時仍可能帶這個欄位。 */
+  c?: string;
+}
+
+/** 快照裡野外/封印頭目的重生狀態點。agent 端已用 assignReportedBosses 一對一配好,
+ *  以 bosses.json 的「地圖座標」為鍵發出(viewer 用 `${x},${y}` 疊到自帶靜態 marker 上,
+ *  故只需狀態、不需 name/icon)。只有 showBossRespawns 開啟且模組有回報時才出現。 */
+export interface PublicMapBossPoint {
+  x: number;
+  y: number;
+  m: PublicMapArea;
+  /** 'alive' | 'dead' | 'unknown'(對齊 shared BossLiveStatus;實際 unknown 不會發出)。 */
+  st: "alive" | "dead" | "unknown";
+  /** 預估重生 epoch 秒(st==='dead' 且觀測到擊殺時);否則省略。
+   *  ⚠ 單位是「秒」,與 generatedAt(毫秒)不同,消費端勿混用。 */
+  ra?: number;
+  /** 倒數採實測重生間隔(true)還是官方預設 3600s 估算(false/省略)。 */
+  ms?: boolean;
 }
 
 /** 公開地圖快照格式 v1 — 雲端 Worker 與公開 viewer 依此消費,欄位名不可改。
@@ -1265,8 +1332,11 @@ export interface PublicMapSnapshot {
     offline: boolean;
     bases: boolean;
     guildNames: boolean;
+    bossRespawns: boolean;
   };
   players?: PublicMapPlayerPoint[];
   offline?: PublicMapPlayerPoint[];
   bases?: PublicMapBasePoint[];
+  /** 野外/封印頭目重生狀態(以地圖座標為鍵疊到 viewer 自帶靜態頭目 marker;省略=無資料)。 */
+  bosses?: PublicMapBossPoint[];
 }

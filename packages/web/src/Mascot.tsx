@@ -58,7 +58,7 @@ export function Mascot() {
 }
 
 function SponsorModal({ onClose }: { onClose: () => void }) {
-  useI18n();
+  const { lang } = useI18n();
   const { company } = usePromoConfig();
   return (
     <div
@@ -81,7 +81,7 @@ function SponsorModal({ onClose }: { onClose: () => void }) {
           {t("嗨嗨~ 我是")} <b>Dalufish</b>{t(", palserver GUI 就是我做的!這隻工具是免費的, 如果它幫上你的忙, 睡搞搞的貓貓想討一點罐罐 —— 追蹤我們、或小額贊助都是超大的鼓勵, 讓我們能繼續把它做得更好。")}
         </p>
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <a className={`${btnSponsor} inline-flex items-center justify-center gap-1.5`} href={company.sponsor} target="_blank" rel="noreferrer">
+          <a className={`${btnSponsor} inline-flex items-center justify-center gap-1.5`} href={lang === "zh-CN" && company.afdian ? company.afdian : company.sponsor} target="_blank" rel="noreferrer">
             <FiHeart className="size-4" /> {t("贊助我們")}
           </a>
           <a className={`${btnGhost} inline-flex items-center justify-center gap-1.5`} href={company.instagram} target="_blank" rel="noreferrer">

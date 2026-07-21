@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import {
   COMMANDS,
   COOP_HOST_UID,
@@ -33,6 +33,8 @@ import type { PresenceTracker } from "./presence.js";
 import type { BackupScheduler } from "./backup-scheduler.js";
 import type { RestartSupervisor } from "./supervisor.js";
 import type { PublicMapPublisher } from "./public-map.js";
+import type { WebhooksService } from "./webhooks.js";
+import type { DiscordBotManager } from "./discord-bot-manager.js";
 import { AGENT_VERSION, PORT, HOST, REQUIRE_TOKEN, WEB_ORIGINS, TLS_ENABLED, OPEN_BROWSER, ENV_LOCKED, IS_PORTABLE_EXE } from "./env.js";
 import { saveSettings } from "./settings.js";
 import { collectSpecs, reviewSpecs } from "./system-review.js";
@@ -61,6 +63,7 @@ import { checkPorts, udpPortFree } from "./port-check.js";
 import { runtimePortFree } from "./runtime-port-check.js";
 import * as pakMods from "./pak-mods.js";
 import { clearPalStats, getPalSchemaStatus, getPalStats, installPalSchema, removePalSchema, writePalStats, setPalSchemaEnabled } from "./palschema.js";
+import { getBossReporterStatus, installBossReporter, removeBossReporter } from "./boss-reporter.js";
 import { getModerationLists, moderation } from "./moderation.js";
 import { getLiveStatus, rest } from "./restapi.js";
 import * as files from "./files.js";
@@ -249,6 +252,8 @@ export function registerRoutes(
   scheduler: BackupScheduler,
   supervisor: RestartSupervisor,
   publicMap: PublicMapPublisher,
+  webhooks: WebhooksService,
+  discordBot: DiscordBotManager,
   auth: AuthContext,
   updateOps: UpdateOps,
 ): void {
@@ -1342,7 +1347,7 @@ export function registerRoutes(
 
   app.get("/api/instances/:id/guilds", async (req) => {
     const rec = getOr404((req.params as { id: string }).id);
-    // 據點位置人人可見;名稱/成員等細節是贊助者先行版功能(guild-map)。
+    // 據點位置與公會名稱人人可見;成員名單/會長等公會詳情才是贊助者先行版功能(guild-map)。
     return getPdGuilds(rec, ctxOf(rec), featureEnabled("guild-map"));
   });
 
@@ -1764,6 +1769,37 @@ export function registerRoutes(
     return await clearPalStats(rec, ctxOf(rec));
   });
 
+  // ── 頭目重生時間(贊助者先行版 boss-respawn;純伺服器端 UE4SS Lua 模組)──
+  app.get("/api/instances/:id/boss-respawns", async (req) => {
+    const rec = getOr404((req.params as { id: string }).id);
+    return await getBossReporterStatus(rec, ctxOf(rec));
+  });
+
+  app.post("/api/instances/:id/boss-respawns/install", async (req, reply) => {
+    if (!featureEnabled("boss-respawn")) {
+      return reply.code(403).send({ error: "此功能為贊助者先行版,請在設定頁輸入贊助者識別碼解鎖。" });
+    }
+    const rec = getOr404((req.params as { id: string }).id);
+    // 執行中 UE4SS DLL 被鎖,無法覆寫/建立(同 PalSchema)。
+    if (await isRunning(rec)) {
+      return reply.code(409).send({ error: "請先停止伺服器再安裝頭目回報模組(執行中時檔案被鎖定)" });
+    }
+    const { version } = await installBossReporter(rec, ctxOf(rec));
+    return { installed: "boss-reporter", version, applied: "on-next-restart" };
+  });
+
+  app.post("/api/instances/:id/boss-respawns/uninstall", async (req, reply) => {
+    if (!featureEnabled("boss-respawn")) {
+      return reply.code(403).send({ error: "此功能為贊助者先行版,請在設定頁輸入贊助者識別碼解鎖。" });
+    }
+    const rec = getOr404((req.params as { id: string }).id);
+    if (await isRunning(rec)) {
+      return reply.code(409).send({ error: "請先停止伺服器再移除頭目回報模組(執行中時檔案被鎖定)" });
+    }
+    await removeBossReporter(rec, ctxOf(rec));
+    return { removed: "boss-reporter" };
+  });
+
   // ── config-file health & regeneration ──
   app.get("/api/instances/:id/config-health", async (req) => {
     const rec = getOr404((req.params as { id: string }).id);
@@ -1929,6 +1965,7 @@ export function registerRoutes(
           showOfflinePlayers: z.boolean().optional(),
           showBases: z.boolean().optional(),
           showGuildNames: z.boolean().optional(),
+          showBossRespawns: z.boolean().optional(),
           delayMinutes: z.union([z.literal(0), z.literal(5), z.literal(15)]).optional(),
         }),
       })
@@ -1951,6 +1988,100 @@ export function registerRoutes(
     }
     const rec = getOr404((req.params as { id: string }).id);
     return publicMap.rotate(rec);
+  });
+
+  // ── Webhook / Discord 機器人整合(贊助限定,整組閘門)。事件推送、簽章、重試都在
+  // webhooks.ts;這裡是薄薄一層 CRUD。secret 只在建立/換發時回傳一次,list 只回 secretSet。
+  const webhookGate = (reply: FastifyReply): boolean => {
+    if (featureEnabled("webhooks")) return true;
+    void reply.code(403).send({ error: "此功能為贊助者先行版,請在設定頁輸入贊助者識別碼解鎖。" });
+    return false;
+  };
+  const webhookInput = z.object({
+    url: z.string().url(),
+    events: z.array(z.string().min(1)).min(1),
+    format: z.enum(["generic", "discord"]).optional(),
+    label: z.string().max(80).optional(),
+    enabled: z.boolean().optional(),
+  });
+  const whParams = (req: { params: unknown }) => req.params as { id: string; whId: string };
+
+  app.get("/api/instances/:id/webhooks", async (req, reply) => {
+    if (!webhookGate(reply)) return reply;
+    const rec = getOr404((req.params as { id: string }).id);
+    return webhooks.list(rec.id);
+  });
+
+  app.post("/api/instances/:id/webhooks", async (req, reply) => {
+    if (!webhookGate(reply)) return reply;
+    const rec = getOr404((req.params as { id: string }).id);
+    const input = webhookInput.parse(req.body);
+    reply.code(201);
+    return webhooks.create(rec.id, input);
+  });
+
+  app.put("/api/instances/:id/webhooks/:whId", async (req, reply) => {
+    if (!webhookGate(reply)) return reply;
+    const { id, whId } = whParams(req);
+    getOr404(id);
+    const patch = webhookInput.partial().parse(req.body);
+    const updated = await webhooks.update(id, whId, patch);
+    return updated ?? reply.code(404).send({ error: "webhook 不存在" });
+  });
+
+  app.delete("/api/instances/:id/webhooks/:whId", async (req, reply) => {
+    if (!webhookGate(reply)) return reply;
+    const { id, whId } = whParams(req);
+    getOr404(id);
+    const ok = await webhooks.remove(id, whId);
+    return ok ? { ok: true } : reply.code(404).send({ error: "webhook 不存在" });
+  });
+
+  app.post("/api/instances/:id/webhooks/:whId/rotate-secret", async (req, reply) => {
+    if (!webhookGate(reply)) return reply;
+    const { id, whId } = whParams(req);
+    getOr404(id);
+    const rotated = await webhooks.rotateSecret(id, whId);
+    return rotated ?? reply.code(404).send({ error: "webhook 不存在" });
+  });
+
+  app.post("/api/instances/:id/webhooks/:whId/test", async (req, reply) => {
+    if (!webhookGate(reply)) return reply;
+    const { id, whId } = whParams(req);
+    getOr404(id);
+    const result = await webhooks.testSend(id, whId);
+    return result ? { result } : reply.code(404).send({ error: "webhook 不存在" });
+  });
+
+  app.get("/api/instances/:id/webhooks/:whId/deliveries", async (req, reply) => {
+    if (!webhookGate(reply)) return reply;
+    const { id, whId } = whParams(req);
+    getOr404(id);
+    return webhooks.deliveries(id, whId);
+  });
+
+  // ── 同機 Discord bot(agent 自跑並監督;贊助限定,共用 webhookGate)。enabled + token 存
+  // <instanceDir>/discord-bot.json;token 寫入不回讀(status 只回 tokenSet),見 discord-bot-manager.ts。
+  const discordBotInput = z.object({
+    enabled: z.boolean().optional(),
+    token: z.string().optional(),
+    adminUserIds: z.array(z.string().trim().min(1)).optional(),
+    notifyChannelId: z.string().trim().optional(),
+    notifyEvents: z.array(z.string().min(1)).optional(),
+    statusChannelId: z.string().trim().optional(),
+  });
+
+  app.get("/api/instances/:id/discord-bot", async (req, reply) => {
+    if (!webhookGate(reply)) return reply;
+    const rec = getOr404((req.params as { id: string }).id);
+    return discordBot.status(rec.id);
+  });
+
+  app.put("/api/instances/:id/discord-bot", async (req, reply) => {
+    if (!webhookGate(reply)) return reply;
+    const rec = getOr404((req.params as { id: string }).id);
+    const patch = discordBotInput.parse(req.body);
+    return discordBot.update(rec.id, patch);
   });
 
   app.get("/api/instances/:id/version", async (req) => {

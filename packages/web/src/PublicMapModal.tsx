@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FiGlobe, FiHome, FiLock, FiMoon, FiRefreshCw, FiStar, FiUser, FiUsers, FiX } from "react-icons/fi";
+import { GiBossKey } from "react-icons/gi";
 import { hasFeature, type PublicMapSettings, type PublicMapStatus } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { CopyPath } from "./CopyPath";
@@ -214,6 +215,14 @@ export function PublicMapModal({
                     checked={settings.showGuildNames}
                     disabled={busy}
                     onChange={(v) => void patch({ showGuildNames: v })}
+                  />
+                  <ToggleRow
+                    icon={<GiBossKey className="size-4" />}
+                    label={t("顯示頭目重生")}
+                    hint={t("在地圖上標示頭目死活與重生倒數")}
+                    checked={settings.showBossRespawns}
+                    disabled={busy}
+                    onChange={(v) => void patch({ showBossRespawns: v })}
                   />
                 </div>
 
