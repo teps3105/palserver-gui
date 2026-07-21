@@ -15,7 +15,7 @@
     "dev:web": "pnpm build:shared && pnpm --filter @palserver/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm build:shared && pnpm -r typecheck",
-    "bundle:agent": "pnpm build:shared && pnpm --filter @palserver/agent build && node scripts/bundle-agent.mjs",
+    "bundle:agent": "pnpm build:shared && pnpm --filter @palserver/discord-bot build && pnpm --filter @palserver/agent build && node scripts/bundle-agent.mjs",
     "release:exe": "pnpm build:shared && pnpm --filter @palserver/web build && pnpm bundle:agent && node scripts/build-sea.mjs"
   },
   "devDependencies": {
