@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FiGitBranch, FiMaximize2, FiRefreshCw, FiSearch, FiZoomIn, FiZoomOut } from "react-icons/fi";
+import { FiCrosshair, FiGitBranch, FiMapPin, FiMaximize2, FiRefreshCw, FiSearch, FiZoomIn, FiZoomOut } from "react-icons/fi";
 import { GiEggClutch } from "react-icons/gi";
-import { hasFeature, type SaveBreedingPal } from "@palserver/shared";
+import { hasFeature, savToMap, type SaveBreedingPal } from "@palserver/shared";
 import type { AgentClient } from "./api";
 import { EntityPicker } from "./EntityPicker";
 import { MultiPicker } from "./MultiPicker";
@@ -26,6 +26,28 @@ const locationLabel: Record<SaveBreedingPal["location"], string> = {
   unknown: "未知位置",
 };
 
+const PALBOX_SLOTS_PER_PAGE = 30;
+
+function sourceLocation(source: SaveBreedingPal): string {
+  if (source.location === "palbox" && source.slotIndex != null) {
+    return t("帕魯箱第 {page} 頁", { page: Math.floor(source.slotIndex / PALBOX_SLOTS_PER_PAGE) + 1 });
+  }
+  if (source.location === "base" && source.base) {
+    const generatedName = /^(新規生成拠点|新规生成据点|新規生成據點)/.test(source.base.name);
+    return source.base.name && !generatedName
+      ? t("據點:{base}", { base: source.base.name })
+      : t("公會據點");
+  }
+  return t(locationLabel[source.location]);
+}
+
+function sourceSummary(source: SaveBreedingPal): string {
+  return t("{owner} · {location}", {
+    owner: source.ownerName,
+    location: sourceLocation(source),
+  });
+}
+
 function speciesId(id: string): string {
   return id.replace(/^BOSS_/i, "");
 }
@@ -45,36 +67,56 @@ function PalTreeNode({
   data,
   desired,
   target,
+  onShowOnMap,
 }: {
   node: BreedingNode;
   data: GameData | null;
   desired: string[];
   target?: boolean;
+  onShowOnMap?: (x: number, y: number) => void;
 }) {
   const entity = data?.palByIdLower.get(speciesId(node.species).toLowerCase());
   const source = node.source;
   const matching = passiveIds(node, desired);
   return (
-    <div className={`flex h-[116px] w-[240px] gap-2 overflow-hidden rounded-lg border-2 bg-card p-3 shadow-(--shadow-cute) ${target ? "border-pal" : "border-line"}`}>
+    <div className={`flex h-[116px] w-[240px] gap-2 overflow-hidden rounded-lg border-2 p-3 shadow-(--shadow-cute) ${node.requiredCapture ? "border-sun bg-sun/10" : target ? "border-pal bg-card" : "border-line bg-card"}`}>
       <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-line bg-card-soft">
         {entity?.icon && <img src={palIconUrl(entity.icon)} alt="" className="size-full object-contain" />}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-extrabold">
-          {source?.nickname || palName(data, node.species)}
-          <span className="ml-1.5 text-xs font-normal text-ink-muted">
+        <p className="flex min-w-0 items-baseline gap-1.5 text-sm font-extrabold">
+          <span className="truncate">{source?.nickname || palName(data, node.species)}</span>
+          <span className="shrink-0 text-xs font-normal text-ink-muted">
             {node.gender === "m" ? "♂" : node.gender === "f" ? "♀" : "♂/♀"}
           </span>
+          {source && (
+            <span className="ml-auto shrink-0 text-[10px] font-bold text-ink-muted">
+              Lv.{source.level ?? "—"}
+            </span>
+          )}
         </p>
-        <p className="truncate text-[11px] text-ink-muted">
-          {source
-            ? t("{owner} · {location} · Lv.{level}", {
-                owner: source.ownerName,
-                location: t(locationLabel[source.location]),
-                level: source.level ?? "—",
-              })
-            : t("第 {n} 代配種結果", { n: node.generation })}
-        </p>
+        {source?.base && onShowOnMap ? (
+          <button
+            type="button"
+            className="flex max-w-full items-center gap-1 text-left text-[11px] text-ink-muted transition hover:text-pal"
+            title={`${sourceSummary(source)} · ${t("在地圖上查看")}`}
+            onClick={() => {
+              const point = savToMap(source.base!.x, source.base!.y);
+              onShowOnMap(point.x, point.y);
+            }}
+          >
+            <FiMapPin className="size-3 shrink-0" />
+            <span className="truncate">{sourceSummary(source)}</span>
+          </button>
+        ) : (
+          <p className="truncate text-[11px] text-ink-muted" title={source ? sourceSummary(source) : undefined}>
+            {node.requiredCapture
+              ? t("需捕捉")
+              : source
+                ? sourceSummary(source)
+                : t("第 {n} 代配種結果", { n: node.generation })}
+          </p>
+        )}
         {source && (
           <p className="mt-1 truncate text-[10px] font-bold text-ink-muted">
             HP {source.talentHp ?? "—"} · ATK {source.talentShot ?? "—"} · DEF {source.talentDefense ?? "—"}
@@ -147,7 +189,7 @@ function layoutBreedingTree(target: BreedingNode) {
   };
 }
 
-function BreedingTree({ target, data, desired }: { target: BreedingNode; data: GameData | null; desired: string[] }) {
+function BreedingTree({ target, data, desired, captureCount, onShowOnMap }: { target: BreedingNode; data: GameData | null; desired: string[]; captureCount: number; onShowOnMap?: (x: number, y: number) => void }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const layout = useMemo(() => layoutBreedingTree(target), [target]);
   const [zoom, setZoom] = useState(1);
@@ -168,7 +210,9 @@ function BreedingTree({ target, data, desired }: { target: BreedingNode; data: G
             <FiGitBranch className="size-5 text-pal" /> {t("配種路徑")}
           </h3>
           <p className="mt-0.5 text-xs text-ink-muted">
-            {t("{generations} 代 · 共 {steps} 次配種", { generations: target.generation, steps: target.breedCount })}
+            {captureCount > 0
+              ? t("{generations} 代 · 共 {steps} 次配種 · 需捕捉 {captures} 隻", { generations: target.generation, steps: target.breedCount, captures: captureCount })
+              : t("{generations} 代 · 共 {steps} 次配種", { generations: target.generation, steps: target.breedCount })}
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -221,7 +265,7 @@ function BreedingTree({ target, data, desired }: { target: BreedingNode; data: G
             </svg>
             {layout.nodes.map((entry) => (
               <div key={entry.id} className="absolute" style={{ left: entry.x, top: entry.y }}>
-                <PalTreeNode node={entry.node} data={data} desired={desired} target={entry.node === target} />
+                <PalTreeNode node={entry.node} data={data} desired={desired} target={entry.node === target} onShowOnMap={onShowOnMap} />
               </div>
             ))}
           </div>
@@ -231,7 +275,7 @@ function BreedingTree({ target, data, desired }: { target: BreedingNode; data: G
   );
 }
 
-export function BreedingTab({ client, instanceId }: { client: AgentClient; instanceId: string }) {
+export function BreedingTab({ client, instanceId, onShowOnMap }: { client: AgentClient; instanceId: string; onShowOnMap?: (x: number, y: number) => void }) {
   useI18n();
   const gameData = useGameData();
   const [breedingData, setBreedingData] = useState<BreedingData | null>(null);
@@ -295,10 +339,25 @@ export function BreedingTab({ client, instanceId }: { client: AgentClient; insta
 
   const owners = useMemo(() => {
     const map = new Map<string, string>();
-    for (const pal of pals) map.set(pal.ownerUid, pal.ownerName);
+    for (const pal of pals) {
+      if (!pal.base) map.set(pal.ownerUid, pal.ownerName);
+    }
     return [...map].sort((a, b) => a[1].localeCompare(b[1]));
   }, [pals]);
-  const available = ownerUid ? pals.filter((pal) => pal.ownerUid === ownerUid) : pals;
+  const available = useMemo(() => {
+    if (!ownerUid) return pals;
+    const normalizeId = (id: string) => id.replace(/[^0-9a-f]/gi, "").toLowerCase();
+    const guildIds = new Set(
+      pals
+        .filter((pal) => !pal.base && pal.ownerUid === ownerUid && pal.ownerGuildId)
+        .map((pal) => normalizeId(pal.ownerGuildId!)),
+    );
+    return pals.filter(
+      (pal) =>
+        pal.ownerUid === ownerUid ||
+        (pal.base !== undefined && guildIds.has(normalizeId(pal.base.guildId))),
+    );
+  }, [ownerUid, pals]);
 
   const scan = async () => {
     if (!worldGuid) return;
@@ -396,7 +455,7 @@ export function BreedingTab({ client, instanceId }: { client: AgentClient; insta
               setSolution(null);
             }}
           >
-            <option value="">{t("全服玩家的帕魯")}</option>
+            <option value="">{t("全服玩家及公會據點的帕魯")}</option>
             {owners.map(([uid, name]) => <option key={uid} value={uid}>{name}</option>)}
           </Select>
         </label>
@@ -432,22 +491,32 @@ export function BreedingTab({ client, instanceId }: { client: AgentClient; insta
         </div>
       </div>
 
-      {solution?.target?.generation === 0 && (
-        <div className="rounded-md border-2 border-grass/40 bg-grass/10 p-4">
-          <p className="mb-2 text-sm font-extrabold text-grass">{t("存檔中已有符合條件的帕魯")}</p>
-          <PalTreeNode node={solution.target} data={gameData} desired={passives} target />
-        </div>
-      )}
-
       {solution && !solution.target && (
         <EmptyState icon={<GiEggClutch />} title={t("在 {n} 代內找不到路徑", { n: maxGenerations })}>
           {t("已從現有帕魯推導出 {n} 個可達物種。可增加代數、擴大玩家範圍或減少目標詞條。", { n: solution.reachableSpecies })}
         </EmptyState>
       )}
 
+      {solution?.target && solution.requiredCaptures.length > 0 && (
+        <div className="rounded-md border-2 border-sun/50 bg-sun/10 p-4">
+          <p className="inline-flex items-center gap-2 text-sm font-extrabold text-ink">
+            <FiCrosshair className="size-4 text-sun" />
+            {t("現有帕魯不足，補充捕捉 {n} 隻帕魯後可配種", { n: solution.requiredCaptures.length })}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {solution.requiredCaptures.map((node) => (
+              <span key={`${node.species}-${node.gender}`} className="inline-flex items-center gap-1.5 rounded-md border border-sun/60 bg-card px-2 py-1 text-xs font-bold text-ink">
+                {palName(gameData, node.species)}
+                <span className="text-ink-muted">{node.gender === "m" ? "♂" : "♀"}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {solution?.target && solution.target.generation > 0 && (
         <>
-          <BreedingTree target={solution.target} data={gameData} desired={passives} />
+          <BreedingTree target={solution.target} data={gameData} desired={passives} captureCount={solution.requiredCaptures.length} onShowOnMap={onShowOnMap} />
           <p className="text-center text-xs text-ink-muted">
             {t("路線圖顯示詞條的可能繼承路徑;實際遺傳有機率成分,通常需要重複配種幾次才能讓子代集齊全部目標詞條。")}
           </p>

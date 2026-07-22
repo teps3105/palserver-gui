@@ -211,12 +211,38 @@ function readSnapshots(ctx: DriverContext): Record<string, SavePlayersSnapshot> 
 /** 配種工具只需要個體與主人,不回傳背包/公會等大型玩家檔案。 */
 export function getBreedingSnapshot(ctx: DriverContext, worldGuid: string): SaveBreedingSnapshot {
   const snapshot = readSnapshots(ctx)[worldGuid];
+  const guildIdByMemberUid = new Map<string, string>();
+  const guildIdByName = new Map<string, string>();
+  for (const guild of snapshot?.guilds ?? []) {
+    guildIdByName.set(guild.name, guild.id);
+    for (const member of guild.members) guildIdByMemberUid.set(normGuid(member.uid), guild.id);
+  }
+  const pals: SaveBreedingSnapshot["pals"] = [];
+  const seen = new Set<string>();
+  const add = (pal: SaveBreedingSnapshot["pals"][number]) => {
+    if (pal.instanceId && seen.has(pal.instanceId)) return;
+    if (pal.instanceId) seen.add(pal.instanceId);
+    pals.push(pal);
+  };
+  for (const pal of snapshot?.basePals ?? []) {
+    add({
+      ...pal,
+      ownerUid: `guild:${pal.base?.guildId ?? "unknown"}`,
+      ownerName: pal.base?.guildName ?? "?",
+    });
+  }
+  for (const player of snapshot?.players ?? []) {
+    const ownerGuildId =
+      guildIdByMemberUid.get(normGuid(player.uid)) ??
+      (player.guildName ? guildIdByName.get(player.guildName) : undefined);
+    for (const pal of player.pals) {
+      add({ ...pal, ownerUid: player.uid, ownerName: player.name, ownerGuildId });
+    }
+  }
   return {
     worldGuid,
     generatedAt: snapshot?.generatedAt ?? null,
-    pals: (snapshot?.players ?? []).flatMap((player) =>
-      player.pals.map((pal) => ({ ...pal, ownerUid: player.uid, ownerName: player.name })),
-    ),
+    pals,
   };
 }
 
@@ -701,6 +727,7 @@ async function runJob(rec: InstanceRecord, ctx: DriverContext, worldGuid: string
       levelSavMtime: report.levelSavMtime,
       players: analysis.players,
       guilds: analysis.guilds,
+      basePals: analysis.basePals,
     };
     writeSnapshot(ctx, snapshot);
     // 排行榜/週報:每次掃描追加一筆精簡統計(不覆蓋,和快照不同)
