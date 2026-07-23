@@ -1898,5 +1898,12 @@
   "即將刪除公會「{g}」的據點「{b}」。": "About to delete the base “{b}” of guild “{g}”.",
   "請輸入公會名稱「{g}」以確認:": "Type the guild name “{g}” to confirm:",
   "永久刪除據點": "Permanently delete base",
-  "刪除此據點(不可逆)": "Delete this base (irreversible)"
+  "刪除此據點(不可逆)": "Delete this base (irreversible)",
+  "顯示完整資訊": "Show full details",
+  "查看公會資訊": "View guild info",
+  "所屬公會": "Guild",
+  "駐守工作帕魯明細": "Stationed worker Pals",
+  "駐守工作帕魯": "Stationed worker Pals",
+  "這個據點沒有駐守工作帕魯。": "This base has no stationed worker Pals.",
+  "工作帕魯": "Worker Pals"
 }

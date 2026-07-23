@@ -38,7 +38,7 @@ import {
   type Boss,
 } from "./mapLayers";
 import { PlayerDetailModal } from "./PlayerDetailModal";
-import { GuildDetailModal as SaveGuildDetailModal } from "./GuildDetailModal";
+import { GuildDetailModal as SaveGuildDetailModal, BasePeekModal, BaseDetailModal } from "./GuildDetailModal";
 import { PlayerActionsMenu } from "./PlayerActionsMenu";
 import { PublicMapModal } from "./PublicMapModal";
 import { t, useI18n } from "./i18n";
@@ -125,6 +125,41 @@ export function MapTab({
   const [playerPeek, setPlayerPeek] = useState<{ id: string; label: string } | null>(null);
   const [guildFull, setGuildFull] = useState<SaveGuild | null>(null);
   const [saveSnap, setSaveSnap] = useState<{ generatedAt: string | null; guilds: SaveGuild[] } | null>(null);
+  // 據點三層下鑽:簡單資訊(peek)→ 完整資訊(full)→ 公會資訊(guildFull)。
+  type ResolvedBase = { guild: SaveGuild; base: SaveGuild["bases"][number]; index: number };
+  const [basePeek, setBasePeek] = useState<ResolvedBase | null>(null);
+  const [baseFull, setBaseFull] = useState<ResolvedBase | null>(null);
+
+  /** 點據點 marker:抓存檔快照、依 id(去格式後比對,吸收 PD/存檔 GUID 格式差)找到公會與該據點,開簡單資訊。 */
+  const openBasePeek = async (guildId: string, baseId: string) => {
+    try {
+      const snap = saveSnap ?? (await client.guildsSnapshot(instanceId));
+      setSaveSnap(snap);
+      const norm = (s: string) => s.replace(/[^0-9a-f]/gi, "").toLowerCase();
+      const g = snap.guilds.find((x) => norm(x.id) === norm(guildId));
+      if (!g) {
+        setError(t("存檔快照裡找不到這個公會 — 到公會分頁「從存檔刷新」重掃一次。"));
+        return;
+      }
+      const index = g.bases.findIndex((b) => norm(b.id) === norm(baseId));
+      if (index < 0) {
+        setError(t("存檔快照裡找不到這個據點 — 到公會分頁「從存檔刷新」重掃一次。"));
+        return;
+      }
+      setBasePeek({ guild: g, base: g.bases[index], index });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  /** 據點被刪除:從快照移掉、關閉所有據點彈窗,標記快照過期(下次重抓)。 */
+  const onBaseDeleted = (baseId: string) => {
+    const norm = (s: string) => s.replace(/[^0-9a-f]/gi, "").toLowerCase();
+    setGuilds((gs) => gs.map((g) => ({ ...g, bases: g.bases.filter((b) => norm(b.id) !== norm(baseId)) })));
+    setSaveSnap(null);
+    setBasePeek(null);
+    setBaseFull(null);
+  };
 
   /** 懶載入公會快照(第一次點「查看完整資料」時才抓)。 */
   const openGuildFull = async (guildId: string, name: string) => {
@@ -402,6 +437,7 @@ export function MapTab({
             if (guildsUnlocked) setGuildDetailId(id);
             else void openGuildFull(id, "");
           }}
+          onBaseClick={(guildId, baseId) => void openBasePeek(guildId, baseId)}
           onPlayerClick={(id, label) => setPlayerPeek({ id, label })}
         />
       </div>
@@ -438,6 +474,44 @@ export function MapTab({
             setFocus({ x, y, n: Date.now() });
           }}
           onClose={() => setGuildFull(null)}
+        />
+      )}
+      {basePeek && (
+        <BasePeekModal
+          client={client}
+          instanceId={instanceId}
+          guild={basePeek.guild}
+          base={basePeek.base}
+          baseIndex={basePeek.index}
+          onShowOnMap={(x, y) => {
+            setBasePeek(null);
+            setFocus({ x, y, n: Date.now() });
+          }}
+          onOpenDetail={() => {
+            setBaseFull(basePeek);
+            setBasePeek(null);
+          }}
+          onDeleted={onBaseDeleted}
+          onClose={() => setBasePeek(null)}
+        />
+      )}
+      {baseFull && (
+        <BaseDetailModal
+          client={client}
+          instanceId={instanceId}
+          guild={baseFull.guild}
+          base={baseFull.base}
+          baseIndex={baseFull.index}
+          onShowOnMap={(x, y) => {
+            setBaseFull(null);
+            setFocus({ x, y, n: Date.now() });
+          }}
+          onOpenGuild={() => {
+            setGuildFull(baseFull.guild);
+            setBaseFull(null);
+          }}
+          onDeleted={onBaseDeleted}
+          onClose={() => setBaseFull(null)}
         />
       )}
       {playerPeek && (
@@ -802,6 +876,7 @@ function PlayerMap({
   showBosses,
   gameData,
   onGuildClick,
+  onBaseClick,
   onPlayerClick,
 }: {
   world: MapWorld;
@@ -824,6 +899,8 @@ function PlayerMap({
   showBosses: boolean;
   gameData: GameData | null;
   onGuildClick?: (guildId: string) => void;
+  /** 點據點 marker:開該據點的簡單資訊(三層下鑽第一層)。 */
+  onBaseClick?: (guildId: string, baseId: string) => void;
   /** Open the full player-detail view (same as the player list). */
   onPlayerClick?: (userId: string, name: string) => void;
 }) {
@@ -834,6 +911,8 @@ function PlayerMap({
   const markersRef = useRef<L.LayerGroup | null>(null);
   const onGuildClickRef = useRef(onGuildClick);
   onGuildClickRef.current = onGuildClick;
+  const onBaseClickRef = useRef(onBaseClick);
+  onBaseClickRef.current = onBaseClick;
   const onPlayerClickRef = useRef(onPlayerClick);
   onPlayerClickRef.current = onPlayerClick;
 
@@ -1079,7 +1158,7 @@ function PlayerMap({
               `<div>${t("公會據點")} · Lv.${g.level} · ${t("{n} 名成員", { n: g.memberCount })}</div>`,
             { direction: "top", className: "pmap-detail" },
           );
-          marker.on("click", () => onGuildClickRef.current?.(g.id));
+          marker.on("click", () => onBaseClickRef.current?.(g.id, b.id));
           marker.addTo(group);
         }
       }
