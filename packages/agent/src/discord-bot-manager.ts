@@ -11,6 +11,7 @@ import {
   type DiscordBotStatus,
   type DiscordBotLogLine,
   type WebhookEnvelope,
+  type WebhookEventType,
 } from "@palserver/shared";
 import { onAgentEvent, type AgentEvent } from "./events.js";
 import { featureEnabled } from "./license.js";
@@ -369,5 +370,25 @@ export class DiscordBotManager {
     } catch {
       /* IPC 可能剛好關閉:忽略,下次事件再說 */
     }
+  }
+
+  /** 背景追蹤器的 wants(id):bot 已授權、已啟用、設了通知頻道,且 notifyEvents 命中對應事件。
+   *  與 forwardEvent 投遞條件對齊(不納入「子行程需在線」的 live 狀態,避免 bot 重啟時追蹤器抖動)。
+   *  沒有這個,只設 bot、未設對應 webhook 時 chat/boss 追蹤器不會啟動 → bot 永遠收不到 chat/boss。 */
+  private wantsAny(id: string, types: WebhookEventType[]): boolean {
+    if (!this.featureEnabledFn()) return false;
+    const { settings } = this.readState(id);
+    if (!settings.enabled || !settings.notifyChannelId) return false;
+    return types.some((t) => eventMatches(settings.notifyEvents ?? [], t));
+  }
+
+  /** log-event-tracker 的 wants:訂閱 player log 事件(chat/death/capture)。 */
+  wantsLogEvents(id: string): boolean {
+    return this.wantsAny(id, ["player.chat", "player.death", "player.capture"]);
+  }
+
+  /** boss-event-tracker 的 wants:訂閱 boss 事件(killed/respawn)。 */
+  wantsBossEvents(id: string): boolean {
+    return this.wantsAny(id, ["boss.killed", "boss.respawn"]);
   }
 }

@@ -229,14 +229,14 @@ process.once("SIGTERM", () => process.exit(0));
 const logEventTracker = new LogEventTracker(
   store,
   (rec) => (rec.backend === "native" ? nativeDriver : rec.backend === "k8s" ? k8sDriver : dockerDriver),
-  (id) => webhooks.wantsLogEvents(id),
+  (id) => webhooks.wantsLogEvents(id) || discordBot.wantsLogEvents(id),
 );
 logEventTracker.start();
 
 const bossEventTracker = new BossEventTracker(
   store,
   (rec) => (rec.backend === "native" ? nativeDriver : rec.backend === "k8s" ? k8sDriver : dockerDriver),
-  (id) => webhooks.wantsBossEvents(id),
+  (id) => webhooks.wantsBossEvents(id) || discordBot.wantsBossEvents(id),
 );
 bossEventTracker.start();
 
