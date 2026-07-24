@@ -264,9 +264,13 @@ export const k8sDriver: ServerDriver = {
         : null;
 
       const previous = usageMicros === null ? undefined : k8sStatsSamples.get(rec.id);
-      const cpuPercent = usageMicros === null || previous?.podName !== podName
+      // computeCpuPercent 回單核基準(可破百);正規化為佔總算力 0–100%。
+      const rawPercent = usageMicros === null || previous?.podName !== podName
         ? null
         : computeCpuPercent(previous, usageMicros, now);
+      const cpuPercent = rawPercent != null && cpuCores > 0
+        ? Math.max(0, Math.min(rawPercent / cpuCores, 100))
+        : rawPercent;
 
       // per-core 差分(兩種來源各自算)。
       let perCore: (number | null)[] | null = null;
