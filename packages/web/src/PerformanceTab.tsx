@@ -97,37 +97,22 @@ export function PerformanceTab({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* CPU 概要(總用量 + per-thread 框框,每個執行緒各自帶折線圖+Y 軸) */}
-      <CpuOverview
-        cpuPercent={cpuPercent}
-        perCore={perCore}
-        perCoreScope={perCoreScope}
-        history={history}
-      />
-
-      {/* 概要數字磚 */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat
-          icon={<FiHardDrive className="size-4" />}
-          label={t("記憶體")}
-          value={stats ? fmtBytes(stats.memoryBytes) : "—"}
-          sub={stats && hasFiniteLimit(memoryLimit) ? `／ ${fmtBytes(memoryLimit)}` : undefined}
-        />
-        <Stat
-          icon={<FiZap className="size-4" />}
-          label={t("伺服器 FPS")}
-          value={metrics ? String(metrics.serverfps) : "—"}
-          sub={metrics ? t("影格 {ms} ms", { ms: metrics.serverframetime.toFixed(1) }) : t("需啟用 REST API")}
-        />
-        <Stat
-          icon={<FiClock className="size-4" />}
-          label={t("運行時間")}
-          value={stats?.uptimeSeconds != null ? fmtDuration(stats.uptimeSeconds) : "—"}
-          sub={stats?.processCount != null ? t("{n} 個行程", { n: stats.processCount }) : undefined}
-        />
+      {/* ① 純數字容器 — 所有當前數值快照 */}
+      <div className={`${card} flex flex-col gap-3`}>
+        <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
+          <FiActivity className="size-4 text-pal" /> {t("即時數值")}
+          {perCoreScope && <span className="text-xs font-normal text-ink-muted">· {perCoreScope === "system" ? t("系統全執行緒") : t("伺服器專屬")}</span>}
+        </h3>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Stat icon={<FiCpu className="size-4" />} label={t("CPU")} value={cpuPercent == null ? "—" : `${cpuPercent.toFixed(0)}%`} sub={t("佔總算力")} />
+          <Stat icon={<FiHardDrive className="size-4" />} label={t("記憶體")} value={stats ? fmtBytes(stats.memoryBytes) : "—"} sub={stats && hasFiniteLimit(memoryLimit) ? `／ ${fmtBytes(memoryLimit)}` : undefined} />
+          <Stat icon={<FiZap className="size-4" />} label={t("伺服器 FPS")} value={metrics ? String(metrics.serverfps) : "—"} sub={metrics ? t("影格 {ms} ms", { ms: metrics.serverframetime.toFixed(1) }) : t("需啟用 REST API")} />
+          <Stat icon={<FiClock className="size-4" />} label={t("運行時間")} value={stats?.uptimeSeconds != null ? fmtDuration(stats.uptimeSeconds) : "—"} sub={stats?.processCount != null ? t("{n} 個行程", { n: stats.processCount }) : undefined} />
+          {metrics && <Stat icon={<FiLayers className="size-4" />} label={t("伺服器運行")} value={fmtDuration(metrics.uptime)} />}
+        </div>
       </div>
 
-      {/* 詳細用量條 */}
+      {/* ② 資源用量容器 — Meter 進度條 */}
       <div className={`${card} flex flex-col gap-4`}>
         <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
           <FiActivity className="size-4 text-pal" /> {t("資源用量")}
@@ -150,114 +135,49 @@ export function PerformanceTab({
         )}
       </div>
 
-      {/* 走勢圖 */}
+      {/* ③ 即時走勢容器 — 折線圖 + per-thread 框框 */}
       <div className={`${card} flex flex-col gap-4`}>
         <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
           <FiActivity className="size-4 text-pal" /> {t("即時走勢")}
           <span className="text-xs font-normal text-ink-muted">{t("(最近約 5 分鐘)")}</span>
         </h3>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Trend
-            title={t("CPU 佔總算力")}
-            unit="%"
-            color="#F4A64D"
-            values={history.map((h) => h.cpu)}
-            max={100}
-          />
-          <Trend
-            title={t("記憶體使用率")}
-            unit="%"
-            color="#7BB0E8"
-            values={history.map((h) => (h.memPct == null ? null : h.memPct * 100))}
-            max={100}
-          />
+          <Trend title={t("CPU 佔總算力")} unit="%" color="#F4A64D" values={history.map((h) => h.cpu)} max={100} />
+          <Trend title={t("記憶體使用率")} unit="%" color="#7BB0E8" values={history.map((h) => (h.memPct == null ? null : h.memPct * 100))} max={100} />
           {metrics && (
-            <Trend
-              title={t("伺服器 FPS")}
-              unit=""
-              color="#8FCf8F"
-              values={history.map((h) => h.fps)}
-              max={Math.max(60, ...history.flatMap((h) => (h.fps == null ? [] : [h.fps])))}
-            />
+            <Trend title={t("伺服器 FPS")} unit="" color="#8FCf8F" values={history.map((h) => h.fps)} max={Math.max(60, ...history.flatMap((h) => (h.fps == null ? [] : [h.fps])))} />
           )}
         </div>
+        {/* per-thread 框框:每個邏輯處理器一格,視覺同 Trend(area fill + polyline),框框數量即執行緒數 */}
+        {perCore != null && perCore.length > 0 && (
+          <div className="border-t border-line pt-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-bold text-ink-muted">{t("各執行緒")}</span>
+              <span className="text-xs text-ink-muted">{perCore.length}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+              {perCore.map((_, threadIdx) => {
+                const threadValues = history.map((h) => h.perCore?.[threadIdx] ?? null);
+                const lastVal = perCore[threadIdx];
+                return <ThreadChart key={threadIdx} values={threadValues} lastVal={lastVal} />;
+              })}
+            </div>
+          </div>
+        )}
         {history.length < 2 && <p className="text-xs text-ink-muted">{t("收集資料中,稍待幾秒走勢就會出現。")}</p>}
       </div>
-
-      {metrics && (
-        <div className={`${card} flex flex-col gap-3`}>
-          <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
-            <FiLayers className="size-4 text-pal" /> {t("伺服器效能")}
-          </h3>
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
-            <Row k={t("伺服器 FPS")} v={String(metrics.serverfps)} />
-            <Row k={t("影格時間")} v={`${metrics.serverframetime.toFixed(1)} ms`} />
-            <Row k={t("伺服器運行")} v={fmtDuration(metrics.uptime)} />
-          </dl>
-          <p className="text-xs text-ink-muted">
-            {t("伺服器 FPS 越接近設定的目標越流暢;明顯偏低代表 CPU 吃緊,可到「引擎微調」分頁調整。")}
-          </p>
-        </div>
-      )}
     </div>
   );
 }
 
-/** CPU 概要圖卡:總用量數字 + per-thread 框框(純折線圖+Y 軸,不標任何文字)。 */
-function CpuOverview({
-  cpuPercent,
-  perCore,
-  perCoreScope,
-  history,
-}: {
-  cpuPercent: number | null;
-  perCore: (number | null)[] | null;
-  perCoreScope: "system" | "container" | null;
-  history: Sample[];
-}) {
-  const scopeLabel = perCoreScope === "system" ? t("系統全執行緒") : perCoreScope === "container" ? t("伺服器專屬") : null;
-  const hasPerCore = perCore != null && perCore.length > 0;
-
-  return (
-    <div className={`${card} flex flex-col gap-3`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-baseline gap-2">
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-ink-muted">
-            <FiCpu className="size-4" /> CPU
-          </span>
-          <span className="text-2xl font-extrabold">{cpuPercent == null ? "—" : `${cpuPercent.toFixed(0)}%`}</span>
-          <span className="text-xs text-ink-muted">{t("佔總算力")}</span>
-        </div>
-        {scopeLabel && <span className="text-xs text-ink-muted">{scopeLabel}</span>}
-      </div>
-      {/* per-thread 框框:每個邏輯處理器一格,純折線圖+Y 軸,框框數量即執行緒數 */}
-      {hasPerCore ? (
-        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-6">
-          {perCore!.map((_, threadIdx) => {
-            const threadValues = history.map((h) => h.perCore?.[threadIdx] ?? null);
-            const lastVal = perCore![threadIdx];
-            return <ThreadChart key={threadIdx} values={threadValues} lastVal={lastVal} />;
-          })}
-        </div>
-      ) : (
-        <p className="text-xs text-ink-muted">{t("per-thread 資料累積中,稍待幾秒即出現。")}</p>
-      )}
-    </div>
-  );
-}
-
-/** 單一執行緒框框:純折線圖 + Y 軸(0–100%),不標任何文字標籤。 */
+/** 單一執行緒框框:折線圖 + area fill,視覺對齊 Trend;不標文字(hover title 顯示數值)。 */
 function ThreadChart({ values, lastVal }: { values: Array<number | null>; lastVal: number | null }) {
-  const W = 100;
-  const H = 44;
-  const padTop = 2;
-  const padBottom = 2;
-  const plotH = H - padTop - padBottom;
-  const yTicks = [0, 50, 100];
+  const W = 120;
+  const H = 48;
   const pts = values.map((v, i) => {
     if (v == null || !Number.isFinite(v)) return null;
     const x = values.length > 1 ? (i / (values.length - 1)) * W : 0;
-    const y = padTop + plotH - Math.max(0, Math.min(v / 100, 1)) * plotH;
+    const y = H - Math.max(0, Math.min(v / 100, 1)) * (H - 4) - 2;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
   const segments: string[][] = [];
@@ -267,21 +187,21 @@ function ThreadChart({ values, lastVal }: { values: Array<number | null>; lastVa
     else seg.push(p);
   }
   if (seg.length) segments.push(seg);
-  // 高載(>80%)用橘色警示,其餘藍色;hover title 顯示數值。
-  const stroke = lastVal == null ? "#666" : lastVal > 80 ? "#F4A64D" : "#7BB0E8";
+  const area = values.length > 1 && pts.every((p) => p != null) ? `0,${H} ${pts.join(" ")} ${W},${H}` : "";
+  // 高載(>80%)用橘色警示,其餘藍色。
+  const color = lastVal == null ? "#666" : lastVal > 80 ? "#F4A64D" : "#7BB0E8";
 
   return (
-    <div className="flex gap-0.5 rounded-md border border-line bg-card-soft p-1" title={lastVal == null ? undefined : `${lastVal.toFixed(0)}%`}>
-      {/* Y 軸標示(0/50/100) */}
-      <div className="flex shrink-0 flex-col justify-between py-0.5 text-[7px] leading-none text-ink-muted">
-        {yTicks.map((tick) => <span key={tick}>{tick}</span>)}
-      </div>
-      {/* 折線圖 */}
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-11 flex-1 overflow-visible" preserveAspectRatio="none">
-        <line x1="0" y1={padTop + plotH * 0.5} x2={W} y2={padTop + plotH * 0.5} stroke="currentColor" strokeWidth="0.5" className="text-line" opacity="0.3" />
-        {segments.map((s, i) => s.length > 1 && (
-          <polyline key={i} points={s.join(" ")} fill="none" stroke={stroke} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-        ))}
+    <div className="rounded-lg border border-line bg-card-soft p-1.5" title={lastVal == null ? undefined : `${lastVal.toFixed(0)}%`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-12 w-full" preserveAspectRatio="none">
+        {segments.some((s) => s.length > 1) && (
+          <>
+            {area && <polygon points={area} fill={color} opacity="0.12" />}
+            {segments.map((s, i) => (
+              <polyline key={i} points={s.join(" ")} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+            ))}
+          </>
+        )}
       </svg>
     </div>
   );
