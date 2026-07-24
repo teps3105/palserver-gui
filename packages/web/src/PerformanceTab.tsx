@@ -194,7 +194,7 @@ function ThreadChart({ values, lastVal }: { values: Array<number | null>; lastVa
 
   return (
     <div className="rounded-lg border border-line bg-card-soft p-1.5" title={lastVal == null ? undefined : `${lastVal.toFixed(0)}%`}>
-      <div className="mb-0.5 flex items-baseline justify-between">
+      <div className="mb-0.5 flex items-baseline justify-end">
         <span className="text-[8px] font-bold text-ink-muted">{lastVal == null ? "—" : `${lastVal.toFixed(0)}%`}</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="h-12 w-full" preserveAspectRatio="none">
@@ -224,11 +224,13 @@ function Stat({
 }) {
   return (
     <div className={`${card} flex flex-col gap-1`}>
-      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-ink-muted">
-        {icon}
-        {label}
-      </span>
-      <span className="text-2xl font-extrabold">{value}</span>
+      <div className="flex items-center justify-between">
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-ink-muted">
+          {icon}
+          {label}
+        </span>
+        <span className="text-2xl font-extrabold">{value}</span>
+      </div>
       {sub && <span className="text-xs text-ink-muted">{sub}</span>}
     </div>
   );
