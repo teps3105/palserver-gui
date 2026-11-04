@@ -1,3 +1,6 @@
+---
+length-allow: true
+---
 # palserver GUI
 
 [繁體中文](README.md) | [简体中文](README.zh-CN.md) | **English** | [日本語](README.ja.md)
@@ -250,7 +253,8 @@ the agent; the browser only talks to the agent.
 | `packages/stats` | Cloudflare Worker + D1, anonymous stats collector |
 | `images/vanilla` | Linux PalServer image for the docker backend (bundles DepotDownloader) |
 | `images/dev-stub` | Fake PalServer for development on Apple Silicon |
-| `deperated/` | The v1 Electron app, kept only as UX/i18n reference; not part of the workspace |
+
+The v1 Electron app isn't part of this workspace; its source stays in [Dalufishe/palserver-GUI](https://github.com/Dalufishe/palserver-GUI) (no longer maintained).
 
 ### Getting started
 
@@ -316,8 +320,8 @@ Push a `v*` tag and the [release workflow](.github/workflows/release.yml) builds
 
 ## Status
 
-**v2 is currently at v2.1.0**, downloadable right now from [Releases](https://github.com/io-software-ai/palserver-gui/releases) —
-everything listed above is live.
+**The current release is v2.10.0.** Download the build for your OS from [Releases](https://github.com/io-software-ai/palserver-gui/releases),
+unzip it and run the agent — everything listed above ships in that build.
 
 Not done yet: multi-host aggregation; the docker backend is still beta (`images/modded` not provided yet); advanced
 PalDefender features like Pal import rules.

@@ -1,3 +1,6 @@
+---
+length-allow: true
+---
 # palserver GUI
 
 **简体中文** | [繁體中文](README.md) | [English](README.en.md) | [日本語](README.ja.md)
@@ -239,7 +242,8 @@ GUI 会回报**匿名**的使用计数(安装数、服务器创建/启动数、�
 | `packages/stats` | Cloudflare Worker + D1,匿名统计收集端 |
 | `images/vanilla` | docker 后端用的 Linux PalServer 映像(内含 DepotDownloader) |
 | `images/dev-stub` | 假的 PalServer,给 Apple Silicon 开发用 |
-| `deperated/` | v1 的 Electron 版,只留作 UX/i18n 参考,不属于这个 workspace |
+
+v1 的 Electron 版不在这个 workspace;原始码保留在 [Dalufishe/palserver-GUI](https://github.com/Dalufishe/palserver-GUI)(已停止维护)。
 
 ### 开始开发
 
@@ -300,8 +304,8 @@ PALSERVER_IMAGE_VANILLA=palserver/dev-stub:latest pnpm dev:agent
 
 ## 当前状态
 
-**v2 目前版本为 v2.1.0**,已可直接到 [Releases](https://github.com/io-software-ai/palserver-gui/releases) 下载使用,
-上面列的功能都已经上线。
+**目前版本为 v2.10.0。** 从 [Releases](https://github.com/io-software-ai/palserver-gui/releases) 下载对应系统的压缩包,
+解压后运行 agent,上方列出的功能都包含在这个版本里。
 
 尚未完成:多主机聚合管理;Docker 后端仍标示 beta(`images/modded` 尚未提供);PalDefender 的帕鲁导入规则等高级功能。
 

@@ -45,12 +45,12 @@ length-allow: true
 ## 功能總覽
 
 **開服與管理**
-- 建立多個伺服器實例,各自獨立的世界、埠號與設定;一鍵啟動 / 停止 / 重啟 / 刪除(刪除保留存檔)
+- 建立多個伺服器實例,各自獨立的世界、埠號與設定;一鍵啟動 / 停止 / 重啟 / 刪除(刪除會一併刪除存檔,自行指定的外部目錄保留)
 - 自動下載安裝 Palworld 伺服器檔案(透過 DepotDownloader),**即時安裝進度條**;或**直接接管你既有的安裝目錄**
 - 遊戲版本檢查:比對已安裝版本與 Steam 上的最新版,一鍵更新伺服器
 - 即時日誌串流(agent / 遊戲 / PalDefender 三種來源可切換)
 - 啟動參數面板:Steam 查詢埠(queryport)**可自行設定**(並檢查與其他伺服器不重複);`publiclobby` / `logformat` 等啟動旗標整合進設定
-- **Docker 自訂容器鏡像**:可沿用你已在用的其他帕魯鏡像;docker / k8s 後端不再被平台鎖死(macOS/Windows 裝了 Docker Desktop 也能用,k8s 一律可選)
+- **Docker 自訂容器鏡像**:可沿用你已在用的其他帕魯鏡像;docker / k8s 後端不受平台限制(macOS/Windows 裝了 Docker Desktop 也能用,k8s 一律可選)
 
 **世界與效能設定**
 - 80+ 項世界設定的圖形化編輯器,依分類分頁,含型別、範圍與預設值;也可以直接編輯原始 `PalWorldSettings.ini`
@@ -73,7 +73,7 @@ length-allow: true
 - 完整的 RCON 主控台,指令有搜尋、分類與參數表單;危險指令需二次確認
 - 需要玩家 ID 的參數會跳出玩家選擇器(含離線玩家);道具 / 帕魯 / 蛋的 ID 有圖示搜尋
 - 裝了 PalDefender 會自動把它的指令加進來
-- 帕魯 / 道具資料更新到 **Palworld 1.0(藥師島)**;主動技 / 詞條多語(繁中 / 日文)
+- 帕魯 / 道具資料更新到 **Palworld 1.0(屋久島)**;主動技 / 詞條多語(繁中 / 日文)
 
 **存檔搬家(內建,免指令)**
 - **匯入存檔**:「建立伺服器」旁的按鈕,把舊世界帶著建新伺服器 —— 支援三種來源:**其他專用伺服器**、**本機共玩存檔**(四人邀請碼)、**舊版 1.0 GUI**。貼上資料夾路徑 → 掃描 → 選世界,匯入前自動備份、自動設為啟用世界
@@ -141,7 +141,7 @@ length-allow: true
 **讓朋友連進遊戲:** 最簡單的方式是 VPN(Tailscale 或 Radmin),GUI 的「連線」卡片會偵測你的網路環境並給對應教學。
 如果你有公網 IP,也可以走傳統的連接埠轉發(UDP 8211)。
 
-> **關於地圖:** GUI 內建完整世界地圖(帕魯島 / 櫻島 / Feybreak),不用自備底圖 —— 打開「地圖」分頁或 `/map` 全螢幕檢視,就能看到線上玩家即時位置、離線玩家最後位置、公會據點與野外首領。
+> **地圖不用自備底圖:** 打開「地圖」分頁或 `/map` 全螢幕檢視,就能看到線上玩家位置、離線玩家最後位置、公會據點與野外首領。
 
 ---
 
@@ -241,7 +241,6 @@ GUI 會回報**匿名**的使用計數(安裝數、伺服器建立/啟動數、�
 | `packages/stats` | Cloudflare Worker + D1,匿名統計收集端 |
 | `images/vanilla` | docker 後端用的 Linux PalServer 映像(內含 DepotDownloader) |
 | `images/dev-stub` | 假的 PalServer,給 Apple Silicon 開發用 |
-| `deperated/` | v1 的 Electron 版,只留作 UX/i18n 參考,不屬於這個 workspace |
 
 ### 開始開發
 
@@ -302,10 +301,9 @@ PALSERVER_IMAGE_VANILLA=palserver/dev-stub:latest pnpm dev:agent
 
 ## 現況
 
-**v2 目前版本為 v2.1.0**,已可直接到 [Releases](https://github.com/io-software-ai/palserver-gui/releases) 下載使用,
-上面列的功能都已經上線。
-
-尚未完成:多主機聚合管理;Docker 後端仍標示 beta(`images/modded` 尚未提供);PalDefender 的帕魯匯入規則等進階功能。
+**目前版本 v2.10.0**,可從 [Releases](https://github.com/io-software-ai/palserver-gui/releases) 下載,
+上方列出的功能均已上線。尚未完成:多主機聚合管理;Docker 後端仍標示 beta(`images/modded` 尚未提供);
+PalDefender 的帕魯匯入規則等進階功能。
 
 ## 授權與連結
 

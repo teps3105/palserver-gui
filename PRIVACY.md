@@ -1,6 +1,6 @@
 # palserver GUI 隱私權政策
 
-生效日期:2026-07-10
+適用範圍:所有 palserver GUI 安裝,包含免安裝執行檔與從原始碼啟動的 agent。
 
 palserver GUI(下稱「本軟體」)由 io software(開發者 Eason Lu / Dalufish)開發。
 為了瞭解使用規模、把資源投入在對的地方,本軟體內建「匿名使用統計」功能。

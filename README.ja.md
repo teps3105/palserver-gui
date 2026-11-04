@@ -1,3 +1,6 @@
+---
+length-allow: true
+---
 # palserver GUI
 
 [繁體中文](README.md) | [简体中文](README.zh-CN.md) | [English](README.en.md) | **日本語**
@@ -243,7 +246,8 @@ GUI は**匿名**の利用カウント(インストール数、サーバー作�
 | `packages/stats` | Cloudflare Worker + D1、匿名統計コレクタ |
 | `images/vanilla` | docker バックエンド用の Linux PalServer イメージ(DepotDownloader 同梱) |
 | `images/dev-stub` | Apple Silicon 開発用の偽 PalServer |
-| `deperated/` | v1 の Electron 版。UX/i18n の参考としてのみ保持、workspace 外 |
+
+v1 の Electron 版はこの workspace には含まれません。ソースは [Dalufishe/palserver-GUI](https://github.com/Dalufishe/palserver-GUI) に残っています(メンテナンス終了)。
 
 ### 開発を始める
 
@@ -304,8 +308,8 @@ PALSERVER_IMAGE_VANILLA=palserver/dev-stub:latest pnpm dev:agent
 
 ## 現状
 
-**v2 は現在 v2.1.0** です。[Releases](https://github.com/io-software-ai/palserver-gui/releases) からすぐにダウンロードでき、
-上記の機能はすべて利用可能です。
+**現在のバージョンは v2.10.0** です。[Releases](https://github.com/io-software-ai/palserver-gui/releases) からお使いの OS 向けのビルドを
+ダウンロードして解凍し、agent を起動してください。上記の機能はすべてこのビルドに含まれています。
 
 未完了:マルチホスト集約管理。docker バックエンドはベータのまま(`images/modded` は未提供)。PalDefender のパルインポートルールなどの高度な機能。
 
