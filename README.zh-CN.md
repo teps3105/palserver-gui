@@ -15,15 +15,15 @@
 
 > 界面支持繁体中文 / 简体中文 / English / 日本語,六套主题(帕鲁原色 / 白银 / 极光翡翠 / 午夜紫 / 樱花粉 / 橘色猫猫)分别有深色 / 浅色可切换;截图中的玩家与数据为展示用途。
 
-![玩家管理](docs/screenshots/players.png)
+![玩家管理](assets/screenshots/players.png)
 
 | 仪表板 | 世界设置 |
 | --- | --- |
-| ![仪表板](docs/screenshots/dashboard.png) | ![世界设置](docs/screenshots/settings.png) |
+| ![仪表板](assets/screenshots/dashboard.png) | ![世界设置](assets/screenshots/settings.png) |
 | **引擎微调** | **存档备份** |
-| ![引擎微调](docs/screenshots/engine.png) | ![存档备份](docs/screenshots/saves.png) |
+| ![引擎微调](assets/screenshots/engine.png) | ![存档备份](assets/screenshots/saves.png) |
 | **模组管理** | **实例总览** |
-| ![模组管理](docs/screenshots/mods.png) | ![实例总览](docs/screenshots/overview.png) |
+| ![模组管理](assets/screenshots/mods.png) | ![实例总览](assets/screenshots/overview.png) |
 
 ---
 
@@ -76,13 +76,13 @@
 - **导入存档**:“创建服务器”旁的按钮,可在创建新服务器时导入旧世界。支持三种来源:**其他专用服务器**、**本机联机存档**(四人邀请码)、**旧版 1.0 GUI**。粘贴文件夹路径 → 扫描 → 选择世界,导入前自动备份并设为当前世界
 - **修复主机角色**(内置 palworld-host-save-fix):联机存档迁移到专用服务器后,主机玩家会被要求重建角色。“存档备份”标签页检测到联机主机角色文件后会提供一键迁移,无需安装 Python;支持新版 **PlM(Oodle)存档格式**,修复前强制自动备份
 - 导入后新生成的角色文件会自动标记为“**导入后新增**”并预选,无需猜测哪个是主机玩家的新角色
-- 完整迁移教程:[docs/MIGRATION.zh-CN.md](docs/MIGRATION.zh-CN.md)
+- 完整迁移教程:[docs/1-使用/1.2-存檔遷移-簡體.md](docs/1-使用/1.2-存檔遷移-簡體.md)
 
 **存档与备份**
 - 定时自动备份:间隔、保留份数、没人在线时跳过
 - 手动备份 / 恢复 / 下载;恢复前会自动备份当前世界
 - 多世界管理:列出所有世界、切换“当前世界”、删除单个玩家存档;玩家角色文件列表实时刷新
-- 存档迁移教程(从其他服务器、v1 或本机联机存档迁移):[docs/MIGRATION.zh-CN.md](docs/MIGRATION.zh-CN.md)
+- 存档迁移教程(从其他服务器、v1 或本机联机存档迁移):[docs/1-使用/1.2-存檔遷移-簡體.md](docs/1-使用/1.2-存檔遷移-簡體.md)
 
 **模组**
 - 一键安装 / 更新 / 移除 **PalDefender**(反外挂,前身 Palguard)与 **UE4SS**(Lua/蓝图模组加载器),各有稳定版与测试版通道
@@ -131,7 +131,7 @@
 4. 点击“创建服务器”。第一次会下载 Palworld 服务器文件(**数十 GB,请耐心等待**),界面会显示实时进度条。
 5. 装好后按「启动」就开服了。
 
-**已经有旧世界?** 点击“创建服务器”旁的“**导入存档**”,将其他服务器、本机联机存档(四人邀请码)或 v1 GUI 的世界导入新服务器,详见[存档迁移教程](docs/MIGRATION.zh-CN.md)。
+**已经有旧世界?** 点击“创建服务器”旁的“**导入存档**”,将其他服务器、本机联机存档(四人邀请码)或 v1 GUI 的世界导入新服务器,详见[存档迁移教程](docs/1-使用/1.2-存檔遷移-簡體.md)。
 
 **邀请朋友一起管理:** 启动窗口里有一条 `?setup=XXXX-XXXX` 的链接,传给对方在他的浏览器打开就能连进来
 (需要在同一个局域网或 VPN 内)。也可以请他打开你的 agent 地址后输入**配对码**。
@@ -317,7 +317,7 @@ PALSERVER_IMAGE_VANILLA=palserver/dev-stub:latest pnpm dev:agent
 - **官方网站:** <https://palserver-GUI.iosoftware.ai>
 - **常见问题:** <https://faq.toc.icu/>
 - **Discord:** <https://discord.gg/sgMMdUZd3V>
-- **存档迁移:** [docs/MIGRATION.zh-CN.md](docs/MIGRATION.zh-CN.md)
+- **存档迁移:** [docs/1-使用/1.2-存檔遷移-簡體.md](docs/1-使用/1.2-存檔遷移-簡體.md)
 - **隐私权政策:** [PRIVACY.md](PRIVACY.md)
 - **v1(已停止维护):** <https://github.com/Dalufishe/palserver-GUI>
 

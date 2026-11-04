@@ -31,7 +31,7 @@
 
 ## D. 底層 / 維運
 
-18. **defaults 資料進 game-data 維護流程**：`pal-stats-defaults.json` 由 fetch script 生成、遊戲改版時跟其他 game-data 一起重抓（docs/game-data-maintenance.md 加一節）。
+18. **defaults 資料進 game-data 維護流程**：`pal-stats-defaults.json` 由 fetch script 生成、遊戲改版時跟其他 game-data 一起重抓（docs/3-維運/3.1-遊戲資料維護.md 加一節）。
 19. **寫入前自動備份 mod json**：現在只在安裝 PalSchema 時備份世界；pal-stats.json 本身壞了影響小（刪掉即復原），列低優先。
 20. **伺服器端 auto-reload 驗證**：PalSchema 文件說改 json 可熱重載（單機語境）；若專用伺服器也支援，儲存後可免重啟。需 Windows 實機驗證一次，成立的話把「重啟生效」文案改成「已熱套用（部分內容仍建議重啟）」。
 

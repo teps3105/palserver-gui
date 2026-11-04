@@ -1,3 +1,6 @@
+---
+length-allow: true
+---
 # palserver GUI
 
 **繁體中文** | [简体中文](README.zh-CN.md) | [English](README.en.md) | [日本語](README.ja.md)
@@ -15,15 +18,15 @@
 
 > 介面支援繁體中文 / 简体中文 / English / 日本語,六套主題(帕魯原色 / 白銀 / 極光翡翠 / 午夜紫 / 櫻花粉 / 橘色貓貓)分別有深色 / 淺色可切換;截圖中的玩家與資料為展示用途。
 
-![玩家管理](docs/screenshots/players.png)
+![玩家管理](assets/screenshots/players.png)
 
 | 儀表板 | 世界設定 |
 | --- | --- |
-| ![儀表板](docs/screenshots/dashboard.png) | ![世界設定](docs/screenshots/settings.png) |
+| ![儀表板](assets/screenshots/dashboard.png) | ![世界設定](assets/screenshots/settings.png) |
 | **引擎微調** | **存檔備份** |
-| ![引擎微調](docs/screenshots/engine.png) | ![存檔備份](docs/screenshots/saves.png) |
+| ![引擎微調](assets/screenshots/engine.png) | ![存檔備份](assets/screenshots/saves.png) |
 | **模組管理** | **實例總覽** |
-| ![模組管理](docs/screenshots/mods.png) | ![實例總覽](docs/screenshots/overview.png) |
+| ![模組管理](assets/screenshots/mods.png) | ![實例總覽](assets/screenshots/overview.png) |
 
 ---
 
@@ -76,7 +79,7 @@
 - **匯入存檔**:「建立伺服器」旁的按鈕,把舊世界帶著建新伺服器 —— 支援三種來源:**其他專用伺服器**、**本機共玩存檔**(四人邀請碼)、**舊版 1.0 GUI**。貼上資料夾路徑 → 掃描 → 選世界,匯入前自動備份、自動設為啟用世界
 - **修復主機角色**(內建 palworld-host-save-fix):共玩存檔搬上專用伺服器後主機會被要求重建角色 —— 存檔備份分頁偵測到共玩主機檔就給你一鍵過戶,免裝 Python;支援新版 **PlM(Oodle)存檔格式**,修復前強制自動備份
 - 匯入後新加入的角色檔自動標「**匯入後新增**」並預選,不用猜哪個是主機的新角色
-- 完整搬家教學:[docs/MIGRATION.md](docs/MIGRATION.md)
+- 完整搬家教學:[docs/1-使用/1.1-存檔遷移.md](docs/1-使用/1.1-存檔遷移.md)
 
 **存檔與備份**
 - 排程自動備份:間隔、保留份數、沒人在線時跳過
@@ -130,7 +133,7 @@
 4. 按「建立伺服器」。第一次會下載 Palworld 伺服器檔案(**數十 GB,請耐心等**),介面會顯示即時進度條。
 5. 裝好後按「啟動」就開服了。
 
-**已經有舊世界?** 按「建立伺服器」旁的「**匯入存檔**」,把別台伺服器、本機共玩(四人邀請碼)或 v1 GUI 的世界帶著建新伺服器,詳見[存檔搬家教學](docs/MIGRATION.md)。
+**已經有舊世界?** 按「建立伺服器」旁的「**匯入存檔**」,把別台伺服器、本機共玩(四人邀請碼)或 v1 GUI 的世界帶著建新伺服器,詳見[存檔搬家教學](docs/1-使用/1.1-存檔遷移.md)。
 
 **邀請朋友一起管理:** 啟動視窗裡有一條 `?setup=XXXX-XXXX` 的連結,傳給對方在他的瀏覽器打開就能連進來
 (需要在同一個區網或 VPN 內)。也可以請他打開你的 agent 網址後輸入**配對碼**。
@@ -316,7 +319,7 @@ PALSERVER_IMAGE_VANILLA=palserver/dev-stub:latest pnpm dev:agent
 - **官方網站:** <https://palserver-GUI.iosoftware.ai>
 - **常見問題:** <https://faq.toc.icu/>
 - **Discord:** <https://discord.gg/sgMMdUZd3V>
-- **存檔搬家:** [docs/MIGRATION.md](docs/MIGRATION.md)
+- **存檔搬家:** [docs/1-使用/1.1-存檔遷移.md](docs/1-使用/1.1-存檔遷移.md)
 - **隱私權政策:** [PRIVACY.md](PRIVACY.md)
 - **v1(已停止維護):** <https://github.com/Dalufishe/palserver-GUI>
 

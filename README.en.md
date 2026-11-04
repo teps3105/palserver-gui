@@ -15,15 +15,15 @@ Run one agent on your host machine, then manage the server from a browser — st
 
 > The UI ships in 繁體中文 / 简体中文 / English / 日本語, with six switchable themes (Pal (default) / Silver / Aurora Jade / Midnight Lilac / Sakura Pink / Orange Cat), each with a light and dark variant; players and data in the screenshots are demo content.
 
-![Player management](docs/screenshots/players.png)
+![Player management](assets/screenshots/players.png)
 
 | Dashboard | World settings |
 | --- | --- |
-| ![Dashboard](docs/screenshots/dashboard.png) | ![World settings](docs/screenshots/settings.png) |
+| ![Dashboard](assets/screenshots/dashboard.png) | ![World settings](assets/screenshots/settings.png) |
 | **Engine tuning** | **Saves & backups** |
-| ![Engine tuning](docs/screenshots/engine.png) | ![Saves & backups](docs/screenshots/saves.png) |
+| ![Engine tuning](assets/screenshots/engine.png) | ![Saves & backups](assets/screenshots/saves.png) |
 | **Mod management** | **Instance overview** |
-| ![Mod management](docs/screenshots/mods.png) | ![Instance overview](docs/screenshots/overview.png) |
+| ![Mod management](assets/screenshots/mods.png) | ![Instance overview](assets/screenshots/overview.png) |
 
 ---
 
@@ -76,7 +76,7 @@ If you hit a problem, check the **[FAQ](https://faq.toc.icu/)** first, or ask on
 - **Import save**: next to "Create server", bring an existing world along when creating a new instance — supports three sources: **another dedicated server**, **local co-op saves** (4-player invite code), or **the v1.0 GUI**. Paste the folder path → scan → pick a world; the import auto-backs up first and sets the imported world active
 - **Fix host character** (built-in `palworld-host-save-fix`): after moving a co-op save to a dedicated server, the host is normally asked to rebuild their character — the Backups tab detects a co-op host save and offers a one-click transfer, no Python required; supports the newer **PlM (Oodle) save format**, and auto-backs up before fixing
 - Character files newly added after an import are auto-tagged **"Added after import"** and pre-selected, so you don't have to guess which one is the host's new character
-- Full migration walkthrough: [docs/MIGRATION.md](docs/MIGRATION.md)
+- Full migration walkthrough: [docs/1-使用/1.1-存檔遷移.md](docs/1-使用/1.1-存檔遷移.md)
 
 **Saves & backups**
 - Scheduled automatic backups: interval, retention count, skip when nobody is online
@@ -130,7 +130,7 @@ If you hit a problem, check the **[FAQ](https://faq.toc.icu/)** first, or ask on
 4. Click "Create server". The first run downloads the Palworld server files (**tens of GB — be patient**); the UI shows a live progress bar.
 5. Once installed, hit "Start" and you're live.
 
-**Already have an existing world?** Click "Import save" next to "Create server" to bring a world from another server, from local co-op (4-player invite code), or from the v1 GUI into a new instance — see the [save migration guide](docs/MIGRATION.md) for details.
+**Already have an existing world?** Click "Import save" next to "Create server" to bring a world from another server, from local co-op (4-player invite code), or from the v1 GUI into a new instance — see the [save migration guide](docs/1-使用/1.1-存檔遷移.md) for details.
 
 **Inviting friends to co-manage:** the startup window shows a `?setup=XXXX-XXXX` link — send it to them to open in their browser
 (they must be on the same LAN or VPN). Or have them open your agent URL and enter the **pairing code**.
@@ -331,7 +331,7 @@ paid service, etc.). For commercial licensing contact <contact@iosoftware.ai>.
 - **Official site:** <https://palserver-GUI.iosoftware.ai>
 - **FAQ:** <https://faq.toc.icu/>
 - **Discord:** <https://discord.gg/sgMMdUZd3V>
-- **Save migration:** [docs/MIGRATION.md](docs/MIGRATION.md)
+- **Save migration:** [docs/1-使用/1.1-存檔遷移.md](docs/1-使用/1.1-存檔遷移.md)
 - **Privacy policy:** [PRIVACY.md](PRIVACY.md)
 - **v1 (no longer maintained):** <https://github.com/Dalufishe/palserver-GUI>
 

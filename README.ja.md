@@ -15,15 +15,15 @@
 
 > UI は 繁體中文 / 简体中文 / English / 日本語 に対応し、6 種類のテーマ(パルワールドオリジナル / シルバー / オーロラエメラルド / ミッドナイトライラック / サクラピンク / オレンジキャット)をライト / ダークで切替可能。スクリーンショット内のプレイヤーとデータはデモ用です。
 
-![プレイヤー管理](docs/screenshots/players.png)
+![プレイヤー管理](assets/screenshots/players.png)
 
 | ダッシュボード | ワールド設定 |
 | --- | --- |
-| ![ダッシュボード](docs/screenshots/dashboard.png) | ![ワールド設定](docs/screenshots/settings.png) |
+| ![ダッシュボード](assets/screenshots/dashboard.png) | ![ワールド設定](assets/screenshots/settings.png) |
 | **エンジン調整** | **セーブ・バックアップ** |
-| ![エンジン調整](docs/screenshots/engine.png) | ![セーブ・バックアップ](docs/screenshots/saves.png) |
+| ![エンジン調整](assets/screenshots/engine.png) | ![セーブ・バックアップ](assets/screenshots/saves.png) |
 | **MOD 管理** | **インスタンス概要** |
-| ![MOD 管理](docs/screenshots/mods.png) | ![インスタンス概要](docs/screenshots/overview.png) |
+| ![MOD 管理](assets/screenshots/mods.png) | ![インスタンス概要](assets/screenshots/overview.png) |
 
 ---
 
@@ -76,7 +76,7 @@
 - **セーブデータをインポート**:「サーバーを作成」の隣のボタンから、既存のワールドを引き継いで新規サーバーを作成 —— 3 種類のソースに対応:**他の専用サーバー**、**ローカルマルチのセーブ**(4 人招待コード)、**旧 v1.0 GUI**。フォルダパスを貼り付け → スキャン → ワールドを選択するだけで、インポート前に自動バックアップし、そのワールドを自動でアクティブに設定
 - **ホストキャラクター修復**(内蔵の `palworld-host-save-fix`):ローカルマルチのセーブを専用サーバーに移すと、ホストはキャラクターの再作成を求められますが、「セーブ・バックアップ」タブがマルチのホストセーブを検出してワンクリックで引き継ぎ(Python 不要)。新形式の **PlM(Oodle)セーブフォーマット**にも対応し、修復前に必ず自動バックアップ
 - インポート後に新しく追加されたキャラクターファイルは自動で**「インポート後に追加」**とタグ付けされ、あらかじめ選択された状態になるので、どれがホストの新キャラクターか迷いません
-- 移行の詳しい手順:[docs/MIGRATION.md](docs/MIGRATION.md)
+- 移行の詳しい手順:[docs/1-使用/1.1-存檔遷移.md](docs/1-使用/1.1-存檔遷移.md)
 
 **セーブとバックアップ**
 - スケジュール自動バックアップ:間隔、保持数、無人時のスキップ
@@ -130,7 +130,7 @@
 4. 「サーバーを作成」をクリック。初回は Palworld サーバーファイルをダウンロードします(**数十 GB、気長に**)。画面にリアルタイムの進捗バーが表示されます。
 5. インストールが済んだら「起動」を押せば開設完了。
 
-**すでに既存のワールドがある?** 「サーバーを作成」の隣にある「セーブデータをインポート」から、他のサーバーやローカルマルチ(4 人招待コード)、v1 の GUI のワールドを新しいサーバーに引き継げます。詳しくは[セーブデータ移行ガイド](docs/MIGRATION.md)を参照してください。
+**すでに既存のワールドがある?** 「サーバーを作成」の隣にある「セーブデータをインポート」から、他のサーバーやローカルマルチ(4 人招待コード)、v1 の GUI のワールドを新しいサーバーに引き継げます。詳しくは[セーブデータ移行ガイド](docs/1-使用/1.1-存檔遷移.md)を参照してください。
 
 **友だちを共同管理者に:** 起動ウィンドウに `?setup=XXXX-XXXX` 形式のリンクが表示されます。相手のブラウザで開いてもらえば接続できます
 (同じ LAN か VPN 内にいる必要があります)。agent の URL を開いて**ペアリングコード**を入力してもらう方法もあります。
@@ -318,7 +318,7 @@ PALSERVER_IMAGE_VANILLA=palserver/dev-stub:latest pnpm dev:agent
 - **公式サイト:** <https://palserver-GUI.iosoftware.ai>
 - **FAQ:** <https://faq.toc.icu/>
 - **Discord:** <https://discord.gg/sgMMdUZd3V>
-- **セーブデータ移行:** [docs/MIGRATION.md](docs/MIGRATION.md)
+- **セーブデータ移行:** [docs/1-使用/1.1-存檔遷移.md](docs/1-使用/1.1-存檔遷移.md)
 - **プライバシーポリシー:** [PRIVACY.md](PRIVACY.md)
 - **v1(メンテナンス終了):** <https://github.com/Dalufishe/palserver-GUI>
 
